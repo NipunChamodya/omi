@@ -81,7 +81,14 @@ let app: ReturnType<typeof buildApp>;
 let base: string;
 const sockets: WebSocket[] = [];
 beforeEach(async () => {
-  app = buildApp({ logger: false });
+  app = buildApp({
+    logger: false,
+    config: parseConfig({
+      NODE_ENV: 'test',
+      ALLOW_GUESTS: 'true',
+      DATABASE_PATH: ':memory:',
+    }),
+  });
   base = await app.listen({ host: '127.0.0.1', port: 0 });
 });
 afterEach(async () => {
@@ -564,7 +571,7 @@ describe('transport security regressions', () => {
       (await get(`/rooms/${room.roomId}/snapshot`, outsider)).statusCode,
     ).toBe(404);
   });
-  it('sets HttpOnly cookies, preserves temporary identity, and uses Secure host cookies in production', async () => {
+  it('preserves HttpOnly guest identity in development and forbids guest entry in production', async () => {
     const response = await post('/transport/session', { displayName: 'සිංහල' });
     expect(String(response.headers['set-cookie'])).toContain('HttpOnly');
     expect(String(response.headers['set-cookie'])).toContain('SameSite=Strict');
@@ -584,6 +591,7 @@ describe('transport security regressions', () => {
       config: parseConfig({
         NODE_ENV: 'production',
         APP_ORIGIN: 'https://omi.example',
+        DATABASE_PATH: ':memory:',
       }),
     });
     try {
@@ -593,10 +601,8 @@ describe('transport security regressions', () => {
         headers: { origin: 'https://omi.example' },
         payload: { displayName: 'one' },
       });
-      expect(String(secure.headers['set-cookie'])).toContain(
-        '__Host-omi_transport=',
-      );
-      expect(String(secure.headers['set-cookie'])).toContain('Secure');
+      expect(secure.statusCode).toBe(401);
+      expect(secure.json().code).toBe('LOGIN_REQUIRED');
     } finally {
       await production.close();
     }
@@ -715,7 +721,17 @@ describe('transport security regressions', () => {
 async function reset(options: Parameters<typeof buildApp>[0] = {}) {
   for (const socket of sockets.splice(0)) socket.terminate();
   await app.close();
-  app = buildApp({ ...options, logger: false });
+  app = buildApp({
+    ...options,
+    config:
+      options.config ??
+      parseConfig({
+        NODE_ENV: 'test',
+        ALLOW_GUESTS: 'true',
+        DATABASE_PATH: ':memory:',
+      }),
+    logger: false,
+  });
   base = await app.listen({ host: '127.0.0.1', port: 0 });
 }
 function closeCode(socket: WebSocket): Promise<number> {

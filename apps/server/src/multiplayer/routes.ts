@@ -5,6 +5,9 @@ import { z } from 'zod';
 import type { ZodType } from 'zod';
 import type { ClientCommand } from '@omi/shared';
 import type { RandomInt } from '@omi/game-engine';
+import type { Accounts } from '../auth/accounts.js';
+import { digest } from '../auth/accounts.js';
+import { registerAccountRoutes, sessionCookie } from '../auth/routes.js';
 import {
   codeSchema,
   commandSchema,
@@ -25,6 +28,8 @@ export type MultiplayerOptions = {
   limits?: Partial<Limits>;
   policies?: Policies;
   entropy?: RandomInt;
+  accounts: Accounts;
+  allowGuests: boolean;
 };
 function parse<T>(schema: ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -44,7 +49,8 @@ export async function registerMultiplayer(
   );
   const rooms = new RoomService(
     now,
-    (identity) => sessions.active(identity),
+    (identity) =>
+      sessions.active(identity) || options.accounts.active(identity),
     limits,
     options.policies,
     options.entropy,
@@ -59,7 +65,13 @@ export async function registerMultiplayer(
     ? '__Host-omi_transport'
     : 'omi_transport';
   const identityFor = (request: FastifyRequest): Identity => {
-    const identity = sessions.get(request.cookies[cookieName]);
+    const identity =
+      options.accounts.get(
+        request.cookies[sessionCookie(options.secureCookies)],
+      )?.identity ??
+      (options.allowGuests
+        ? sessions.get(request.cookies[cookieName])
+        : undefined);
     if (!identity) throw new RoomError('SESSION_REQUIRED', 401);
     return identity;
   };
@@ -69,6 +81,7 @@ export async function registerMultiplayer(
   });
   const maintenance = setInterval(() => {
     sessions.sweep();
+    options.accounts.maintenance();
     rooms.heartbeat();
     httpRate.sweep();
     messageRate.sweep();
@@ -92,11 +105,28 @@ export async function registerMultiplayer(
     if (
       error instanceof Error &&
       'statusCode' in error &&
+      error.statusCode === 413
+    )
+      return reply.code(413).send({ code: 'AVATAR_TOO_LARGE' });
+    if (
+      error instanceof Error &&
+      'statusCode' in error &&
       (error.statusCode === 400 || error.statusCode === 415)
     )
       return reply.code(error.statusCode).send({ code: 'INVALID_REQUEST' });
     app.log.error({ requestId: request.id }, 'Multiplayer request failed');
     return reply.code(500).send({ code: 'INTERNAL_ERROR' });
+  });
+  options.accounts.onProfileChange = (profile) => rooms.updateProfile(profile);
+  await registerAccountRoutes(app, options.accounts, rooms, {
+    origin: options.origin,
+    secure: options.secureCookies,
+    guestAllowed: options.allowGuests,
+    now,
+    revokeGuest: (token) => {
+      sessions.revoke(token);
+      if (token) rooms.disconnectSession(digest(token));
+    },
   });
   await app.register(async (api) => {
     api.addHook('onRequest', async (request, reply) => {
@@ -112,12 +142,22 @@ export async function registerMultiplayer(
     api.options('/*', async (_request, reply) =>
       reply
         .header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        .header('Access-Control-Allow-Headers', 'Content-Type')
+        .header('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token')
         .code(204)
         .send(),
     );
     api.post('/transport/session', async (request, reply) => {
       const body = parse(guestSchema, request.body);
+      const account = options.accounts.get(
+        request.cookies[sessionCookie(options.secureCookies)],
+      );
+      if (account)
+        return {
+          actorId: account.identity.actorId,
+          displayName: account.profile.displayName,
+          expiresAt: account.identity.expiresAt,
+        };
+      if (!options.allowGuests) throw new RoomError('LOGIN_REQUIRED', 401);
       const existing = sessions.get(request.cookies[cookieName]);
       const { identity, token } = existing
         ? { identity: existing, token: null }
@@ -212,7 +252,10 @@ export async function registerMultiplayer(
           void rooms.detach(roomId, peer).catch(() => socket.terminate());
         });
         socket.on('message', (data, isBinary) => {
-          if (!sessions.active(peer.identity)) {
+          if (
+            !sessions.active(peer.identity) &&
+            !options.accounts.active(peer.identity)
+          ) {
             socket.close(1008, 'Session expired');
             return;
           }

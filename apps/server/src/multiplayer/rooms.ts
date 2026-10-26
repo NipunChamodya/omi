@@ -9,6 +9,7 @@ import type {
   RoundResult,
   ServerMessage,
   Snapshot,
+  PublicProfile,
 } from '@omi/shared';
 import {
   accuse,
@@ -53,6 +54,7 @@ export type RoomMember = {
   displayName: string;
   seat: Seat;
   ready: boolean;
+  avatarUrl?: string | null;
 };
 export type Peer = { socket: WebSocket; identity: Identity; alive: boolean };
 type Receipt = { fingerprint: string; reply: Ack | Failure };
@@ -132,6 +134,30 @@ export class RoomService {
     private readonly policies: Policies = {},
     private readonly entropy: RandomInt = randomInt,
   ) {}
+  forActor(actorId: string): RoomDescriptor | null {
+    const room = this.rooms.get(this.memberships.get(actorId) ?? '');
+    return room ? this.descriptor(room) : null;
+  }
+  disconnectSession(hash: string): void {
+    for (const room of this.rooms.values())
+      for (const peer of room.peers.values())
+        if (peer.identity.tokenHash === hash)
+          peer.socket.close(1008, 'Logged out');
+  }
+  async updateProfile(profile: PublicProfile): Promise<void> {
+    const room = this.rooms.get(this.memberships.get(profile.id) ?? '');
+    if (!room) return;
+    await room.queue.run(() => {
+      const member = room.members.find((item) => item.actorId === profile.id);
+      if (!member) return;
+      member.displayName = profile.displayName;
+      member.avatarUrl = profile.thumbnailUrl ?? profile.googleAvatarUrl;
+      this.advance(room, () => ({
+        kind: 'member-updated',
+        member: publicMember(room, member),
+      }));
+    }, true);
+  }
   private descriptor(room: Room): RoomDescriptor {
     return {
       roomId: room.id,
@@ -209,6 +235,7 @@ export class RoomService {
           displayName: identity.displayName,
           seat: 0,
           ready: false,
+          avatarUrl: identity.avatarUrl ?? null,
         },
       ],
       peers: new Map(),
@@ -257,6 +284,7 @@ export class RoomService {
         displayName: identity.displayName,
         seat: room.members.length as Seat,
         ready: false,
+        avatarUrl: identity.avatarUrl ?? null,
       };
       room.members.push(member);
       this.memberships.set(identity.actorId, room.id);

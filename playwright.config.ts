@@ -10,13 +10,15 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm run dev -w @omi/server',
+      command: 'npm run dev:e2e -w @omi/server',
       url: 'http://127.0.0.1:3100/health',
       env: {
         HOST: '127.0.0.1',
         PORT: '3100',
         APP_ORIGIN: 'http://127.0.0.1:5173',
         NODE_ENV: 'test',
+        ALLOW_GUESTS: 'true',
+        DATABASE_PATH: ':memory:',
       },
       reuseExistingServer: false,
     },

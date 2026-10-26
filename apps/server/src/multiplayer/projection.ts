@@ -23,6 +23,7 @@ export function publicMember(room: Room, member: RoomMember): Member {
     team: teamOf(member.seat),
     ready: member.ready,
     connected: room.peers.has(member.actorId),
+    avatarUrl: member.avatarUrl ?? null,
   };
 }
 export function roundHeader(round: PrivateRound): RoundHeader {

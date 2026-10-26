@@ -21,6 +21,7 @@ export type Member = Readonly<{
   team: Team;
   ready: boolean;
   connected: boolean;
+  avatarUrl?: string | null;
 }>;
 export type Score = Readonly<{
   totals: readonly [number, number];
@@ -98,6 +99,7 @@ export type ClientCommand = Envelope &
   );
 export type RoomEvent =
   | Readonly<{ kind: 'member-joined'; member: Member }>
+  | Readonly<{ kind: 'member-updated'; member: Member }>
   | Readonly<{ kind: 'presence'; seat: Seat; connected: boolean }>
   | Readonly<{ kind: 'ready'; seat: Seat; ready: boolean }>
   | Readonly<{
@@ -153,3 +155,21 @@ export type EventMessage = Readonly<{
   event: RoomEvent;
 }>;
 export type ServerMessage = Snapshot | Ack | Failure | EventMessage;
+
+export type PublicProfile = Readonly<{
+  id: string;
+  displayName: string;
+  googleAvatarUrl: string | null;
+  avatarUrl: string | null;
+  thumbnailUrl: string | null;
+  version: number;
+}>;
+export type AuthSession = Readonly<{
+  user: PublicProfile | null;
+  csrfToken: string | null;
+  expiresAt: number | null;
+  googleAvailable: boolean;
+  guestAllowed: boolean;
+  avatarUploadsEnabled: boolean;
+  room: RoomDescriptor | null;
+}>;

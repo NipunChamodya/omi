@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Card, Suit } from '@omi/shared';
 export const suits: Record<
   Suit,
@@ -56,13 +57,25 @@ export function Brand({ onHome }: { onHome?: () => void }) {
 export function Avatar({
   name,
   teammate = false,
+  src,
 }: {
   name: string;
   teammate?: boolean;
+  src?: string | undefined;
 }) {
+  const [failed, setFailed] = useState<string | null>(null);
   return (
     <span className={`avatar ${teammate ? 'teammate' : ''}`} aria-hidden="true">
-      {name.charAt(0).toLocaleUpperCase()}
+      {src && failed !== src ? (
+        <img
+          src={src}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(src)}
+        />
+      ) : (
+        name.charAt(0).toLocaleUpperCase()
+      )}
     </span>
   );
 }

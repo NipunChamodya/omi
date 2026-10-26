@@ -1,5 +1,9 @@
 # Performance
 
+## Current Stage E status
+
+Stage E production build: initial JavaScript 251.06 kB (78.42 kB gzip), lazy profile chunk 5.77 kB (2.19 kB gzip), table chunk 9.37 kB (3.07 kB gzip), CSS 25.35 kB (6.90 kB gzip). Sizes are build artifacts, not device benchmarks. Account identity caching is bounded to 1,000 entries and session validity checks avoid database queries on ordinary card actions. There are at most ten sessions per account, two concurrent upload pipelines, six uploads/minute/account and bounded cleanup batches. Native SQLite/Sharp dependencies increase backend footprint. No load or physical-device benchmark has been executed. See ACCOUNTS.md for image/storage constraints.
+
 ## Implemented
 
 Small static shell, CSS background and suit text; no external fonts, image payloads, audio, polling or animation loops. Production Vite build supports compressed-size reporting. Backend health uses no database calls. Engine package has no runtime dependencies.

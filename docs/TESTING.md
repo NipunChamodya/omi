@@ -40,6 +40,14 @@ Actual counts/checks/build output are in STAGE_D_REPORT.md. Chromium emulation a
 
 ## Planned
 
-Authentication/uploads in E; voice in F; social synchronization in G; PWA and actual Android/iOS behavior in H; security regression, load tests and deployment checks in J.
+Voice in F; social synchronization in G; PWA and actual Android/iOS behavior in H; security regression, load tests and deployment checks in J.
 
 Chromium emulation does not establish real iOS or Android compatibility. See the individual STAGE_A/B/C/D_REPORT.md documents for actual executed results.
+
+## Stage E executed verification
+
+`npm test`: 101 tests across 10 files passed. Added signed OIDC callback/signature/nonce/issuer/audience/expiry/subject checks, secure production cookies, Origin/CSRF, SQLite reopen persistence, account ownership, session revocation/socket closure, upload content/crop/metadata/thumbnail validation, failed storage cleanup and concurrent edit/logout during upload regressions. Existing engine and four-client multiplayer coverage remains passing.
+
+`npm run test:e2e`: all 10 Chromium checks passed. Three profile checks cover signed local OIDC login, Sinhala editing, crop/reposition, real SDK against a local S3 fixture, reload, replacement/removal, logout/return, live lobby profile propagation and 320px dialog layout. These are mock external services, not live Google/S3 verification.
+
+Build, typecheck, lint and formatting passed. Compiled migration CLI applied twice successfully against the same temporary file; mode 0600 verified. npm audit reported zero vulnerabilities. SQLite 13 initially crashed on this Node environment; the tested dependency tree uses better-sqlite3 12.11.1. No migration generator is installed. Physical devices, real cloud permissions, production TLS, load and broader hardening remain untested. See STAGE_E_REPORT.md.

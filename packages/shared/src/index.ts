@@ -26,3 +26,5 @@ export type {
   EventMessage,
   ServerMessage,
 } from './protocol.js';
+
+export type { PublicProfile, AuthSession } from './protocol.js';

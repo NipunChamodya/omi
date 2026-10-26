@@ -50,6 +50,8 @@ describe('bounded transport primitives', () => {
     const second = sessions.create('two');
     expect(second.identity.actorId).not.toBe(first.identity.actorId);
     expect(second.token).not.toBe(first.token);
+    sessions.revoke(second.token);
+    expect(sessions.active(second.identity)).toBe(false);
   });
   it('enforces rate windows with bounded keys and recovers after expiry', () => {
     let now = 0;

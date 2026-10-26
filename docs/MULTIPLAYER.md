@@ -1,5 +1,9 @@
 # Multiplayer backend and wire protocol — Stage C
 
+## Current Stage E status
+
+Stage E now authenticates multiplayer with persistent Google account sessions by default. Temporary transport sessions require explicit non-production ALLOW_GUESTS=true. Account session revocation closes its socket, and signing back into the same Google subject can recover the same still-live room seat. Profile changes are serialized through the room queue and broadcast as compact member-updated events containing public names/avatar URLs. Snapshots include public avatar URLs only. Profile changes never alter seats, readiness, cards or scores. Account cookies are SameSite=Lax; legacy guest cookies retain their earlier behavior. Credentialed CORS now permits X-CSRF-Token for account mutation routes. See ACCOUNTS.md; historical guest-only statements below are superseded by this section.
+
 **Implemented and tested:** four-player private rooms, opposite seats/teams, ready/start, server-owned engine actions, serial processing, idempotency, versions, private snapshots, reconnect replacement and compact events. Stage D implements the frontend flows; see UI.md. Google accounts/profiles remain Stage E. This is a single-process in-memory backend, not production certification.
 
 ## Transport identity and origin

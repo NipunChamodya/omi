@@ -1,20 +1,86 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import { GameClient } from './game/client';
-import { Brand } from './components/Cards';
+import type { AuthSession, PublicProfile } from '@omi/shared';
+import { authApi, avatarSource } from './auth/api';
+import { Brand, Avatar } from './components/Cards';
 import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
+const Profile = lazy(() => import('./auth/Profile'));
 const GameTable = lazy(() => import('./components/GameTable'));
 export function App({ client: supplied }: { client?: GameClient }) {
   const [client] = useState(() => supplied ?? new GameClient());
   const state = useStore(client.store);
+  const [auth, setAuth] = useState<AuthSession | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  async function refreshAuth() {
+    const session = await authApi.session();
+    setAuth(session);
+    if (auth?.user && !session.user) client.forgetIdentity();
+  }
+  function updatedProfile(user: PublicProfile) {
+    setAuth((current) => (current ? { ...current, user } : current));
+    client.profileChanged(user);
+  }
+  async function signIn() {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const code = new URLSearchParams(window.location.search).get('room');
+      const returnTo =
+        code && /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(code)
+          ? `/?room=${code}`
+          : '/';
+      const response = await authApi.start(returnTo);
+      window.location.assign(response.url);
+    } catch {
+      setAuthError('Google sign-in could not be started. Please try again.');
+      setAuthLoading(false);
+    }
+  }
+  async function logout() {
+    await authApi.logout(auth?.csrfToken ?? '');
+    client.forgetIdentity();
+    setProfileOpen(false);
+    await refreshAuth();
+  }
+
   useEffect(() => {
-    void client.start();
+    const controller = new AbortController();
+    let active = true;
+    void authApi
+      .session(controller.signal)
+      .then(async (session) => {
+        if (!active) return;
+        setAuth(session);
+        setAuthLoading(false);
+        if (session.user && session.expiresAt)
+          client.adoptAccount(session.user, session.room, session.expiresAt);
+        if (
+          new URLSearchParams(window.location.search).get('auth') === 'failed'
+        )
+          setAuthError(
+            'Google sign-in was cancelled or could not be verified. Please try again.',
+          );
+        if (session.user || session.guestAllowed) await client.start();
+      })
+      .catch(() => {
+        if (active) {
+          setAuthLoading(false);
+          setAuthError(
+            'Sign-in is unavailable. Refresh the page to try again.',
+          );
+        }
+      });
     window.addEventListener('offline', client.offline);
     window.addEventListener('online', client.online);
     return () => {
       window.removeEventListener('offline', client.offline);
       window.removeEventListener('online', client.online);
+      active = false;
+      controller.abort();
       client.stop();
     };
   }, [client]);
@@ -26,23 +92,40 @@ export function App({ client: supplied }: { client?: GameClient }) {
       </a>
       <header className="app-header">
         <Brand onHome={client.home} />
-        <span className="header-note">
-          {state.view === 'room' ? (
-            <>
-              <span
-                className={`connection-light ${online ? 'connected' : ''}`}
+        <div className="header-controls">
+          <span className="header-note">
+            {state.view === 'room' ? (
+              <>
+                <span
+                  className={`connection-light ${online ? 'connected' : ''}`}
+                />
+                {online
+                  ? 'At the table'
+                  : state.connection === 'connecting' ||
+                      state.connection === 'reconnecting'
+                    ? 'Connecting…'
+                    : 'Disconnected'}
+              </>
+            ) : (
+              'THE SRI LANKAN TABLE'
+            )}
+          </span>
+          {auth?.user && (
+            <button
+              className="profile-button"
+              aria-label="My profile"
+              onClick={() => setProfileOpen(true)}
+            >
+              <Avatar
+                name={auth.user.displayName}
+                src={avatarSource(
+                  auth.user.thumbnailUrl ?? auth.user.googleAvatarUrl,
+                )}
+                teammate
               />
-              {online
-                ? 'At the table'
-                : state.connection === 'connecting' ||
-                    state.connection === 'reconnecting'
-                  ? 'Connecting…'
-                  : 'Disconnected'}
-            </>
-          ) : (
-            'THE SRI LANKAN TABLE'
+            </button>
           )}
-        </span>
+        </div>
       </header>
       <main
         id="main"
@@ -50,6 +133,17 @@ export function App({ client: supplied }: { client?: GameClient }) {
         className={state.view === 'room' ? 'room-main' : 'welcome-main'}
       >
         <div className="feedback-stack">
+          {authError && (
+            <div className="feedback error" role="alert">
+              <p>{authError}</p>
+              <button
+                aria-label="Dismiss sign-in message"
+                onClick={() => setAuthError(null)}
+              >
+                ×
+              </button>
+            </div>
+          )}
           {state.error && (
             <div className="feedback error" role="alert">
               <p>{state.error}</p>
@@ -129,9 +223,32 @@ export function App({ client: supplied }: { client?: GameClient }) {
             )}
           </>
         ) : (
-          <Home client={client} state={state} />
+          <Home
+            client={client}
+            state={state}
+            session={auth}
+            authLoading={authLoading}
+            onSignIn={() => void signIn()}
+          />
         )}
       </main>
+      {profileOpen && auth?.user && (
+        <Suspense
+          fallback={
+            <p role="status" className="loading">
+              Opening your profile…
+            </p>
+          }
+        >
+          <Profile
+            session={auth}
+            onClose={() => setProfileOpen(false)}
+            onUpdate={updatedProfile}
+            onRefresh={refreshAuth}
+            onLogout={logout}
+          />
+        </Suspense>
+      )}
       <footer className="app-footer">
         <span>Made for the way we play.</span>
         <span lang="si">හිතවතුන් එක්ක ඕමි</span>

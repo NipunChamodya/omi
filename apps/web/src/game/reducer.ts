@@ -20,6 +20,13 @@ export function applyEvent(
   switch (event.kind) {
     case 'member-joined':
       return { ...next, members: [...state.members, event.member] };
+    case 'member-updated':
+      return {
+        ...next,
+        members: state.members.map((member) =>
+          member.actorId === event.member.actorId ? event.member : member,
+        ),
+      };
     case 'ready':
       return {
         ...next,

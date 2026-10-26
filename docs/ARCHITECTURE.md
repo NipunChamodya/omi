@@ -1,5 +1,9 @@
 # Architecture
 
+## Current Stage E status
+
+Stage E adds Drizzle-backed SQLite accounts, hashed opaque sessions, OAuth transactions and durable avatar cleanup intents. Google OIDC runs only in the backend; shared types expose public profile data. The profile dialog is lazy-loaded. S3 stores only sanitized WebP images. Account identity now authorizes multiplayer and compact member-updated events synchronize names/thumbnails. The engine and owner rules are unchanged. See ACCOUNTS.md. Earlier stage descriptions below document their original scope; temporary guest identities now require an explicit non-production flag. Voice and subsequent stages remain unimplemented.
+
 ## Implemented in Stage A
 
 npm workspaces with strict TypeScript: `apps/web`, `apps/server`, `packages/shared`, `packages/game-engine`. The root build script explicitly builds shared packages before apps. App packages are private; no package publishing is configured.

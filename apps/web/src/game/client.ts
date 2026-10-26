@@ -4,6 +4,8 @@ import type {
   GuestIdentity,
   ServerMessage,
   Snapshot,
+  PublicProfile,
+  RoomDescriptor,
 } from '@omi/shared';
 import { api, ApiError, socketUrl } from './api';
 import { applyEvent } from './reducer';
@@ -70,6 +72,8 @@ export function friendlyError(code: string, type?: string): string {
       return 'This table has closed or the code is incorrect.';
     case 'ALREADY_IN_ROOM':
       return 'You already have a seat at a table. Return to that table to continue.';
+    case 'LOGIN_REQUIRED':
+      return 'Sign in with Google to take your seat.';
     case 'SESSION_REQUIRED':
     case 'SESSION_EXPIRED':
       return 'Your temporary session has ended. Return home to start again.';
@@ -157,6 +161,45 @@ export class GameClient {
     this.stopped = false;
     const saved = this.store.getState().saved;
     if (saved) await this.resume();
+  };
+  adoptAccount = (
+    profile: PublicProfile,
+    room: RoomDescriptor | null,
+    expiresAt: number,
+  ) => {
+    const state = this.store.getState();
+    if (state.identity && state.identity.actorId !== profile.id)
+      this.forgetIdentity();
+    this.store.setState({
+      identity: {
+        actorId: profile.id,
+        displayName: profile.displayName,
+        expiresAt,
+      },
+    });
+    this.save(
+      room
+        ? {
+            roomId: room.roomId,
+            code: room.code,
+            displayName: profile.displayName,
+          }
+        : null,
+    );
+  };
+  profileChanged = (profile: PublicProfile) => {
+    const state = this.store.getState();
+    if (state.identity?.actorId !== profile.id) return;
+    this.store.setState({
+      identity: { ...state.identity, displayName: profile.displayName },
+    });
+    if (state.saved)
+      this.save({ ...state.saved, displayName: profile.displayName });
+  };
+  forgetIdentity = () => {
+    this.home();
+    this.save(null);
+    this.store.setState({ identity: null, snapshot: null });
   };
   showJoin = () => this.store.setState({ view: 'join', error: null });
   dismiss = () => this.store.setState({ error: null, notice: null });

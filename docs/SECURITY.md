@@ -1,5 +1,9 @@
 # Security
 
+## Current Stage E status
+
+Stage E supersedes the historical guest-only baseline: accounts use signature-verified Google OIDC, PKCE/state/nonce, single-use browser-bound transactions, hashed persistent session credentials, session rotation/revocation and exact-Origin plus CSRF checks for account mutations. Request timeout is now 30 seconds; upload limits are separately enforced. Production guest mode is rejected. OAuth query values are stripped from request logs. Sanitized avatar uploads use private external storage, bounded decoding and durable cleanup; authorization/version checks run again before committing asynchronous uploads. Negative-token, CSRF, ownership, revocation and image regression tests pass. npm audit reported zero findings during this stage; this does not certify production security. Deployment TLS, proxy trust, live IAM and broad hardening remain unverified. See ACCOUNTS.md for precise limits and cookie behavior.
+
 ## Stage A foundation baseline
 
 No secrets in the client. Environment files ignored by Git, example tracked. Server binds to loopback by default. Zod validates server configuration. Fastify limits request bodies to 16 KiB and sets a 10-second request timeout. Authorization/cookie headers are redacted from structured logs. Health contains no secrets or dependency diagnostics. Stage A originally exposed only health. Stage C/D add the guest transport and gameplay/UI controls described below; database/account/upload paths remain unimplemented.

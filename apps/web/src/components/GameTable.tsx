@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Card, Member, Seat, Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
+import { avatarSource } from '../auth/api';
 import { Avatar, CardFace, cardName, suits } from './Cards';
 const cardKey = (card: Card) => `${card.suit}:${card.rank}`;
 const relative = (seat: Seat, local: Seat) => (seat - local + 4) % 4;
@@ -24,6 +25,7 @@ function Player({
       <span className="avatar-wrap">
         <Avatar
           name={member.displayName}
+          src={avatarSource(member.avatarUrl)}
           teammate={member.team === snapshot.you.team}
         />
         <span

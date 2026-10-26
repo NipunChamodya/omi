@@ -29,7 +29,8 @@ export class SerialQueue {
     return next;
   }
 }
-export type Identity = GuestIdentity & Readonly<{ tokenHash: string }>;
+export type Identity = GuestIdentity &
+  Readonly<{ tokenHash: string; userId?: string; avatarUrl?: string | null }>;
 export class GuestSessions {
   private readonly sessions = new Map<string, Identity>();
   constructor(
@@ -62,6 +63,9 @@ export class GuestSessions {
       identity.expiresAt > this.now() &&
       this.sessions.get(identity.tokenHash) === identity
     );
+  }
+  revoke(token: string | undefined): void {
+    if (token) this.sessions.delete(this.hash(token));
   }
   sweep(): void {
     for (const [hash, identity] of this.sessions)

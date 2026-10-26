@@ -78,6 +78,20 @@ describe('public client projection', () => {
         event({ kind: 'member-joined', member: state.members[3]! }, lobby),
       )!.members,
     ).toHaveLength(4);
+    const updated = applyEvent(
+      state,
+      event({
+        kind: 'member-updated',
+        member: {
+          ...state.members[1]!,
+          displayName: 'Updated',
+          avatarUrl: '/avatars/test/thumbnail.webp',
+        },
+      }),
+    )!;
+    expect(updated.members[1]!.displayName).toBe('Updated');
+    expect(updated.members[1]!.avatarUrl).toContain('/avatars/');
+    expect(updated.game).toBe(state.game);
     expect(state.members[0]!.ready).toBe(true);
   });
   it('starts fresh rounds and uses only the recipient hand in deal events', () => {

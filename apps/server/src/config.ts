@@ -11,10 +11,72 @@ const schema = z
       )
       .refine((value) => /^https?:/.test(value), 'HTTP(S) required')
       .default('http://127.0.0.1:5173'),
+    DATABASE_PATH: z.string().min(1).default('./data/omi.sqlite'),
+    ALLOW_GUESTS: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_CALLBACK_URL: z.url().optional(),
+    AVATAR_BUCKET: z.string().min(1).optional(),
+    AVATAR_REGION: z.string().min(1).default('us-east-1'),
+    AVATAR_ENDPOINT: z.url().optional(),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
   })
+  .refine(
+    (config) =>
+      [
+        config.GOOGLE_CLIENT_ID,
+        config.GOOGLE_CLIENT_SECRET,
+        config.GOOGLE_CALLBACK_URL,
+      ].filter(Boolean).length === 0 ||
+      [
+        config.GOOGLE_CLIENT_ID,
+        config.GOOGLE_CLIENT_SECRET,
+        config.GOOGLE_CALLBACK_URL,
+      ].every(Boolean),
+    { message: 'Configure all three Google settings together' },
+  )
+  .refine(
+    (config) =>
+      !config.GOOGLE_CALLBACK_URL ||
+      (new URL(config.GOOGLE_CALLBACK_URL).pathname.endsWith(
+        '/auth/google/callback',
+      ) &&
+        !new URL(config.GOOGLE_CALLBACK_URL).search &&
+        !new URL(config.GOOGLE_CALLBACK_URL).hash &&
+        ['http:', 'https:'].includes(
+          new URL(config.GOOGLE_CALLBACK_URL).protocol,
+        )),
+    { message: 'Invalid Google callback URL' },
+  )
+  .refine(
+    (config) => config.NODE_ENV !== 'production' || !config.ALLOW_GUESTS,
+    { message: 'Guest transport is forbidden in production' },
+  )
+  .refine(
+    (config) =>
+      config.NODE_ENV !== 'production' ||
+      !config.GOOGLE_CALLBACK_URL ||
+      config.GOOGLE_CALLBACK_URL.startsWith('https://'),
+    { message: 'Production OAuth callback requires HTTPS' },
+  )
+  .refine(
+    (config) =>
+      !config.AVATAR_ENDPOINT ||
+      config.AVATAR_ENDPOINT.startsWith('https://') ||
+      (config.NODE_ENV !== 'production' &&
+        ['127.0.0.1', 'localhost', '[::1]'].includes(
+          new URL(config.AVATAR_ENDPOINT).hostname,
+        )),
+    {
+      message:
+        'Avatar storage endpoint requires HTTPS (loopback HTTP allowed for local testing)',
+    },
+  )
   .refine(
     (config) =>
       config.NODE_ENV !== 'production' ||

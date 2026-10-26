@@ -1,5 +1,9 @@
 # Mobile game interface — Stage D
 
+## Current Stage E status
+
+Stage E now adds Google sign-in, persistent profile names, custom gallery upload/crop/reposition, optimized avatars, logout and account-based room recovery. The profile dialog is lazy-loaded and tested at 320px. Google login is the default; entering a guest name requires explicit development-only ALLOW_GUESTS=true. One account remains one room actor across tabs; signing into an account does not adopt an existing guest seat. Voice/chat/music/PWA/themes remain future stages. The historical Stage D instructions below assume guest mode; use ACCOUNTS.md for the current setup.
+
 **Implemented and tested:** home/create/join, room-code invite links and copy/fallback controls, four-seat lobby/readiness, relative seating, public scores/trump/turns, interactive cut, eligible trump selection, explicit card selection/play, lightweight throws, history/manual report entry points, round results, reload/resync/reconnect and offline recovery. Google login/profiles, voice, chat, music, PWA/data saver and replaceable themes remain later stages.
 
 ## Local play

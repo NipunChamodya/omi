@@ -1,5 +1,6 @@
 import type { Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
+import { avatarSource } from '../auth/api';
 import { Avatar } from './Cards';
 export async function copyText(text: string, client: GameClient) {
   try {
@@ -66,7 +67,11 @@ export function Lobby({
           return (
             <div className={`lobby-seat ${member ? '' : 'empty'}`} key={seat}>
               {member ? (
-                <Avatar name={member.displayName} teammate={teammate} />
+                <Avatar
+                  name={member.displayName}
+                  teammate={teammate}
+                  src={avatarSource(member.avatarUrl)}
+                />
               ) : (
                 <span className="avatar vacant" aria-hidden="true">
                   +

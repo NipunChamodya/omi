@@ -3,10 +3,23 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { App } from './App';
+import { authApi } from './auth/api';
 import { GameClient } from './game/client';
 import type { Snapshot } from '@omi/shared';
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 beforeEach(() => {
+  vi.spyOn(authApi, 'session').mockResolvedValue({
+    user: null,
+    csrfToken: null,
+    expiresAt: null,
+    googleAvailable: false,
+    guestAllowed: true,
+    avatarUploadsEnabled: false,
+    room: null,
+  });
   sessionStorage.clear();
   window.history.replaceState(null, '', '/');
 });
@@ -44,20 +57,22 @@ const fixture = (): Snapshot => ({
   score: { totals: [0, 0], carry: 0 },
   result: null,
 });
-it('shows accessible create/join forms and consumes a room invite', () => {
+it('shows accessible create/join forms and consumes a room invite', async () => {
   render(<App />);
   expect(screen.getByRole('main')).toBeInTheDocument();
   expect(
     screen.getByRole('heading', { name: /Four friends/ }),
   ).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Create a table/ })).toBeDisabled();
+  expect(
+    await screen.findByRole('button', { name: /Create a table/ }),
+  ).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: /Join a table/ }));
   expect(screen.getByLabelText('Table code')).toBeInTheDocument();
 });
-it('opens an invitation directly into the join form', () => {
+it('opens an invitation directly into the join form', async () => {
   window.history.replaceState(null, '', '/?room=ABCD2345');
   render(<App />);
-  expect(screen.getByLabelText('Table code')).toHaveValue('ABCD2345');
+  expect(await screen.findByLabelText('Table code')).toHaveValue('ABCD2345');
 });
 it('places the local player at bottom, teammate opposite, escapes names and allows off-suit selection without sending a move', async () => {
   const client = new GameClient();
@@ -107,4 +122,24 @@ it('disables gameplay while disconnected and never invents a new round dealer', 
   expect(
     screen.getByRole('button', { name: 'Play selected card' }),
   ).toBeDisabled();
+});
+
+it('requires sign-in when guest play is disabled and does not expose account fields', async () => {
+  vi.mocked(authApi.session).mockResolvedValueOnce({
+    user: null,
+    csrfToken: null,
+    expiresAt: null,
+    googleAvailable: true,
+    guestAllowed: false,
+    avatarUploadsEnabled: false,
+    room: null,
+  });
+  render(<App />);
+  expect(
+    await screen.findByRole('button', { name: 'Continue with Google' }),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: /Create a table/ }),
+  ).not.toBeInTheDocument();
 });

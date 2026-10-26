@@ -33,5 +33,9 @@
     "typescript": "~5.8.0",
     "typescript-eslint": "^8.0.0",
     "vitest": "^5.0.5"
-  }
+  },
+  "overrides": {
+    "better-sqlite3": "^12.11.1"
+  },
+  "type": "module"
 }

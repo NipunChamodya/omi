@@ -1,7 +1,13 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { parseConfig } from './config.js';
-const app = buildApp();
+const app = buildApp({
+  config: parseConfig({
+    NODE_ENV: 'test',
+    ALLOW_GUESTS: 'true',
+    DATABASE_PATH: ':memory:',
+  }),
+});
 afterAll(async () => {
   await app.close();
 });
@@ -23,7 +29,7 @@ describe('foundation API', () => {
   });
 });
 it('validates environment configuration and supplies safe local defaults', () => {
-  expect(parseConfig({})).toEqual({
+  expect(parseConfig({})).toMatchObject({
     HOST: '127.0.0.1',
     PORT: 3000,
     APP_ORIGIN: 'http://127.0.0.1:5173',

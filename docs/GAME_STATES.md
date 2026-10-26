@@ -1,5 +1,9 @@
 # Game states
 
+## Current Stage E status
+
+Stage E adds account bootstrap, login, profile editing and logout outside the game engine. Logout changes connection presence and revokes the session; it does not invent forfeits or remove reserved room seats. Returning account identity can resynchronize a live room. No engine states, scoring rules or unresolved rule gates were changed.
+
 **Engine states implemented in Stage B; integrated with server-authoritative room actions in Stage C. Stage D now renders these public phases.**
 
 ```mermaid
