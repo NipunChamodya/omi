@@ -1,6 +1,6 @@
 # Game states
 
-**Implemented in Stage B in the standalone engine. No network or UI integration.**
+**Engine states implemented in Stage B; integrated with server-authoritative room actions in Stage C. No game UI yet.**
 
 ```mermaid
 stateDiagram-v2
@@ -25,3 +25,13 @@ API phase strings are `awaiting-cut`, `awaiting-trump`, `playing`, `complete`, `
 - `restartCancelledRound`: requires a confirmed cancellation, explicitly chosen different dealer, new round ID and a fresh caller-shuffled deck. It returns to interactive cutting before dealing.
 
 Unresolved results preserve all inputs and apply no guessed outcome. Completed/cancelled rounds cannot accept card plays. Normal inter-round dealer rotation, game-winning threshold and physical scoring-counter inventories are outside confirmed rules and are not implemented.
+
+## Stage C room lifecycle
+
+A room begins as a version-0 lobby with its host at seat 0. Authenticated joins claim seats 1–3 and increment the version. Presence and ready commands also increment it. Host start requires exactly four ready connected members; it creates an engine round awaiting cut. The engine controls all dealing, turns and final trick resolution. Final card play settles confirmed scoring exactly once and emits the public result.
+
+Ordinary plays publish compact deltas; authenticated sync and reconnect use private whitelist snapshots. Direct same-identity socket replacement preserves state/version; actual offline/online transitions advance the version. A disconnect never changes scores, hands, teams or the current turn.
+
+Cancellation/restart and next-round advancement are gated by trusted owner-confirmed policies. Normal dealer rotation is still unspecified, so the default server completes one round and refuses to invent the next dealer. Explicit test-only callbacks verify restart and continuation mechanics; none is activated in the default application.
+
+See MULTIPLAYER.md for action schemas, version-gap handling, capacity and ephemeral lifecycle limits.

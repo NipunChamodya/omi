@@ -1,15 +1,15 @@
 # Standalone engine API — Stage B
 
-Import from `@omi/game-engine` after `npm run build`. The package has no runtime dependencies and is not yet wired to the backend.
+Import from `@omi/game-engine` after `npm run build`. The package has no runtime dependencies. Stage C integrates it inside the trusted backend; the engine remains transport-independent.
 
 ## Trusted ownership
 
-The future server owns every `PrivateRound` and `ScoreLedger`. Never send either entire object to players or logs: they contain hidden hands and cheating evidence. Stage C must construct explicit player-specific views and sanitize errors. Caller-supplied actors must be authenticated by that layer. The engine validates game actions, not authentication, untrusted JSON, concurrency or storage hydration.
+The server owns every `PrivateRound` and `ScoreLedger`. Never send either entire object to players or logs: they contain hidden hands and cheating evidence. Stage C constructs explicit player-specific views and sanitizes errors; see MULTIPLAYER.md. Caller-supplied actors must be authenticated by that layer. The engine validates game actions, not authentication, untrusted JSON, concurrency or storage hydration.
 
 Production entropy is supplied by the trusted caller using a secure bounded-integer generator, such as `node:crypto`'s `randomInt`. The engine deliberately has no default randomness. Bad sample bounds are rejected, but randomness quality cannot be inferred from samples.
 
 ```ts
-// Example trusted caller only; not implemented as a backend endpoint in Stage B.
+// Example trusted caller only; Stage B example; actual Stage C handlers are documented in MULTIPLAYER.md.
 import { randomInt } from 'node:crypto';
 import {
   chooseInitialDealer,

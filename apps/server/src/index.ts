@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { buildApp } from './app.js';
 import { parseConfig } from './config.js';
 const config = parseConfig(process.env);
-const app = buildApp();
+const app = buildApp({ config });
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void app.close();

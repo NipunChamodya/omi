@@ -2,7 +2,7 @@
 
 Owner specification v1.0 remains authoritative. No owner clarification has yet been supplied for the entries below.
 
-| Unresolved detail                                                    | Stage B behavior                                                                                                                                                                                                                                                                         |
+| Unresolved detail                                                    | Engine / Stage C behavior                                                                                                                                                                                                                                                                |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Exact manual cheating accusation window                              | `accuse` returns `ACCUSATION_WINDOW` unless a trusted, owner-confirmed eligibility policy is supplied. No automatic warning or penalty.                                                                                                                                                  |
 | Replacement dealer selection after අත පොලේ ගහන්න                     | Restart returns `REPLACEMENT_DEALER_SELECTION` without an explicit replacement seat. No default selection algorithm.                                                                                                                                                                     |
@@ -15,3 +15,7 @@ The confirmed draw then 2-point win example produces 3. Kapothi by itself awards
 Tests supply explicit hypothetical eligibility/basis callbacks to verify mechanics. These fixtures are not owner decisions or production defaults. Policy callbacks, round state and ledger must never come from client payloads. Owner answers are needed before activating the affected paths in a playable game.
 
 Normal inter-round dealer rotation, starting physical counter inventories, score floor and match-ending threshold are not specified. Stage B does not add them.
+
+## Stage C status
+
+The default backend installs no accusation, no-trump or dealer-selection policy. Those commands return UNRESOLVED_RULE without disclosing private evidence or applying a guessed result. Normal next-round dealer rotation needs owner confirmation before subsequent rounds can start. Server-only extension points allow later confirmed policies; hypothetical integration test callbacks are not owner rules. No owner clarification was inferred from authorization to build Stage C.
