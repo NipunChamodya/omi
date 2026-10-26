@@ -104,9 +104,9 @@ test('profile editor remains reachable on a 320px phone and cancellation keeps t
 test('profile changes reach a live lobby and the same account resumes its seat after sign-out and sign-in', async ({
   page,
   browser,
-}) => {
+}, testInfo) => {
   const guestContext = await browser.newContext({
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: String(testInfo.project.use.baseURL ?? 'http://127.0.0.1:5173'),
     viewport: { width: 390, height: 844 },
   });
   try {

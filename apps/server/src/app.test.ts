@@ -105,3 +105,42 @@ it('supports private browser POST reads without relaxing Origin or membership ch
   });
   expect(missingOrigin.statusCode).toBe(403);
 });
+
+it('trusts one explicitly configured loopback proxy, never a remote forwarding chain', async () => {
+  const proxyApp = buildApp({
+    logger: false,
+    config: parseConfig({
+      HOST: '127.0.0.1',
+      TRUST_LOCAL_PROXY: 'true',
+      NODE_ENV: 'test',
+      DATABASE_PATH: ':memory:',
+    }),
+  });
+  proxyApp.get('/test-proxy', async (request) => ({ ip: request.ip }));
+  try {
+    const headers = { 'x-forwarded-for': '198.51.100.25' };
+    expect(
+      (
+        await proxyApp.inject({
+          url: '/test-proxy',
+          remoteAddress: '127.0.0.1',
+          headers,
+        })
+      ).json().ip,
+    ).toBe('198.51.100.25');
+    expect(
+      (
+        await proxyApp.inject({
+          url: '/test-proxy',
+          remoteAddress: '203.0.113.2',
+          headers,
+        })
+      ).json().ip,
+    ).toBe('203.0.113.2');
+    expect(() =>
+      parseConfig({ HOST: '0.0.0.0', TRUST_LOCAL_PROXY: 'true' }),
+    ).toThrow();
+  } finally {
+    await proxyApp.close();
+  }
+});

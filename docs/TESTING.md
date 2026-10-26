@@ -1,5 +1,9 @@
 # Testing
 
+## Current Stage F status
+
+Stage F tests are documented in VOICE.md and STAGE_F_REPORT.md. `npm run test:voice` runs real four-browser audio over direct WebRTC; `npm run test:voice:relay` uses a real loopback coturn and requires relay candidate-pair statistics. Both use synthetic microphone sources and assert inbound RTP bytes, mute, volume, speaking, reconnect, track cleanup and authenticated logout. Browser artifacts/configuration remain under ignored .remote-testing. New server/client regressions cover authorization, private-room targeting, replay/version checks, safe microphone errors and late permission cleanup. Existing game/profile suites remain required. No public devices/networks are implied by local browser results.
+
 ## Stage A scope
 
 Stage A introduced Vitest health/configuration and React Testing Library/jsdom shell tests. These tests have since been updated for the implemented room authorization and browser entry flows; the original Stage A results remain in STAGE_A_REPORT.md.
@@ -51,3 +55,11 @@ Chromium emulation does not establish real iOS or Android compatibility. See the
 `npm run test:e2e`: all 10 Chromium checks passed. Three profile checks cover signed local OIDC login, Sinhala editing, crop/reposition, real SDK against a local S3 fixture, reload, replacement/removal, logout/return, live lobby profile propagation and 320px dialog layout. These are mock external services, not live Google/S3 verification.
 
 Build, typecheck, lint and formatting passed. Compiled migration CLI applied twice successfully against the same temporary file; mode 0600 verified. npm audit reported zero vulnerabilities. SQLite 13 initially crashed on this Node environment; the tested dependency tree uses better-sqlite3 12.11.1. No migration generator is installed. Physical devices, real cloud permissions, production TLS, load and broader hardening remain untested. See STAGE_E_REPORT.md.
+
+## Blank-screen/CSP regressions after Stage E
+
+See [CSP investigation and verification](CSP_FIX_REPORT.md). `npm test` now passes 105 tests in 12 files. `npm run test:e2e` passes 11 Chromium checks. Run `npx playwright test --config playwright.firefox.config.ts` for the 11 Firefox checks. After building, `npx playwright test --config playwright.production.config.ts` checks production rendering and inline-script denial in both engines (2 tests). Install browser binaries with `npx playwright install chromium firefox` when needed. These suites start local servers and require loopback listening permission. Firefox and production configurations use the existing fixtures rather than production OAuth or object storage.
+
+## Cloudflare/NGINX infrastructure milestone
+
+`npm run test:infra` executes the standalone template/origin/injection/hostname parser checks. `npm run test:e2e:nginx` runs real NGINX with the production frontend and explicitly loopback-only OIDC/S3 fixtures in Chromium and Firefox. Build with `VITE_API_URL=/api npm run build` first; ports 8082 and 3100 must be free. The suite covers static/API paths, private-file/development URL denial, per-client rates despite forged forwarding chains, four-player full rounds, profile flows and reconnection. Its output is isolated under ignored .remote-testing/browser-results. The public supervisor cannot select a fixture provider or enable guests. See CLOUDFLARE_MULTIPLAYER_SETUP.md for actual results and the distinction between local browser simulations and public/physical-device verification.

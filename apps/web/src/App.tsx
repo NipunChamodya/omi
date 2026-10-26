@@ -6,6 +6,7 @@ import { authApi, avatarSource } from './auth/api';
 import { Brand, Avatar } from './components/Cards';
 import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
+const VoicePanel = lazy(() => import('./voice/VoicePanel'));
 const Profile = lazy(() => import('./auth/Profile'));
 const GameTable = lazy(() => import('./components/GameTable'));
 export function App({ client: supplied }: { client?: GameClient }) {
@@ -191,6 +192,17 @@ export function App({ client: supplied }: { client?: GameClient }) {
                   </button>
                 )}
               </div>
+            )}
+            {state.snapshot && (
+              <Suspense fallback={<p role="status">Loading voice controls…</p>}>
+                <VoicePanel
+                  key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
+                  roomId={state.snapshot.roomId}
+                  actorId={state.snapshot.you.actorId}
+                  members={state.snapshot.members}
+                  online={online}
+                />
+              </Suspense>
             )}
             {state.snapshot ? (
               state.snapshot.game ? (

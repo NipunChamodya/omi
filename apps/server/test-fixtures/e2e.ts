@@ -7,13 +7,20 @@ const provider = await mockOidc();
 const storage = await mockS3();
 process.env.AWS_ACCESS_KEY_ID = 'fixture-key';
 process.env.AWS_SECRET_ACCESS_KEY = 'fixture-secret';
-const callback = 'http://127.0.0.1:5173/api/auth/google/callback';
+const testOrigin = process.env.OMI_TEST_ORIGIN ?? 'http://127.0.0.1:5173';
+if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(testOrigin))
+  throw new Error('Fixture origin must stay on loopback HTTP');
+const callback = `${testOrigin}/api/auth/google/callback`;
 const app = buildApp({
   logger: false,
   config: parseConfig({
     NODE_ENV: 'test',
+    VOICE_TURN_URLS: process.env.OMI_TEST_TURN_URLS,
+    VOICE_TURN_SECRET: process.env.OMI_TEST_TURN_SECRET,
+    VOICE_ICE_POLICY: process.env.OMI_TEST_ICE_POLICY,
     PORT: '3100',
-    APP_ORIGIN: 'http://127.0.0.1:5173',
+    APP_ORIGIN: testOrigin,
+    TRUST_LOCAL_PROXY: 'true',
     DATABASE_PATH: ':memory:',
     ALLOW_GUESTS: 'true',
     GOOGLE_CLIENT_ID: 'mock-client',

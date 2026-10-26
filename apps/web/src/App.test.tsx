@@ -143,3 +143,18 @@ it('requires sign-in when guest play is disabled and does not expose account fie
     screen.queryByRole('button', { name: /Create a table/ }),
   ).not.toBeInTheDocument();
 });
+
+it('renders the home and a safe error when authentication bootstrap rejects', async () => {
+  vi.mocked(authApi.session).mockRejectedValueOnce(
+    new Error('private-provider-detail'),
+  );
+  render(<App />);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Sign-in is unavailable',
+  );
+  expect(
+    screen.getByRole('heading', { name: /Four friends/ }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('private-provider-detail')).not.toBeInTheDocument();
+  expect(screen.queryByText('Checking your session…')).not.toBeInTheDocument();
+});

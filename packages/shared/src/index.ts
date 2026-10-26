@@ -28,3 +28,10 @@ export type {
 } from './protocol.js';
 
 export type { PublicProfile, AuthSession } from './protocol.js';
+export type {
+  VoiceParticipant,
+  VoiceSignal,
+  VoiceCommand,
+  VoiceMessage,
+  VoiceConfig,
+} from './voice.js';

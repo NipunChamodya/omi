@@ -20,12 +20,17 @@ export type AppOptions = {
   };
   multiplayer?: Omit<
     MultiplayerOptions,
-    'origin' | 'secureCookies' | 'accounts' | 'allowGuests'
+    'origin' | 'secureCookies' | 'accounts' | 'allowGuests' | 'ice'
   >;
 };
 export function buildApp(options: AppOptions = {}) {
   const config = options.config ?? parseConfig({});
   const app = Fastify({
+    trustProxy: config.TRUST_LOCAL_PROXY
+      ? (address, hop) =>
+          hop === 0 &&
+          (address === '127.0.0.1' || address === '::ffff:127.0.0.1')
+      : false,
     logger:
       options.logger === false
         ? false
@@ -81,6 +86,7 @@ export function buildApp(options: AppOptions = {}) {
     await registerMultiplayer(api, {
       ...options.multiplayer,
       accounts,
+      ice: config,
       allowGuests: config.ALLOW_GUESTS,
       origin: config.APP_ORIGIN,
       secureCookies: config.NODE_ENV === 'production',

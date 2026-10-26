@@ -2,7 +2,7 @@
 
 A lightweight, mobile-first Sri Lankan card game for four friends.
 
-**Status: Stage E authentication and profiles implemented and locally verified. Google OIDC, durable SQLite accounts/sessions, profile editing and private S3-backed avatar processing are included. Live Google/S3 verification requires owner configuration. Voice chat remains Stage F and is not implemented.**
+**Status: Stage F voice chat implemented and locally verified. Four room members can opt into real WebRTC audio, mute, adjust individual volumes and recover connections. Direct and authenticated TURN relay browser tests pass locally. Public Google callback registration and real-device/network verification remain pending. Social features remain Stage G.**
 
 ## Local setup
 
@@ -40,10 +40,16 @@ Accounts, sessions and profile metadata persist in SQLite; avatars persist in ex
 ## Workspace
 
 - `apps/web`: React/Vite mobile home, invite/join, lobby, table and results, with Zustand public projections and bounded reconnection.
-- `apps/server`: Fastify health API and authoritative private rooms/WebSockets, durable Google account sessions and opt-in development guests, serialized actions, versioning and recipient-specific resynchronization.
+- `apps/server`: Fastify health API and authoritative private rooms/WebSockets, durable Google account sessions and opt-in development guests, serialized actions, versioning, recipient-specific resynchronization and separately authorized voice signaling.
 - `packages/shared`: public infrastructure and multiplayer wire contracts; no engine-private state.
 - `packages/game-engine`: dependency-free, server-private OMI rules engine with deterministic transitions and tested rule-clarification gates.
 - `docs`: architecture, owner rules, unresolved decisions, testing and operations.
 
-Development stops after each authorized stage. Stage F requires explicit owner authorization.
+Development stops after each authorized stage. Stage G requires explicit owner authorization.
 See [Stage E report](docs/STAGE_E_REPORT.md), [Accounts setup](docs/ACCOUNTS.md), [Stage D report](docs/STAGE_D_REPORT.md), [UI guide](docs/UI.md), [multiplayer protocol](docs/MULTIPLAYER.md), [engine API](docs/ENGINE.md), and [owner rules](docs/OWNER_RULES.md).
+
+For the Stage E blank-screen investigation, environment-aware CSP, Firefox verification and exact restart commands, see [CSP fix report](docs/CSP_FIX_REPORT.md).
+
+For free remote testing with the compiled frontend, standalone loopback NGINX and a gated Cloudflare Quick Tunnel, see [Cloudflare multiplayer setup](docs/CLOUDFLARE_MULTIPLAYER_SETUP.md). Public play remains blocked until the generated callback is accepted by Google and real login/external connectivity are verified. No development provider or guest fallback is published.
+
+Voice setup and microphone/TURN testing are documented in [Voice guide](docs/VOICE.md) and the [Stage F report](docs/STAGE_F_REPORT.md). Voice never records audio or sends it through gameplay WebSockets.

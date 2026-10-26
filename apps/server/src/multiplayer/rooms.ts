@@ -116,6 +116,7 @@ export type JoinRequest = {
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export class RoomService {
+  onPeerDisconnect: (roomId: string, actorId: string) => void = () => undefined;
   private stopped = false;
   private readonly rooms = new Map<string, Room>();
   private readonly codes = new Map<string, string>();
@@ -141,8 +142,10 @@ export class RoomService {
   disconnectSession(hash: string): void {
     for (const room of this.rooms.values())
       for (const peer of room.peers.values())
-        if (peer.identity.tokenHash === hash)
+        if (peer.identity.tokenHash === hash) {
+          this.onPeerDisconnect(room.id, peer.identity.actorId);
           peer.socket.close(1008, 'Logged out');
+        }
   }
   async updateProfile(profile: PublicProfile): Promise<void> {
     const room = this.rooms.get(this.memberships.get(profile.id) ?? '');
@@ -326,8 +329,10 @@ export class RoomService {
       if (peer.socket.readyState !== WebSocket.OPEN) return;
       const old = room.peers.get(peer.identity.actorId);
       room.peers.set(peer.identity.actorId, peer);
-      if (old) old.socket.close(4001, 'Replaced by reconnect');
-      else {
+      if (old) {
+        this.onPeerDisconnect(roomId, peer.identity.actorId);
+        old.socket.close(4001, 'Replaced by reconnect');
+      } else {
         const member = room.members.find(
           (item) => item.actorId === peer.identity.actorId,
         )!;
@@ -350,6 +355,7 @@ export class RoomService {
       return Promise.resolve();
     return room.queue.run(() => {
       if (room.peers.get(peer.identity.actorId) !== peer) return;
+      this.onPeerDisconnect(roomId, peer.identity.actorId);
       room.peers.delete(peer.identity.actorId);
       const member = room.members.find(
         (item) => item.actorId === peer.identity.actorId,

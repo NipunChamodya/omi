@@ -1,5 +1,9 @@
 # Deployment
 
+## Current Stage F status
+
+The NGINX allowlist now also proxies `/api/rooms/:roomId/voice/config` and `/api/rooms/:roomId/voice/ws`; the existing same-origin HTTPS/WSS setup is retained. No extra public application port is needed for signaling. WebRTC media is separate: Quick Tunnel HTTP forwarding does not provide STUN/TURN. Configure a reviewed reachable TURN service with server-only shared-secret REST credentials and appropriate TLS/UDP/TCP/firewall/quotas before claiming restrictive-network support. No public TURN service was provisioned; the installed coturn test runs only on loopback and must not be published. Google public callback registration remains unresolved. See VOICE.md.
+
 ## Current Stage E status
 
 Stage E requires a durable SQLite volume and a private external S3-compatible bucket for custom avatars. Accounts/sessions now persist; game rooms/scores still disappear on restart and require one backend process. Ship migrations with dist, run the migration CLI and configure real Google credentials and exact HTTPS callback URL. Account cookies use SameSite=Lax with Secure host-only production scope; keep frontend/API same-site or use a same-origin proxy. Proxy /api and WebSocket upgrades; allow callback and public image GET routes. Account mutation requests require exact Origin and CSRF. Guest mode is development-only. Native SQLite and Sharp binaries must support the deployment OS/architecture. Live Google, IAM, backups, monitoring, TLS and production deployment have not been verified. Do not deploy the E2E fixture. See ACCOUNTS.md for setup. Historical stage notes below describe earlier implementations.
@@ -29,3 +33,7 @@ Frontend development defaults to `/api` through Vite's HTTP/WebSocket proxy, tar
 A static production build does not include Vite's dev proxy. Configure a real same-origin reverse proxy stripping `/api` and forwarding WebSocket upgrades, or set VITE_API_URL to a same-site HTTPS API at build time and align APP_ORIGIN with the frontend. Google credentials/authentication infrastructure are not part of Stage D. Rooms/sessions remain ephemeral and the unresolved dealer/report policies remain disabled. The browser's sessionStorage metadata cannot recover a restarted backend.
 
 Playwright uses backend port 3100/front port 5173 with isolated test clients and refuses to reuse unrelated running servers. These local test fixtures are not a deployment configuration.
+
+## Free remote-testing milestone
+
+The implemented supervisor and standalone NGINX template are documented in CLOUDFLARE_MULTIPLAYER_SETUP.md. They use compiled static assets, a loopback production backend with tightly scoped proxy trust, preserved SQLite and a maintenance-gated Quick Tunnel. Do not expose Vite or test fixtures. Public Google login and four external devices are not verified; the observed generated callback received redirect_uri_mismatch. This infrastructure task does not complete Stage J or establish production readiness.

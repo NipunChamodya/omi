@@ -1,5 +1,9 @@
 # Multiplayer backend and wire protocol — Stage C
 
+## Current Stage F status
+
+Stage F adds dedicated member-only POST `/rooms/:roomId/voice/config` and WebSocket `/rooms/:roomId/voice/ws`, behind the existing /api proxy. The actor must have a current game connection under the same session credential. Voice signaling is independent of ClientCommand/ServerMessage and game room versions; VOICE.md describes its call IDs, private target routing, per-connection sequence and separate rate/queue limits. Socket replacement/logout/detach closes voice. Audio itself never travels on either WebSocket; gameplay limits/projections remain unchanged.
+
 ## Current Stage E status
 
 Stage E now authenticates multiplayer with persistent Google account sessions by default. Temporary transport sessions require explicit non-production ALLOW_GUESTS=true. Account session revocation closes its socket, and signing back into the same Google subject can recover the same still-live room seat. Profile changes are serialized through the room queue and broadcast as compact member-updated events containing public names/avatar URLs. Snapshots include public avatar URLs only. Profile changes never alter seats, readiness, cards or scores. Account cookies are SameSite=Lax; legacy guest cookies retain their earlier behavior. Credentialed CORS now permits X-CSRF-Token for account mutation routes. See ACCOUNTS.md; historical guest-only statements below are superseded by this section.

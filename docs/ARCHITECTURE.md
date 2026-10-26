@@ -1,6 +1,10 @@
 # Architecture
 
-## Current Stage E status
+## Current Stage F status
+
+Stage F adds a separate room-authorized voice WebSocket and member-only ICE configuration route. Four opted-in clients form an audio-only WebRTC mesh; signaling has its own queue, limits, call IDs and versions. Game socket lifecycle revokes voice while engine/projections remain unchanged. The lazy room voice panel owns microphone tracks, peer/audio contexts and bounded recovery. See VOICE.md; social features remain Stage G.
+
+## Stage E implementation
 
 Stage E adds Drizzle-backed SQLite accounts, hashed opaque sessions, OAuth transactions and durable avatar cleanup intents. Google OIDC runs only in the backend; shared types expose public profile data. The profile dialog is lazy-loaded. S3 stores only sanitized WebP images. Account identity now authorizes multiplayer and compact member-updated events synchronize names/thumbnails. The engine and owner rules are unchanged. See ACCOUNTS.md. Earlier stage descriptions below document their original scope; temporary guest identities now require an explicit non-production flag. Voice and subsequent stages remain unimplemented.
 
@@ -44,6 +48,10 @@ The Vite dev proxy serves `/api` HTTP/WebSockets; optional public API configurat
 
 ## Planned
 
-Stage E: Google OIDC, server sessions, SQLite through a maintained query layer and migrations; permanent avatars in external storage. F: WebRTC and TURN. G: chat and local audio synchronization. H: PWA and data saver. I: replaceable lazy-loaded visual themes. J: deployment and hardening.
+Stage G: chat and local audio synchronization. H: PWA and data saver. I: replaceable lazy-loaded visual themes. J: final hardening and deployment verification. Stages E/F are implemented as described above.
 
-Persistence, schema migrations and ORM selection are deferred until a stage owns persistent data. The planned repository boundary must allow PostgreSQL later. No temporary hosting filesystem will store permanent avatars.
+Stage E owns SQLite/Drizzle persistence, migrations and external avatar storage. Migrating to PostgreSQL requires an adapter and asynchronous integration changes. Permanent avatars are never stored on temporary hosting filesystems.
+
+## Optional remote-testing infrastructure
+
+A foreground Node supervisor manages one isolated loopback NGINX, one production Fastify process and a Cloudflare Quick Tunnel. NGINX serves staged compiled assets and strips the verified /api prefix for allowlisted backend/socket routes. Public hostname-dependent configuration is runtime-derived, without changing server .env. The initial tunnel exposes a maintenance-only gate; explicit Google registration acknowledgment is required for application activation. Active rooms still live in the single backend process. No engine, authentication provider or persistence architecture was replaced. See CLOUDFLARE_MULTIPLAYER_SETUP.md.

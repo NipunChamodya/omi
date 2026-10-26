@@ -1,5 +1,9 @@
 # Performance
 
+## Current Stage F status
+
+Stage F adds no npm runtime dependency. The initial bundle is 251.42 kB (78.51 kB gzip); voice loads as a 14.33 kB chunk (4.84 kB gzip) only in a room. CSS is 26.24 kB (7.12 kB gzip). One microphone track feeds three peers per participant. Speaking meters sample locally every 150ms and update UI only when indicators change. Server signaling uses bounded separate queues, 4 KiB frames, 64 KiB backpressure, 90 messages/10 seconds/actor and 128 small hashed receipts/call. Audio bypasses Fastify/gameplay WebSockets and SQLite entirely. Direct/relay browser tests are functional evidence, not device CPU/bandwidth or public TURN load benchmarks.
+
 ## Current Stage E status
 
 Stage E production build: initial JavaScript 251.06 kB (78.42 kB gzip), lazy profile chunk 5.77 kB (2.19 kB gzip), table chunk 9.37 kB (3.07 kB gzip), CSS 25.35 kB (6.90 kB gzip). Sizes are build artifacts, not device benchmarks. Account identity caching is bounded to 1,000 entries and session validity checks avoid database queries on ordinary card actions. There are at most ten sessions per account, two concurrent upload pipelines, six uploads/minute/account and bounded cleanup batches. Native SQLite/Sharp dependencies increase backend footprint. No load or physical-device benchmark has been executed. See ACCOUNTS.md for image/storage constraints.

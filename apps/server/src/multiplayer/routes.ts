@@ -1,4 +1,6 @@
 import cookie from '@fastify/cookie';
+import { registerVoice } from '../voice/routes.js';
+import type { IceSettings } from '../voice/config.js';
 import websocket from '@fastify/websocket';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -22,6 +24,7 @@ import { GuestSessions, RateLimiter, RoomError } from './support.js';
 import type { Identity } from './support.js';
 
 export type MultiplayerOptions = {
+  ice?: IceSettings;
   origin: string;
   secureCookies: boolean;
   now?: () => number;
@@ -56,6 +59,7 @@ export async function registerMultiplayer(
     options.entropy,
   );
   const httpRate = new RateLimiter(now, limits.httpPerMinute, 60_000);
+  const gameSockets = new Set<import('ws').WebSocket>();
   const messageRate = new RateLimiter(
     now,
     limits.messagesPerTenSeconds,
@@ -139,6 +143,18 @@ export async function registerMultiplayer(
         .header('Vary', 'Origin');
       if (!httpRate.take(request.ip)) throw new RoomError('RATE_LIMITED', 429);
     });
+    registerVoice(
+      api,
+      rooms,
+      identityFor,
+      options.ice ?? {
+        VOICE_STUN_URLS: [],
+        VOICE_TURN_URLS: [],
+        VOICE_ICE_POLICY: 'all',
+      },
+      now,
+      limits.maxRooms,
+    );
     api.options('/*', async (_request, reply) =>
       reply
         .header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -229,11 +245,12 @@ export async function registerMultiplayer(
             parse(roomIdSchema, request.params.roomId),
             identityFor(request),
           );
-          if (app.websocketServer.clients.size >= limits.maxRooms * 4 + 4)
+          if (gameSockets.size >= limits.maxRooms * 4 + 4)
             throw new RoomError('CONNECTION_CAPACITY', 503);
         },
       },
       (socket, request) => {
+        gameSockets.add(socket);
         const roomId = request.params.roomId;
         const peer: Peer = {
           socket,
@@ -249,6 +266,7 @@ export async function registerMultiplayer(
           peer.alive = true;
         });
         socket.on('close', () => {
+          gameSockets.delete(socket);
           void rooms.detach(roomId, peer).catch(() => socket.terminate());
         });
         socket.on('message', (data, isBinary) => {

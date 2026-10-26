@@ -1,5 +1,9 @@
 # Mobile game interface — Stage D
 
+## Current Stage F status
+
+A lazy Room voice panel is now available in lobby/game views. Microphone access is opt-in with join/leave, mute, speaking, individual playback gain, safe denial/errors and autoplay-retry controls. The 320px layout and all existing gameplay/profile flows are tested locally; physical iOS/Android voice and speaker quality remain unverified. Voice lifecycle cleanup does not remove the saved game seat. See VOICE.md.
+
 ## Current Stage E status
 
 Stage E now adds Google sign-in, persistent profile names, custom gallery upload/crop/reposition, optimized avatars, logout and account-based room recovery. The profile dialog is lazy-loaded and tested at 320px. Google login is the default; entering a guest name requires explicit development-only ALLOW_GUESTS=true. One account remains one room actor across tabs; signing into an account does not adopt an existing guest seat. Voice/chat/music/PWA/themes remain future stages. The historical Stage D instructions below assume guest mode; use ACCOUNTS.md for the current setup.

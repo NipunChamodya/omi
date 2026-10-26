@@ -1,5 +1,9 @@
 # Game states
 
+## Current Stage F status
+
+Voice is an independent opt-in lifecycle: off → joining → connected, with bounded reconnecting/error paths and explicit leave. It never increments game versions, adds turns or changes scores. Voice-local action sequence/call IDs are distinct from game state versions. Leaving voice preserves game membership; game socket loss/logout closes voice and microphone tracks. No OMI engine phase or owner rule changed.
+
 ## Current Stage E status
 
 Stage E adds account bootstrap, login, profile editing and logout outside the game engine. Logout changes connection presence and revokes the session; it does not invent forfeits or remove reserved room seats. Returning account identity can resynchronize a live room. No engine states, scoring rules or unresolved rule gates were changed.

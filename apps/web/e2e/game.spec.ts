@@ -11,7 +11,9 @@ test('four mobile friends create, join, deal, play a round and resume after relo
     for (const width of [320, 390, 430, 390]) {
       const context = await browser.newContext({
         viewport: { width, height: 844 },
-        baseURL: 'http://127.0.0.1:5173',
+        baseURL: String(
+          testInfo.project.use.baseURL ?? 'http://127.0.0.1:5173',
+        ),
       });
       contexts.push(context);
       pages.push(await context.newPage());

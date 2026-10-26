@@ -1,7 +1,13 @@
 import { z } from 'zod';
+import { voiceFields } from './voice/config.js';
 const schema = z
   .object({
+    ...voiceFields,
     HOST: z.string().min(1).default('127.0.0.1'),
+    TRUST_LOCAL_PROXY: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     APP_ORIGIN: z
       .url()
@@ -26,6 +32,20 @@ const schema = z
       .enum(['development', 'test', 'production'])
       .default('development'),
   })
+  .refine(
+    (config) =>
+      Boolean(config.VOICE_TURN_SECRET) === config.VOICE_TURN_URLS.length > 0,
+    { message: 'Configure TURN URLs and shared secret together' },
+  )
+  .refine(
+    (config) =>
+      config.VOICE_ICE_POLICY !== 'relay' || config.VOICE_TURN_URLS.length > 0,
+    { message: 'Relay-only voice requires TURN configuration' },
+  )
+  .refine(
+    (config) => !config.TRUST_LOCAL_PROXY || config.HOST === '127.0.0.1',
+    { message: 'Local proxy trust requires IPv4 loopback binding' },
+  )
   .refine(
     (config) =>
       [

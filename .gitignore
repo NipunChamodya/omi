@@ -1,14 +1,48 @@
+# Environment variables and secrets
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Keep safe environment templates
+!.env.example
+!**/.env.example
+
+# Private credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
+
+# Local development data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Dependencies and build output
 node_modules/
 dist/
+coverage/
+
+# Private remote-testing process state, logs and staged static files
+.remote-testing/
+
+# Generated browser verification artifacts
+test-results/
+playwright-report/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Environment secrets
 .env
 .env.*
 !.env.example
-playwright-report/
-test-results/
-*.tsbuildinfo
-.DS_Store
+!**/.env.example
 
-apps/server/data/
-*.sqlite
-*.sqlite-wal
-*.sqlite-shm
+# Test artifacts
+test-results/
+playwright-report/
+playwright/.cache/

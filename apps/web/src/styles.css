@@ -1513,3 +1513,68 @@ input {
 .photo-editor .quiet-note {
   font-size: 10px !important;
 }
+
+.voice-panel {
+  margin: 0.5rem 0;
+  padding: 0.8rem;
+  border: 1px solid #b9d9c333;
+  border-radius: 16px;
+  background: #072d25;
+  color: #dcebe2;
+  font-size: 0.8rem;
+}
+.voice-heading,
+.voice-controls {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.voice-controls {
+  margin-top: 0.6rem;
+  justify-content: flex-start;
+}
+.voice-panel button {
+  min-height: 44px;
+}
+.voice-people {
+  list-style: none;
+  padding: 0;
+  margin: 0.7rem 0;
+}
+.voice-people li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+}
+.voice-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #758b80;
+  flex-shrink: 0;
+}
+.voice-indicator.speaking {
+  background: #70e6ac;
+  box-shadow: 0 0 0 3px #70e6ac33;
+}
+.voice-volume {
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  max-width: 100%;
+}
+.voice-volume input {
+  width: 80px;
+  min-height: 32px;
+}
+.voice-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.7rem;
+  color: #b5c6bd;
+}
