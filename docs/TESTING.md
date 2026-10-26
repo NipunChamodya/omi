@@ -2,7 +2,7 @@
 
 ## Stage A scope
 
-`npm test`: Vitest tests public health shape, unavailable future routes, invalid environment configuration and accessible shell rendering using React Testing Library and jsdom.
+Stage A introduced Vitest health/configuration and React Testing Library/jsdom shell tests. These tests have since been updated for the implemented room authorization and browser entry flows; the original Stage A results remain in STAGE_A_REPORT.md.
 
 `npm run test:e2e`: Playwright Chromium tests shell visibility and horizontal fit at 320, 390, 430 and 1280 pixels, plus a reduced-motion smoke test. Playwright starts Vite automatically. Install Chromium first with `npx playwright install chromium`.
 
@@ -26,10 +26,20 @@ Security/resource regressions cover strict schemas and server authority, cookie/
 
 `support.test.ts` checks serial queue ordering/recovery/capacity/cleanup, opaque session expiry and bounded rate windows. Server typechecking now includes test sources via tsconfig.test.json. Shared protocol has only public types; runtime command schemas are server-side. All original engine and frontend tests remain included.
 
-Run `npm test -- apps/server/src/multiplayer/multiplayer.test.ts` for real-client integration. Root `npm test` also needs local TCP listening permission and must fail rather than silently skip these tests when binding is blocked. See STAGE_C_REPORT.md for exact results. The browser UI is unchanged, so Playwright was not rerun in this stage.
+Run `npm test -- apps/server/src/multiplayer/multiplayer.test.ts` for real-client integration. Root `npm test` also needs local TCP listening permission and must fail rather than silently skip these tests when binding is blocked. See STAGE_C_REPORT.md for exact results. The browser UI was unchanged during Stage C; Stage D adds the Playwright coverage below.
+
+## Stage D scope
+
+React Testing Library tests accessible forms/invite entry, relative seat layout, HTML-like name escaping, explicit off-suit selection without automatic submission, and disabled offline controls. Pure reducer tests cover all public events, old/foreign events, gaps, own-hand removal, trick/result projection and nonmutation. Transport tests cover identical lost-ack replay across reconnect, old ack handling, gap sync/input suspension, replaced tabs, delayed callbacks after navigation and native offline/online recovery. API tests cover stable-ID credentialed retries, two ten-second timeouts and cancellation without retry. Server read-route tests verify the browser POST equivalents retain Origin/member semantics.
+
+`npm run test:e2e` now starts a dedicated backend at 3100 plus Vite at 5173 and uses four isolated browser contexts. It verifies home/create/invite/join/lobby/readiness, keyboard cut, eligible trump, all 32 plays/eight tricks/results, reload hand restoration, offline/online recovery and an honest unresolved next-dealer message. Layout checks cover widths 320/390/430/1280, including play on a 320×568 viewport. Invalid invite and keyboard/reduced-motion smoke checks are included. Test screenshots capture home/table/trick/results for visual inspection under test-results/.
+
+Frontend typechecking includes E2E sources. An existing server expiry test now waits for authoritative offline state before advancing its fake clock, removing a client-close/server-detach race exposed under concurrent test load. Screenshot fixture typing was corrected and is now checked with the rest of the frontend.
+
+Actual counts/checks/build output are in STAGE_D_REPORT.md. Chromium emulation and keyboard smoke checks do not replace physical-device, Safari/WebKit or assistive-technology testing.
 
 ## Planned
 
-Interactive mobile UI in D; auth/uploads in E; voice in F; social synchronization in G; PWA and actual Android/iOS behavior in H; security regression, load tests and deployment checks in J.
+Authentication/uploads in E; voice in F; social synchronization in G; PWA and actual Android/iOS behavior in H; security regression, load tests and deployment checks in J.
 
-Chromium emulation does not establish real iOS or Android compatibility. See the individual STAGE_A/B/C_REPORT.md documents for actual executed results.
+Chromium emulation does not establish real iOS or Android compatibility. See the individual STAGE_A/B/C/D_REPORT.md documents for actual executed results.

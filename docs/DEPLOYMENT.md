@@ -1,6 +1,6 @@
 # Deployment
 
-**Local foundation, engine and four-client multiplayer backend verified; production deployment is planned for Stage J.**
+**Local foundation, engine, multiplayer backend and mobile browser flow verified; production deployment remains Stage J.**
 
 Build with `npm ci && npm run build`. Frontend output is `apps/web/dist`, suitable for static hosting. Run the backend with `npm run start -w @omi/server` after building. Supply HOST, PORT and NODE_ENV through the deployment environment; use HOST=0.0.0.0 only when external binding is intended. Health probe: GET `/health`.
 
@@ -17,3 +17,11 @@ Set APP_ORIGIN to the exact browser HTTP(S) origin, with no trailing slash/path;
 Production must terminate HTTPS/WSS, proxy WebSocket upgrade requests, preserve heartbeat traffic and configure timeouts/connection limits. Fastify currently uses direct peer IP; trusted-proxy configuration and suitable shared-IP rate limits must be reviewed before hosting behind a proxy. Application queue/room/frame/receipt limits do not replace edge-level limits or load testing. The Stage C default reaches one round's result; subsequent rounds and manual reports remain gated on unresolved owner policies.
 
 No Stage J deployment configuration, monitoring or production certification is being claimed.
+
+## Stage D frontend/API configuration
+
+Frontend development defaults to `/api` through Vite's HTTP/WebSocket proxy, targeting port 3000. `apps/web/.env.example` documents public VITE_API_URL and server-only development API_PROXY_TARGET. The UI uses credentialed POST read equivalents so mandatory browser Origin checks remain intact. No credential is in VITE_ variables or invitation URLs.
+
+A static production build does not include Vite's dev proxy. Configure a real same-origin reverse proxy stripping `/api` and forwarding WebSocket upgrades, or set VITE_API_URL to a same-site HTTPS API at build time and align APP_ORIGIN with the frontend. Google credentials/authentication infrastructure are not part of Stage D. Rooms/sessions remain ephemeral and the unresolved dealer/report policies remain disabled. The browser's sessionStorage metadata cannot recover a restarted backend.
+
+Playwright uses backend port 3100/front port 5173 with isolated test clients and refuses to reuse unrelated running servers. These local test fixtures are not a deployment configuration.

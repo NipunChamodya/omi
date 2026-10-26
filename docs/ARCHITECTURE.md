@@ -4,7 +4,7 @@
 
 npm workspaces with strict TypeScript: `apps/web`, `apps/server`, `packages/shared`, `packages/game-engine`. The root build script explicitly builds shared packages before apps. App packages are private; no package publishing is configured.
 
-Web uses React, Vite and Tailwind. Zustand is installed but unused until stateful UI is authorized. The static mobile shell has semantic landmarks, safe-area spacing and reduced-motion CSS. No gameplay, login, room controls, WebSockets or audio are present.
+Stage A established React, Vite and Tailwind with a static mobile shell, semantic landmarks, safe-area spacing and reduced-motion CSS. Stage D now uses Zustand and replaces that shell with the authorized game interface. Account authentication and audio remain later-stage work.
 
 Server uses Fastify and Zod. `buildApp` separates application construction from network startup for injection testing. Environment parsing rejects invalid ports and modes. GET `/health` returns only a public health contract. Logs redact authorization and cookies. Startup binds to loopback by default.
 
@@ -22,7 +22,7 @@ Accusation windows and no-trump report timing/basis require trusted owner-confir
 
 ## Implemented in Stage C
 
-Fastify WebSocket and cookie plugins wrap a single-process in-memory RoomService. Temporary guest cookie identities supply transport authentication until Stage E Google accounts. HTTP creates/previews/joins rooms; WebSockets carry validated actions, acknowledgements, compact recipient-specific events and reconnect snapshots. Public contracts live in `packages/shared/src/protocol.ts`; runtime validation remains server-side. No frontend controls were added.
+Fastify WebSocket and cookie plugins wrap a single-process in-memory RoomService. Temporary guest cookie identities supply transport authentication until Stage E Google accounts. HTTP creates/previews/joins rooms; WebSockets carry validated actions, acknowledgements, compact recipient-specific events and reconnect snapshots. Public contracts live in `packages/shared/src/protocol.ts`; runtime validation remains server-side. Stage C itself added no frontend controls; Stage D consumes this protocol below.
 
 The server derives seats/teams, owns secure entropy and all engine state, and serializes joins, presence and gameplay in a bounded queue per room. Action IDs plus expected versions handle retries/races. Exactly four ready connected players are required to start. Projection code explicitly whitelists own hand and public information. Raw engine state, private evidence and ledger history are never serialized.
 
@@ -30,8 +30,16 @@ Same-cookie reconnects reserve the same seat and recover from a current snapshot
 
 Owner-dependent rules remain unresolved by default, including ordinary next-round dealer rotation. Server-only policy extension points are exercised by hypothetical tests, not installed as production rules. See MULTIPLAYER.md for the full protocol and constraints.
 
+## Implemented in Stage D
+
+The React frontend now has home/create/join, lobby and lazy-loaded table/result views. Baseline card faces use HTML/CSS and suit text; profile/avatar systems and theme registries are not introduced. Relative seats keep the local player bottom and teammate opposite. Forms, controls, feedback, safe areas and reduced-motion styles support the mobile-first flow.
+
+Zustand stores only recipient-visible snapshots plus connection/UI metadata. A pure public reducer validates version continuity and never computes authoritative trick/scoring outcomes. The browser transport retains an uncertain action's identity, disables input while pending/offline, recovers by snapshot, and bounds retries/timeouts. SessionStorage contains only public room metadata; credentials stay HttpOnly and no hands/engine evidence are persisted.
+
+The Vite dev proxy serves `/api` HTTP/WebSockets; optional public API configuration supports later hosting. Backend POST read equivalents preserve mandatory Origin validation for same-origin browser access. No game-engine, room-rule, authentication-account, database or social features were added. See UI.md for behavior and testing limits.
+
 ## Planned
 
-Stage D: game UI. E: Google OIDC, server sessions, SQLite through a maintained query layer and migrations; permanent avatars in external storage. F: WebRTC and TURN. G: chat and local audio synchronization. H: PWA and data saver. I: replaceable lazy-loaded visual themes. J: deployment and hardening.
+Stage E: Google OIDC, server sessions, SQLite through a maintained query layer and migrations; permanent avatars in external storage. F: WebRTC and TURN. G: chat and local audio synchronization. H: PWA and data saver. I: replaceable lazy-loaded visual themes. J: deployment and hardening.
 
 Persistence, schema migrations and ORM selection are deferred until a stage owns persistent data. The planned repository boundary must allow PostgreSQL later. No temporary hosting filesystem will store permanent avatars.

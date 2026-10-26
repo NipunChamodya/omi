@@ -48,3 +48,54 @@ it('rejects invalid origins and insecure production configuration', () => {
       .APP_ORIGIN,
   ).toBe('https://omi.example');
 });
+
+it('supports private browser POST reads without relaxing Origin or membership checks', async () => {
+  const origin = 'http://127.0.0.1:5173';
+  const response = await app.inject({
+    method: 'POST',
+    url: '/transport/session',
+    headers: { origin },
+    payload: { displayName: 'Browser' },
+  });
+  const identity = response.json<{ actorId: string }>();
+  const guestCookie = response.cookies[0]!;
+  const headers = {
+    origin,
+    cookie: `${guestCookie.name}=${guestCookie.value}`,
+  };
+  const created = await app.inject({
+    method: 'POST',
+    url: '/rooms',
+    headers,
+    payload: {
+      actorId: identity.actorId,
+      actionId: crypto.randomUUID(),
+      expectedVersion: 0,
+    },
+  });
+  const room = created.json<{ roomId: string; code: string }>();
+  const preview = await app.inject({
+    method: 'POST',
+    url: '/rooms/preview',
+    headers,
+    payload: { code: room.code },
+  });
+  expect(preview.statusCode).toBe(200);
+  expect(preview.json().roomId).toBe(room.roomId);
+  expect(preview.json()).not.toHaveProperty('members');
+  const snapshot = await app.inject({
+    method: 'POST',
+    url: '/rooms/snapshot',
+    headers,
+    payload: { roomId: room.roomId },
+  });
+  expect(snapshot.statusCode).toBe(200);
+  expect(snapshot.json().you.actorId).toBe(identity.actorId);
+  const missingOrigin = await app.inject({
+    method: 'POST',
+    url: '/rooms/snapshot',
+    headers: { cookie: headers.cookie },
+    payload: { roomId: room.roomId },
+  });
+  expect(missingOrigin.statusCode).toBe(403);
+});

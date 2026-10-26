@@ -820,6 +820,21 @@ describe('resource and lifetime bounds', () => {
     expect(
       (await get(`/rooms/${room.roomId}/snapshot`, owner)).statusCode,
     ).toBe(401);
+    // The client close event can arrive before the server's queued detach.
+    // Observe authoritative offline state before advancing the fake idle clock.
+    const observer = await guest('observer');
+    expect((await join(observer, room)).statusCode).toBe(200);
+    const observerClient = await connect(observer, room.roomId);
+    const observerClosed = closeCode(observerClient.socket);
+    observerClient.socket.close();
+    await observerClosed;
+    await expect
+      .poll(async () =>
+        (await snap(observer, room.roomId)).members.every(
+          (member) => !member.connected,
+        ),
+      )
+      .toBe(true);
     now = 200;
     const replacement = await guest('new identity');
     expect(replacement.actorId).not.toBe(owner.actorId);

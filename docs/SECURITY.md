@@ -1,14 +1,14 @@
 # Security
 
-## Implemented
+## Stage A foundation baseline
 
-No secrets in the client. Environment files ignored by Git, example tracked. Server binds to loopback by default. Zod validates server configuration. Fastify limits request bodies to 16 KiB and sets a 10-second request timeout. Authorization/cookie headers are redacted from structured logs. Health contains no secrets or dependency diagnostics. There are no user-input UI rendering paths, database queries, authentication, uploads or gameplay endpoints yet.
+No secrets in the client. Environment files ignored by Git, example tracked. Server binds to loopback by default. Zod validates server configuration. Fastify limits request bodies to 16 KiB and sets a 10-second request timeout. Authorization/cookie headers are redacted from structured logs. Health contains no secrets or dependency diagnostics. Stage A originally exposed only health. Stage C/D add the guest transport and gameplay/UI controls described below; database/account/upload paths remain unimplemented.
 
 ## Stage B engine controls
 
 The engine checks deck uniqueness, ranks/suits, seat bounds, action phase, cutter/selector, turn, card ownership and trick order. Randomness must be supplied by a trusted secure source; no predictable fallback exists. Readonly transitions preserve inputs, and externally supplied cards/decks are copied. Tests deep-freeze state and exercise 100 full rounds.
 
-`PrivateRound` includes every hidden card, original deal and play evidence; the entire structure is confidential. No frontend/shared imports or endpoint integration were added. Manual accusation verification uses saved hand contents. Duplicate round awards and duplicate transfers for the same evidence are prevented within the preserved ledger. Gameplay deception never triggers automatic alerts or penalties. Unresolved timing/bonus/dealer policies cannot run through a default rule.
+`PrivateRound` includes every hidden card, original deal and play evidence; the entire structure is confidential. Stage B added no frontend/shared imports or endpoint integration; Stage C integrates the engine through separate server-private orchestration. Manual accusation verification uses saved hand contents. Duplicate round awards and duplicate transfers for the same evidence are prevented within the preserved ledger. Gameplay deception never triggers automatic alerts or penalties. Unresolved timing/bonus/dealer policies cannot run through a default rule.
 
 This engine is a trusted in-process component, not an authentication or serialization boundary. Tests do not establish WebSocket hidden-card isolation; Stage C adds specific integration coverage below. Future code must never log raw private state, accept policy/ledger/state from clients, or expose adjudication reasoning as a hand-query oracle. TypeScript readonly does not prevent runtime mutation by trusted code; callbacks must be pure and trusted. Globally unique IDs, secure RNG, persistence and bounded ledger lifetime remain caller responsibilities.
 
@@ -21,6 +21,14 @@ Strict schemas prohibit client-owned deck/score/result/policy/seat fields. The s
 Real network tests exercise four simultaneous clients, correct private deals, full-round public events, forged actors/cookies, foreign/missing origins, unauthorized rooms, concurrent joins/actions, duplicate IDs across reconnect, stale versions, replaced sockets, malformed/binary/oversized traffic, outbound bounds, session/room expiry and request/message/capacity limits. Manual-report tests inject hypothetical eligibility only to test mechanics. These results do not certify protection against every attack or real-world network exhaustion.
 
 Limits, cookie scope, heartbeat and in-memory lifecycle are documented in MULTIPLAYER.md. Sessions/rooms are lost on restart; proxy rate handling defaults to Fastify's direct peer IP. Production reverse-proxy trust/limits, TLS termination, durable account/session design, revocation, operational monitoring and broader hardening remain later-stage work. No full security audit, penetration test or production readiness claim has been made.
+
+## Stage D browser boundary
+
+The browser imports only public shared types, never engine implementation/state. It renders recipient hands and public plays/counts; opponents have generic backs only. It does not calculate cheating violations, recommend follow-suit restrictions, guess scores or apply penalties. Names and notices are React text; an HTML-like name regression verifies no image/handler is created.
+
+Credentials remain HttpOnly; sessionStorage contains only public room/name metadata, not tokens or cards. All actions use the server identity, fresh UUIDs/expected versions and retained original IDs for uncertain delivery. Offline/pending controls prevent accidental duplicate UI submissions; backend validation remains authoritative. Stale events, old duplicate acknowledgements and late asynchronous reconnect callbacks cannot overwrite newer confirmed state. HTTP requests/retries and connection/action/sync timers are bounded and cleaned up.
+
+New read-only POST routes preserve the existing exact-Origin and member checks rather than allowing missing Origin on browser GETs. Production still requires HTTPS/WSS and a same-site API or reverse proxy. Client-side controls are usability measures, not authorization. Google OIDC/account/profile/upload security remains Stage E/J, with no production security certification claimed.
 
 ## Planned and unverified
 

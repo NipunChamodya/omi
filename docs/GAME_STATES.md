@@ -1,6 +1,6 @@
 # Game states
 
-**Engine states implemented in Stage B; integrated with server-authoritative room actions in Stage C. No game UI yet.**
+**Engine states implemented in Stage B; integrated with server-authoritative room actions in Stage C. Stage D now renders these public phases.**
 
 ```mermaid
 stateDiagram-v2
@@ -35,3 +35,9 @@ Ordinary plays publish compact deltas; authenticated sync and reconnect use priv
 Cancellation/restart and next-round advancement are gated by trusted owner-confirmed policies. Normal dealer rotation is still unspecified, so the default server completes one round and refuses to invent the next dealer. Explicit test-only callbacks verify restart and continuation mechanics; none is activated in the default application.
 
 See MULTIPLAYER.md for action schemas, version-gap handling, capacity and ephemeral lifecycle limits.
+
+## Stage D browser states
+
+Home/join → pending HTTP entry → room connecting → lobby snapshot → ready/start → cut/trump/playing/complete views. Every gameplay transition remains server-authoritative. Card selection is local UI only; Play sends an action and the card remains until its confirmed public event. Gaps switch controls to recovery until a snapshot arrives. A lost ack retries the identical action rather than advancing or recreating a card play.
+
+Offline, reconnecting, replaced-tab and expired-session states disable gameplay and expose appropriate recovery/home controls. Cached metadata can resume the same table, but does not contain a saved engine state or hand. No client transition chooses a new dealer, auto-accuses or scores an unconfirmed combination.

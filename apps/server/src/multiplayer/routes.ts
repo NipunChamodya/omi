@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import type { ZodType } from 'zod';
 import type { ClientCommand } from '@omi/shared';
 import type { RandomInt } from '@omi/game-engine';
@@ -147,6 +148,21 @@ export async function registerMultiplayer(
         return rooms.preview(identity, parse(codeSchema, request.params.code));
       },
     );
+    // Browser same-origin GET requests can omit Origin. These read-only POST equivalents
+    // retain mandatory Origin validation without weakening the existing routes.
+    api.post('/rooms/preview', async (request) => {
+      const identity = identityFor(request);
+      const body = parse(z.strictObject({ code: codeSchema }), request.body);
+      return rooms.preview(identity, body.code);
+    });
+    api.post('/rooms/snapshot', async (request) => {
+      const identity = identityFor(request);
+      const body = parse(
+        z.strictObject({ roomId: roomIdSchema }),
+        request.body,
+      );
+      return rooms.getSnapshot(body.roomId, identity);
+    });
     api.post('/rooms/join', async (request) => {
       const identity = identityFor(request);
       return rooms.join(identity, parse(joinSchema, request.body));

@@ -1,6 +1,6 @@
 # Multiplayer backend and wire protocol — Stage C
 
-**Implemented and tested:** four-player private rooms, opposite seats/teams, ready/start, server-owned engine actions, serial processing, idempotency, versions, private snapshots, reconnect replacement and compact events. Frontend flows remain Stage D. Google accounts/profiles remain Stage E. This is a single-process in-memory backend, not production certification.
+**Implemented and tested:** four-player private rooms, opposite seats/teams, ready/start, server-owned engine actions, serial processing, idempotency, versions, private snapshots, reconnect replacement and compact events. Stage D implements the frontend flows; see UI.md. Google accounts/profiles remain Stage E. This is a single-process in-memory backend, not production certification.
 
 ## Transport identity and origin
 
@@ -25,7 +25,7 @@ All multiplayer responses use `Cache-Control: no-store`. Credentialed CORS allow
 | GET `/rooms/:roomId/snapshot`     | Member cookie                                                 | Explicit player-specific snapshot; outsiders receive ROOM_NOT_FOUND                      |
 | GET `/rooms/:roomId/ws` (upgrade) | Member cookie and Origin; no query                            | One active socket per identity; initial private snapshot                                 |
 
-Room IDs and action IDs are UUIDs. Codes use eight secure random characters from ABCDEFGHJKLMNPQRSTUVWXYZ23456789. Invite metadata is `/?room=CODE`, relative to the frontend. Its browser consumption is Stage D, not an implemented join screen.
+Room IDs and action IDs are UUIDs. Codes use eight secure random characters from ABCDEFGHJKLMNPQRSTUVWXYZ23456789. Invite metadata is `/?room=CODE`, relative to the frontend. Stage D consumes it in the browser join form.
 
 Room creation starts at version 0 and assigns the ID server-side, so it has no pre-existing room identifier. All subsequent room mutations include that identifier and expected version. Authenticated actor claims must match the cookie identity. One identity can occupy only one unexpired room. The same successful create/join request is idempotent; changed contents under a committed ID are refused. HTTP version conflicts require fetching a fresh preview and submitting a new request ID. Retried HTTP receipts return their original descriptor/version; use a fresh snapshot for current state.
 
@@ -71,7 +71,7 @@ Deal events are constructed independently for each recipient and contain only th
 
 Snapshots are explicit whitelist projections: room metadata, own seat/team, public roster/presence, public round header, own current hand, public hand counts, current and previously completed public tricks, and totals/carry/result. No engine object or ledger history is spread onto the wire. `PrivateRound`, original deals, hand-before evidence, violation flags, session token hashes, receipts and private ledger entries never leave the server. Saved evidence is used only by a manual report path with trusted policy.
 
-A future client must apply an event only when `fromVersion` matches its local version, ignore already-applied event versions, and request sync on a gap. Ack versions can be old on duplicate retries; an ack alone is not a state snapshot. These frontend reducers/reconnect UX are Stage D.
+The Stage D client applies an event only when `fromVersion` matches its local version, ignore already-applied event versions, and request sync on a gap. Ack versions can be old on duplicate retries; an ack alone is not a state snapshot. Stage D implements this reducer/reconnect behavior; see UI.md.
 
 ## Reconnection and lifecycle
 
@@ -101,7 +101,7 @@ npm run lint
 npm run format:check
 ```
 
-The integration tests create four independent cookie jars and real WebSocket clients on ephemeral loopback ports. Local listening must be permitted. They exercise a complete round, private hand delivery, races, retries across reconnect, stale versions, replaced sockets, early sync frames, isolation, malicious frames, rate/capacity/TTL bounds and explicit test-only policy mechanics. No external service or Google credentials are needed. A browser game cannot yet be played through the foundation shell.
+The integration tests create four independent cookie jars and real WebSocket clients on ephemeral loopback ports. Local listening must be permitted. They exercise a complete round, private hand delivery, races, retries across reconnect, stale versions, replaced sockets, early sync frames, isolation, malicious frames, rate/capacity/TTL bounds and explicit test-only policy mechanics. No external service or Google credentials are needed. The Stage D browser interface now supports a complete first round; see UI.md.
 
 For manual API exploration, copy `.env.example` to `apps/server/.env`, run `npm run dev:server`, and use an Origin header with a cookie jar:
 
@@ -112,3 +112,7 @@ curl -i -c /tmp/omi-guest.cookies -H 'Origin: http://127.0.0.1:5173' -H 'Content
 Use the returned actorId, a fresh UUID actionId and expectedVersion 0 to POST `/rooms` with the same Origin and cookie jar (`-b /tmp/omi-guest.cookies`). Other players need independent jars and join using a fresh preview's version. Do not share credential files or put them in URLs/repository files.
 
 Transport lifecycle references: [Fastify WebSocket documentation](https://github.com/fastify/fastify-websocket), [ws heartbeat examples](https://github.com/websockets/ws#how-to-detect-and-close-broken-connections). Listeners are attached synchronously, authorization runs before upgrade, and oversized/binary messages are handled separately from HTTP lifecycle errors.
+
+## Stage D browser read equivalents
+
+POST `/rooms/preview` accepts `{code}` and POST `/rooms/snapshot` accepts `{roomId}` with the same session/member authorization as the GET counterparts. They remain read-only and strict-schema validated. The frontend uses these because same-origin browser GETs can omit Origin; mandatory Origin checks were not relaxed. Vite proxies `/api` to the local backend for HTTP and WebSockets. UI-specific recovery, metadata and deployment details are in UI.md.

@@ -18,6 +18,12 @@ Defaults cap rooms, seats, identities, room queue depth, mutation receipts, HTTP
 
 The four-client full-round integration test establishes behavior, not capacity. No load test, mobile-device profile or production latency benchmark was performed. Frontend build sizes remain 69.25 kB JavaScript / 2.00 kB CSS gzipped.
 
+## Stage D
+
+Baseline cards, initials and table surfaces use local HTML/CSS with no image/font/audio payloads. GameTable is a separate lazy-loaded chunk; the browser never bundles the engine. Zustand projects public events instead of fetching full snapshots after ordinary card throws. There is no polling loop, optimistic rule engine or background audio. Short transform/opacity animations respect reduced motion.
+
+HTTP attempts, socket/ack/sync retries, timers and concurrent mutations are bounded. Native offline detection stops stale sockets and disables actions. Initial production JavaScript, lazy-table JavaScript and CSS sizes are recorded from the final actual Vite build in STAGE_D_REPORT.md. Browser simulations and bundle sizes do not establish device memory, network usage or production capacity guarantees. Physical-device, load and detailed rendering profiles remain later work.
+
 ## Planned
 
 Lazy-load gameplay and themes, local audio, compact socket events, reconnect snapshots, bounded active rooms, data saver and asset caching in their authorized stages.
