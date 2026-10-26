@@ -2,7 +2,7 @@
 
 A lightweight, mobile-first Sri Lankan card game for four friends.
 
-**Status: Stage A foundation implemented. Gameplay and all later stages are planned, not implemented.**
+**Status: Stage B standalone game engine implemented for confirmed rules. Multiplayer and all later stages are planned, not implemented. Unresolved rule-dependent paths remain gated.**
 
 ## Local setup
 
@@ -36,8 +36,8 @@ npm run test:e2e
 - `apps/web`: React, Vite, Tailwind mobile shell; Zustand installed for later UI state.
 - `apps/server`: Fastify health API, Zod environment validation, graceful shutdown.
 - `packages/shared`: infrastructure contracts.
-- `packages/game-engine`: dependency-free empty package boundary; no rules implemented.
+- `packages/game-engine`: dependency-free, server-private OMI rules engine with deterministic transitions and tested rule-clarification gates.
 - `docs`: architecture, owner rules, unresolved decisions, testing and operations.
 
-Development stops after each authorized stage. Stage B requires explicit owner authorization.
-See [Stage A report](docs/STAGE_A_REPORT.md) and [owner rules](docs/OWNER_RULES.md).
+Development stops after each authorized stage. Stage C requires explicit owner authorization.
+See [Stage B report](docs/STAGE_B_REPORT.md), [engine API](docs/ENGINE.md), and [owner rules](docs/OWNER_RULES.md).
