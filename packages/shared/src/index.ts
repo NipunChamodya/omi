@@ -35,3 +35,23 @@ export type {
   VoiceMessage,
   VoiceConfig,
 } from './voice.js';
+export {
+  quickPhrases,
+  reactions,
+  musicTracks,
+  musicPosition,
+  trimChat,
+  validSocialText,
+} from './social.js';
+export type {
+  MusicTrackId,
+  MusicState,
+  ChatEntry,
+  ReactionEntry,
+  ReportReason,
+  SocialReport,
+  SocialPayload,
+  SocialCommand,
+  SocialMessage,
+  SocialReply,
+} from './social.js';

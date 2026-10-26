@@ -2,7 +2,7 @@
 
 A lightweight, mobile-first Sri Lankan card game for four friends.
 
-**Status: Stage F voice chat implemented and locally verified. Four room members can opt into real WebRTC audio, mute, adjust individual volumes and recover connections. Direct and authenticated TURN relay browser tests pass locally. Public Google callback registration and real-device/network verification remain pending. Social features remain Stage G.**
+**Status: Stage G social features and shared music are implemented. Room chat supports Sinhala, English, Singlish and emojis; reactions, local blocking, private reports and opt-in synchronized music are included. Stages A–F remain intact. Public Google callback registration and real-device/network verification remain pending. PWA work is Stage H.**
 
 ## Local setup
 
@@ -45,7 +45,7 @@ Accounts, sessions and profile metadata persist in SQLite; avatars persist in ex
 - `packages/game-engine`: dependency-free, server-private OMI rules engine with deterministic transitions and tested rule-clarification gates.
 - `docs`: architecture, owner rules, unresolved decisions, testing and operations.
 
-Development stops after each authorized stage. Stage G requires explicit owner authorization.
+Development stops after each authorized stage. Stage H requires explicit owner authorization.
 See [Stage E report](docs/STAGE_E_REPORT.md), [Accounts setup](docs/ACCOUNTS.md), [Stage D report](docs/STAGE_D_REPORT.md), [UI guide](docs/UI.md), [multiplayer protocol](docs/MULTIPLAYER.md), [engine API](docs/ENGINE.md), and [owner rules](docs/OWNER_RULES.md).
 
 For the Stage E blank-screen investigation, environment-aware CSP, Firefox verification and exact restart commands, see [CSP fix report](docs/CSP_FIX_REPORT.md).
@@ -53,3 +53,5 @@ For the Stage E blank-screen investigation, environment-aware CSP, Firefox verif
 For free remote testing with the compiled frontend, standalone loopback NGINX and a gated Cloudflare Quick Tunnel, see [Cloudflare multiplayer setup](docs/CLOUDFLARE_MULTIPLAYER_SETUP.md). Public play remains blocked until the generated callback is accepted by Google and real login/external connectivity are verified. No development provider or guest fallback is published.
 
 Voice setup and microphone/TURN testing are documented in [Voice guide](docs/VOICE.md) and the [Stage F report](docs/STAGE_F_REPORT.md). Voice never records audio or sends it through gameplay WebSockets.
+
+Social setup, music licensing, moderation-report review and testing are documented in [Social guide](docs/SOCIAL.md) and the [Stage G report](docs/STAGE_G_REPORT.md). Run `npm run db:migrate -w @omi/server` for the additive report table before using the owner report-review CLI.

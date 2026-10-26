@@ -1,5 +1,9 @@
 # Deployment
 
+## Current Stage G status
+
+Stage G requires additive migration 0001_stage-g-reports.sql and its journal entry, shipped alongside existing migrations. Existing accounts are preserved; reports stay outside the static directory. The NGINX allowlist now includes /api/rooms/:roomId/social/ws. Bundle and serve all fingerprinted MP3/WAV build assets with their normal MIME/range support; no external music endpoint or upload storage is needed. Keep the full frontend CSP including media-src self and existing header protections. Owner review uses the local reports:review CLI, never a public admin route. No public deployment or Stage J readiness was established.
+
 ## Current Stage F status
 
 The NGINX allowlist now also proxies `/api/rooms/:roomId/voice/config` and `/api/rooms/:roomId/voice/ws`; the existing same-origin HTTPS/WSS setup is retained. No extra public application port is needed for signaling. WebRTC media is separate: Quick Tunnel HTTP forwarding does not provide STUN/TURN. Configure a reviewed reachable TURN service with server-only shared-secret REST credentials and appropriate TLS/UDP/TCP/firewall/quotas before claiming restrictive-network support. No public TURN service was provisioned; the installed coturn test runs only on loopback and must not be published. Google public callback registration remains unresolved. See VOICE.md.

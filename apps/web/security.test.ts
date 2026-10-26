@@ -5,6 +5,7 @@ it('permits nonced Vite scripts/styles and explicit local HMR only in developmen
   expect(policy).toContain("script-src 'self' 'nonce-test-nonce'");
   expect(policy).toContain("style-src 'self' 'nonce-test-nonce'");
   expect(policy).toContain('ws://127.0.0.1:5173');
+  expect(policy).toContain("media-src 'self'");
   expect(policy).not.toMatch(/unsafe-inline|unsafe-eval|\*/);
 });
 it('keeps production scripts and styles same-origin without tooling exceptions', () => {

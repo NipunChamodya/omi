@@ -1,5 +1,9 @@
 # Testing
 
+## Current Stage G status
+
+Stage G adds social server/React/audio-lifecycle tests and `npm run test:social` for four independent clients in Chromium/Firefox. The browser suite verifies escaped Unicode, optional adult content, incoming blocks, reports, no pre-opt-in audio requests and real MP3 play/pause/seek/track/reconnect synchronization. Existing voice suites now also test block/unblock restoring individual gain. Additive migration tests begin with the actual Stage E schema, preserve existing users, reopen/deduplicate reports, enforce 30-day/1,000-row retention and exercise compiled migration/review CLIs. Exact executed totals are in STAGE_G_REPORT.md; public Google, real phones and external networks remain unverified.
+
 ## Current Stage F status
 
 Stage F tests are documented in VOICE.md and STAGE_F_REPORT.md. `npm run test:voice` runs real four-browser audio over direct WebRTC; `npm run test:voice:relay` uses a real loopback coturn and requires relay candidate-pair statistics. Both use synthetic microphone sources and assert inbound RTP bytes, mute, volume, speaking, reconnect, track cleanup and authenticated logout. Browser artifacts/configuration remain under ignored .remote-testing. New server/client regressions cover authorization, private-room targeting, replay/version checks, safe microphone errors and late permission cleanup. Existing game/profile suites remain required. No public devices/networks are implied by local browser results.

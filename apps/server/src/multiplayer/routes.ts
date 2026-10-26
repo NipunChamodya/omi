@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie';
+import { registerSocial } from '../social/routes.js';
 import { registerVoice } from '../voice/routes.js';
 import type { IceSettings } from '../voice/config.js';
 import websocket from '@fastify/websocket';
@@ -152,6 +153,14 @@ export async function registerMultiplayer(
         VOICE_TURN_URLS: [],
         VOICE_ICE_POLICY: 'all',
       },
+      now,
+      limits.maxRooms,
+    );
+    registerSocial(
+      api,
+      rooms,
+      identityFor,
+      options.accounts.repo,
       now,
       limits.maxRooms,
     );

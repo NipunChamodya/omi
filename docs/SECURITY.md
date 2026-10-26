@@ -1,5 +1,9 @@
 # Security
 
+## Current Stage G status
+
+Social traffic requires exact Origin, the existing authenticated identity and its current game connection. Strict schemas accept only plain bounded Unicode text and catalog IDs; neither markup nor external media URLs are executed. Cross-room isolation, replay hashes/connection IDs, cooldowns and independent backpressure preserve game limits. Local incoming blocks hide chat/reactions and zero voice gain; they are not server bans or bidirectional isolation. Adult filters are explicitly limited, with opt-in reactions plus block/report controls. Reports use server-retrieved evidence, parameterized storage, a 30-day/1,000-row retention cap and no public read endpoint. The sole CSP extension is media-src self for same-origin bundled audio; no unsafe script/style exception was added. See SOCIAL.md.
+
 ## Current Stage F status
 
 Voice requires exact Origin, a valid existing session and the current game socket credential for the same room member. SDP/candidates reach only the targeted current call; cross-room delivery, forged actors, changed action retries, video SDP and binary audio are rejected. Only hashed receipt fingerprints are retained. Shared TURN secrets stay server-side; one-hour member credentials are necessarily visible to their recipient and expire independently of logout. The supported client stops capture on leave/disconnect/logout; an already established malicious peer-to-peer path cannot be revoked solely by server signaling. Direct peers may exchange network addresses; use reviewed TURN relay-only configuration when required. No recording/persistence or raw signaling logging was added. Safe example placeholders were restored where a Google credential was present; rotate the previously exposed credential. See VOICE.md.

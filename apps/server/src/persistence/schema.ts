@@ -65,3 +65,22 @@ export type UserRecord = typeof users.$inferSelect;
 export type SessionRecord = typeof sessions.$inferSelect;
 export type OAuthTransaction = typeof oauthTransactions.$inferSelect;
 export type AvatarRecord = typeof avatars.$inferSelect;
+export const socialReports = sqliteTable(
+  'social_reports',
+  {
+    id: text('id').primaryKey(),
+    roomId: text('room_id').notNull(),
+    reporterId: text('reporter_id').notNull(),
+    subjectId: text('subject_id').notNull(),
+    messageId: text('message_id').notNull(),
+    reason: text('reason').notNull(),
+    note: text('note').notNull(),
+    messageText: text('message_text').notNull(),
+    messageCreatedAt: integer('message_created_at').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('social_reports_once').on(table.reporterId, table.messageId),
+    index('social_reports_age').on(table.createdAt),
+  ],
+);

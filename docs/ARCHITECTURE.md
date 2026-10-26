@@ -1,5 +1,9 @@
 # Architecture
 
+## Current Stage G status
+
+Stage G adds a dedicated social WebSocket with a separate queue, sender sequences and bounded recent chat/music state. A lazy RoomControls module combines existing voice controls with escaped chat, reactions, local blocking and consent-gated HTML5 Audio. Music metadata is server-authoritative and host-controlled; bytes are bundled original assets. An additive SQLite migration stores explicitly reported chat evidence only, with a local owner-review CLI. Game engine, cards, scores and private projections are unchanged. See SOCIAL.md.
+
 ## Current Stage F status
 
 Stage F adds a separate room-authorized voice WebSocket and member-only ICE configuration route. Four opted-in clients form an audio-only WebRTC mesh; signaling has its own queue, limits, call IDs and versions. Game socket lifecycle revokes voice while engine/projections remain unchanged. The lazy room voice panel owns microphone tracks, peer/audio contexts and bounded recovery. See VOICE.md; social features remain Stage G.
@@ -48,7 +52,7 @@ The Vite dev proxy serves `/api` HTTP/WebSockets; optional public API configurat
 
 ## Planned
 
-Stage G: chat and local audio synchronization. H: PWA and data saver. I: replaceable lazy-loaded visual themes. J: final hardening and deployment verification. Stages E/F are implemented as described above.
+Stage H: PWA and data saver. I: replaceable lazy-loaded visual themes. J: final hardening and deployment verification. Stages E/F/G are implemented as described above.
 
 Stage E owns SQLite/Drizzle persistence, migrations and external avatar storage. Migrating to PostgreSQL requires an adapter and asynchronous integration changes. Permanent avatars are never stored on temporary hosting filesystems.
 

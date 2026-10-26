@@ -33,6 +33,7 @@ export function contentSecurityPolicy(
     `connect-src ${connections.join(' ')}`,
     `img-src ${images.join(' ')}`,
     "font-src 'self'",
+    "media-src 'self'",
     "base-uri 'none'",
     "object-src 'none'",
     "form-action 'self'",

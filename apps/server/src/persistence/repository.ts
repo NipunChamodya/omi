@@ -5,8 +5,15 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { and, eq, lt, or } from 'drizzle-orm';
-import { avatars, oauthTransactions, sessions, users } from './schema.js';
+import { and, eq, lt, or, desc, inArray } from 'drizzle-orm';
+import type { SocialReport } from '@omi/shared';
+import {
+  avatars,
+  oauthTransactions,
+  sessions,
+  users,
+  socialReports,
+} from './schema.js';
 import type {
   AvatarRecord,
   OAuthTransaction,
@@ -46,6 +53,7 @@ export interface AccountRepository {
   cleanupAvatars(now: number): AvatarRecord[];
   forgetAvatar(id: string): void;
   prune(now: number): void;
+  storeSocialReport(report: SocialReport): string;
   close(): void;
 }
 export class SqliteAccounts implements AccountRepository {
@@ -242,7 +250,48 @@ export class SqliteAccounts implements AccountRepository {
   forgetAvatar(id: string) {
     this.db.delete(avatars).where(eq(avatars.id, id)).run();
   }
+  storeSocialReport(report: SocialReport): string {
+    return this.db.transaction((tx) => {
+      tx.delete(socialReports)
+        .where(
+          lt(socialReports.createdAt, report.createdAt - 30 * 24 * 60 * 60_000),
+        )
+        .run();
+      const previous = tx
+        .select({ id: socialReports.id })
+        .from(socialReports)
+        .where(
+          and(
+            eq(socialReports.reporterId, report.reporterId),
+            eq(socialReports.messageId, report.messageId),
+          ),
+        )
+        .get();
+      if (previous) return previous.id;
+      tx.insert(socialReports).values(report).run();
+      const excess = tx
+        .select({ id: socialReports.id })
+        .from(socialReports)
+        .orderBy(desc(socialReports.createdAt), desc(socialReports.id))
+        .all()
+        .slice(1000);
+      if (excess.length)
+        tx.delete(socialReports)
+          .where(
+            inArray(
+              socialReports.id,
+              excess.map((row) => row.id),
+            ),
+          )
+          .run();
+      return report.id;
+    });
+  }
   prune(now: number) {
+    this.db
+      .delete(socialReports)
+      .where(lt(socialReports.createdAt, now - 30 * 24 * 60 * 60_000))
+      .run();
     this.db.delete(sessions).where(lt(sessions.expiresAt, now)).run();
     this.db
       .delete(oauthTransactions)

@@ -1,5 +1,9 @@
 # Mobile game interface — Stage D
 
+## Current Stage G status
+
+The collapsed-by-default Friends, chat & music section now provides Unicode chat/quick phrases, lightweight table taps/reactions, optional adult-language filtering, incoming block/mute controls, report submission and opt-in shared music with separate local levels. The host controls the shared timeline; all players choose local playback. HTML-like messages remain visible literal text. The four-client 320px layout and real media behavior are tested locally in both browsers; physical phones and mobile-background audio are not established. See SOCIAL.md.
+
 ## Current Stage F status
 
 A lazy Room voice panel is now available in lobby/game views. Microphone access is opt-in with join/leave, mute, speaking, individual playback gain, safe denial/errors and autoplay-retry controls. The 320px layout and all existing gameplay/profile flows are tested locally; physical iOS/Android voice and speaker quality remain unverified. Voice lifecycle cleanup does not remove the saved game seat. See VOICE.md.

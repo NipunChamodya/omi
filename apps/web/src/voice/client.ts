@@ -64,6 +64,7 @@ export class VoiceClient {
   private context: AudioContext | null = null;
   private localSource: MediaStreamAudioSourceNode | null = null;
   private localAnalyser: AnalyserNode | null = null;
+  private blocked = new Set<string>();
   private readonly volumes = new Map<string, number>();
   constructor(
     readonly roomId: string,
@@ -337,7 +338,9 @@ export class VoiceClient {
     audio.autoplay = true;
     audio.hidden = true;
     audio.setAttribute('playsinline', '');
-    audio.volume = this.volumes.get(peer.actorId) ?? 1;
+    audio.volume = this.blocked.has(peer.actorId)
+      ? 0
+      : (this.volumes.get(peer.actorId) ?? 1);
     document.body.append(audio);
     const link: Link = {
       peer,
@@ -544,13 +547,25 @@ export class VoiceClient {
     this.store.setState({ muted, speaking: false });
     this.transmit({ type: 'mute', payload: { muted } });
   };
+  setBlocked = (ids: readonly string[]) => {
+    this.blocked = new Set(ids);
+    for (const [actorId, link] of this.links) {
+      const value = this.blocked.has(actorId)
+        ? 0
+        : (this.volumes.get(actorId) ?? 1);
+      link.audio.volume = value;
+      if (link.gain) link.gain.gain.value = value;
+    }
+    this.peerStates();
+  };
   setVolume = (actorId: string, value: number) => {
     const volume = Math.max(0, Math.min(1, value));
     this.volumes.set(actorId, volume);
     const link = this.links.get(actorId);
     if (link) {
-      link.audio.volume = volume;
-      if (link.gain) link.gain.gain.value = volume;
+      const playback = this.blocked.has(actorId) ? 0 : volume;
+      link.audio.volume = playback;
+      if (link.gain) link.gain.gain.value = playback;
       this.peerStates();
     }
   };
