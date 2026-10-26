@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Member } from '@omi/shared';
+import { useDataSaver } from '../pwa/preferences';
 import { SocialClient } from './client';
 import SocialPanel from './SocialPanel';
 const VoicePanel = lazy(() => import('../voice/VoicePanel'));
@@ -16,6 +17,13 @@ export default function RoomControls({
   online: boolean;
 }) {
   const [client] = useState(() => new SocialClient(roomId, actorId));
+  const saver = useDataSaver((state) => state.enabled);
+  useEffect(() => {
+    if (saver) {
+      client.disableMusic();
+      client.disableEffects();
+    }
+  }, [client, saver]);
   const state = useStore(client.store);
   useEffect(() => () => client.stop(), [client]);
   useEffect(() => {

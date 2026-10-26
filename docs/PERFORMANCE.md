@@ -1,5 +1,9 @@
 # Performance
 
+## Current Stage H status
+
+Measured build: entry JS 254.29 kB / 79.47 kB gzip; CSS 28.85 / 7.68 kB gzip; worker about 1.87 kB. Installation caches entry JS/CSS plus the tiny offline files; lazy chunks cache on demand. Audio is excluded. Data Saver avoids shared avatar downloads, suppresses decorative motion and stops optional local audio until explicit opt-in. No new runtime dependency, background polling or game-state cache was added. No hardware CPU/battery/data benchmark was run. See PWA.md.
+
 ## Current Stage G status
 
 Stage G keeps audio disabled until local opt-in and code lazy until a room opens. Music/effect files total about 564 kB and use existing fingerprinted asset caching; no audio is streamed over WebSockets. The social channel retains at most 30 messages within 32 KiB, one music state and 128 hashed receipts per connection. Separate 64-task queues and actor budgets prevent chat/reaction traffic consuming game action allowances. One-second media drift checks and 15-second clock probes run only for enabled music; no full-state gameplay polling was added. Report writes are rare/bounded and SQLite remains the existing synchronous adapter. No physical-device or public load benchmark is claimed.

@@ -17,6 +17,14 @@ test('NGINX serves compiled assets, denies private files and preserves Origin ch
   ]) {
     expect((await request.get(path)).status(), path).toBe(404);
   }
+  const worker = await request.get('/sw.js');
+  expect(worker.status()).toBe(200);
+  expect(worker.headers()['cache-control']).toBe('no-cache');
+  expect(worker.headers()['content-type']).toMatch(/javascript/);
+  const manifest = await request.get('/manifest.webmanifest');
+  expect(manifest.headers()['content-type']).toContain(
+    'application/manifest+json',
+  );
   const response = await request.get('/');
   expect(response.status()).toBe(200);
   expect(response.headers()['content-security-policy']).toBe(

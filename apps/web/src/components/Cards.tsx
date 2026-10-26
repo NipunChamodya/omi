@@ -1,3 +1,4 @@
+import { useDataSaver } from '../pwa/preferences';
 import { useState } from 'react';
 import type { Card, Suit } from '@omi/shared';
 export const suits: Record<
@@ -63,10 +64,11 @@ export function Avatar({
   teammate?: boolean;
   src?: string | undefined;
 }) {
+  const saver = useDataSaver((state) => state.enabled);
   const [failed, setFailed] = useState<string | null>(null);
   return (
     <span className={`avatar ${teammate ? 'teammate' : ''}`} aria-hidden="true">
-      {src && failed !== src ? (
+      {!saver && src && failed !== src ? (
         <img
           src={src}
           alt=""

@@ -14,6 +14,8 @@ it('keeps production scripts and styles same-origin without tooling exceptions',
     'unused',
     'https://api.omi.example/api',
   );
+  expect(policy).toContain("worker-src 'self';");
+  expect(policy).toContain("manifest-src 'self';");
   expect(policy).toContain("script-src 'self';");
   expect(policy).toContain("style-src 'self';");
   expect(policy).toContain('https://api.omi.example wss://api.omi.example');

@@ -1,5 +1,9 @@
 # Testing
 
+## Current Stage H status
+
+Stage H adds npm run test:pwa for Chromium/Firefox: actual stopped-origin offline fallback/recovery, bounded private-data-free cache contents, waiting updates, PNG/manifest responses, 320px settings and persisted Data Saver. Unit tests validate generated-worker syntax, routing/caps/cleanup and safe preferences/avatar suppression; four-client social tests check local music stopping on mode changes. Existing full-round/profile/CSP suites remain passing. Physical Android/iOS and installed-mode real Google login remain unverified. See PWA.md and STAGE_H_REPORT.md.
+
 ## Current Stage G status
 
 Stage G adds social server/React/audio-lifecycle tests and `npm run test:social` for four independent clients in Chromium/Firefox. The browser suite verifies escaped Unicode, optional adult content, incoming blocks, reports, no pre-opt-in audio requests and real MP3 play/pause/seek/track/reconnect synchronization. Existing voice suites now also test block/unblock restoring individual gain. Additive migration tests begin with the actual Stage E schema, preserve existing users, reopen/deduplicate reports, enforce 30-day/1,000-row retention and exercise compiled migration/review CLIs. Exact executed totals are in STAGE_G_REPORT.md; public Google, real phones and external networks remain unverified.

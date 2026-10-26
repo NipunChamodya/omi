@@ -237,6 +237,24 @@ test('four friends exchange safe social content and synchronize real opt-in musi
       ).toBe(true);
       await expect(page.locator('.lobby-seat:not(.empty)')).toHaveCount(4);
     }
+    await pages[1]!.getByRole('checkbox', { name: 'Data Saver Mode' }).check();
+    await expect(
+      music(pages[1]!).getByRole('button', { name: 'Enable music locally' }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        pages[1]!
+          .locator('audio[data-social-music]')
+          .evaluate((node) => (node as HTMLAudioElement).paused),
+      )
+      .toBe(true);
+    await expect(pages[1]!.locator('.avatar img')).toHaveCount(0);
+    await pages[1]!
+      .getByRole('checkbox', { name: 'Data Saver Mode' })
+      .uncheck();
+    await expect(
+      music(pages[1]!).getByRole('button', { name: 'Enable music locally' }),
+    ).toBeVisible();
     await host.screenshot({
       path: info.outputPath('social-320.png'),
       fullPage: true,

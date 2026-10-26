@@ -1,5 +1,9 @@
 # Architecture
 
+## Current Stage H status
+
+A build-generated root service worker caches an exact static JS/CSS allowlist and generic offline page. It never caches API/player data or queues gameplay. Updates wait for old tabs to close. A small global Data Saver preference skips avatars and decorative motion and turns off locally enabled music/effects until explicit opt-in. Manifest, original PNG icons and iOS metadata support installation. See PWA.md for implementation and hardware-test limits.
+
 ## Current Stage G status
 
 Stage G adds a dedicated social WebSocket with a separate queue, sender sequences and bounded recent chat/music state. A lazy RoomControls module combines existing voice controls with escaped chat, reactions, local blocking and consent-gated HTML5 Audio. Music metadata is server-authoritative and host-controlled; bytes are bundled original assets. An additive SQLite migration stores explicitly reported chat evidence only, with a local owner-review CLI. Game engine, cards, scores and private projections are unchanged. See SOCIAL.md.
@@ -52,7 +56,7 @@ The Vite dev proxy serves `/api` HTTP/WebSockets; optional public API configurat
 
 ## Planned
 
-Stage H: PWA and data saver. I: replaceable lazy-loaded visual themes. J: final hardening and deployment verification. Stages E/F/G are implemented as described above.
+Stage H is implemented above. I: replaceable lazy-loaded visual themes. J: final hardening and deployment verification. Stages E/F/G are implemented as described above.
 
 Stage E owns SQLite/Drizzle persistence, migrations and external avatar storage. Migrating to PostgreSQL requires an adapter and asynchronous integration changes. Permanent avatars are never stored on temporary hosting filesystems.
 

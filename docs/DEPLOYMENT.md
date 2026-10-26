@@ -1,5 +1,9 @@
 # Deployment
 
+## Current Stage H status
+
+Serve the full compiled apps/web/dist at the origin root, including sw.js, manifest.webmanifest, icons and offline files. HTTPS is required publicly. NGINX revalidates worker/manifest, types the manifest explicitly and keeps immutable caching on fingerprinted assets. Preserve old fingerprinted files while older clients remain open. PWA registration is disabled in Vite development; loopback preview supports verification. No public deployment or Google hostname gate bypass is part of this stage. See PWA.md.
+
 ## Current Stage G status
 
 Stage G requires additive migration 0001_stage-g-reports.sql and its journal entry, shipped alongside existing migrations. Existing accounts are preserved; reports stay outside the static directory. The NGINX allowlist now includes /api/rooms/:roomId/social/ws. Bundle and serve all fingerprinted MP3/WAV build assets with their normal MIME/range support; no external music endpoint or upload storage is needed. Keep the full frontend CSP including media-src self and existing header protections. Owner review uses the local reports:review CLI, never a public admin route. No public deployment or Stage J readiness was established.

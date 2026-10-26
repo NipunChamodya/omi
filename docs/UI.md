@@ -1,5 +1,9 @@
 # Mobile game interface — Stage D
 
+## Current Stage H status
+
+App settings adds persistent Data Saver, install guidance/native deferred prompt when supported, offline status and waiting-update guidance. Existing portrait layout/safe areas/reduced motion remain. Data Saver shows initials instead of shared Avatar images, disables decorative motion and stops locally enabled music/effects; explicit audio opt-in and voice controls remain available. See PWA.md for mobile hardware verification limits.
+
 ## Current Stage G status
 
 The collapsed-by-default Friends, chat & music section now provides Unicode chat/quick phrases, lightweight table taps/reactions, optional adult-language filtering, incoming block/mute controls, report submission and opt-in shared music with separate local levels. The host controls the shared timeline; all players choose local playback. HTML-like messages remain visible literal text. The four-client 320px layout and real media behavior are tested locally in both browsers; physical phones and mobile-background audio are not established. See SOCIAL.md.

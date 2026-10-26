@@ -208,6 +208,20 @@ test('four real peer connections carry audio, mute, recover and stop without pla
         )
         .toBe(3);
     }
+    const saver = pages[0]!.getByRole('checkbox', { name: 'Data Saver Mode' });
+    await saver.check();
+    await expect(
+      pages[0]!.locator('[data-voice-peer][data-connection="connected"]'),
+    ).toHaveCount(3);
+    expect(
+      await pages[0]!.evaluate(() =>
+        (window as unknown as { __voiceStreams: MediaStream[] }).__voiceStreams
+          .at(-1)!
+          .getAudioTracks()
+          .every((track) => track.enabled && track.readyState === 'live'),
+      ),
+    ).toBe(true);
+    await saver.uncheck();
     await pages[0]!.setViewportSize({ width: 320, height: 568 });
     expect(
       await pages[0]!.evaluate(
