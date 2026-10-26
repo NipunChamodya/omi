@@ -22,7 +22,9 @@
     "test:infra": "node --test infra/tests/*.test.mjs",
     "test:e2e:nginx": "playwright test --config playwright.nginx.config.ts",
     "test:voice": "playwright test --config playwright.voice.config.ts",
-    "test:voice:relay": "playwright test --config playwright.voice-relay.config.ts"
+    "test:voice:relay": "playwright test --config playwright.voice-relay.config.ts",
+    "test:pwa": "playwright test --config playwright.pwa.config.ts",
+    "test:social": "playwright test --config playwright.social.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

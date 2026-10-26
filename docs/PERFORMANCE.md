@@ -1,5 +1,13 @@
 # Performance
 
+## Current Stage H status
+
+Measured build: entry JS 254.29 kB / 79.47 kB gzip; CSS 28.85 / 7.68 kB gzip; worker about 1.87 kB. Installation caches entry JS/CSS plus the tiny offline files; lazy chunks cache on demand. Audio is excluded. Data Saver avoids shared avatar downloads, suppresses decorative motion and stops optional local audio until explicit opt-in. No new runtime dependency, background polling or game-state cache was added. No hardware CPU/battery/data benchmark was run. See PWA.md.
+
+## Current Stage G status
+
+Stage G keeps audio disabled until local opt-in and code lazy until a room opens. Music/effect files total about 564 kB and use existing fingerprinted asset caching; no audio is streamed over WebSockets. The social channel retains at most 30 messages within 32 KiB, one music state and 128 hashed receipts per connection. Separate 64-task queues and actor budgets prevent chat/reaction traffic consuming game action allowances. One-second media drift checks and 15-second clock probes run only for enabled music; no full-state gameplay polling was added. Report writes are rare/bounded and SQLite remains the existing synchronous adapter. No physical-device or public load benchmark is claimed.
+
 ## Current Stage F status
 
 Stage F adds no npm runtime dependency. The initial bundle is 251.42 kB (78.51 kB gzip); voice loads as a 14.33 kB chunk (4.84 kB gzip) only in a room. CSS is 26.24 kB (7.12 kB gzip). One microphone track feeds three peers per participant. Speaking meters sample locally every 150ms and update UI only when indicators change. Server signaling uses bounded separate queues, 4 KiB frames, 64 KiB backpressure, 90 messages/10 seconds/actor and 128 small hashed receipts/call. Audio bypasses Fastify/gameplay WebSockets and SQLite entirely. Direct/relay browser tests are functional evidence, not device CPU/bandwidth or public TURN load benchmarks.

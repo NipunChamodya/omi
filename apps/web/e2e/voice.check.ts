@@ -208,6 +208,20 @@ test('four real peer connections carry audio, mute, recover and stop without pla
         )
         .toBe(3);
     }
+    const saver = pages[0]!.getByRole('checkbox', { name: 'Data Saver Mode' });
+    await saver.check();
+    await expect(
+      pages[0]!.locator('[data-voice-peer][data-connection="connected"]'),
+    ).toHaveCount(3);
+    expect(
+      await pages[0]!.evaluate(() =>
+        (window as unknown as { __voiceStreams: MediaStream[] }).__voiceStreams
+          .at(-1)!
+          .getAudioTracks()
+          .every((track) => track.enabled && track.readyState === 'live'),
+      ),
+    ).toBe(true);
+    await saver.uncheck();
     await pages[0]!.setViewportSize({ width: 320, height: 568 });
     expect(
       await pages[0]!.evaluate(
@@ -238,6 +252,27 @@ test('four real peer connections carry audio, mute, recover and stop without pla
     await expect(
       pages[1]!.getByRole('slider', { name: 'Volume for Voice host' }),
     ).toHaveValue('0.25');
+    const social = pages[1]!.locator('.social-panel > details');
+    await social.locator('> summary').click();
+    await pages[1]!.locator('.social-settings > summary').click();
+    const block = pages[1]!.getByLabel(
+      'Block incoming chat, reactions and voice from Voice host',
+    );
+    await block.check();
+    await expect(
+      pages[1]!.getByRole('slider', { name: 'Volume for Voice host' }),
+    ).toBeDisabled();
+    await expect(
+      pages[1]!.getByRole('slider', { name: 'Volume for Voice host' }),
+    ).toHaveValue('0');
+    await expect(
+      pages[1]!.locator('[data-voice-peer][data-connection="connected"]'),
+    ).toHaveCount(3);
+    await block.uncheck();
+    await expect(
+      pages[1]!.getByRole('slider', { name: 'Volume for Voice host' }),
+    ).toHaveValue('0.25');
+    await social.locator('> summary').click();
     await pages[0]!
       .getByRole('button', { name: 'Unmute microphone', exact: true })
       .click();

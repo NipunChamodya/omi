@@ -1,5 +1,13 @@
 # Game states
 
+## Current Stage H status
+
+Stage H adds no engine or server state. Offline navigation displays a generic static fallback; live tabs retain existing disconnected/reconnect handling and server-only actions. No hands, account data, commands or game snapshots are persisted by the service worker. Data Saver is visual/audio preference only. Updates wait for clients to close; backend restart still destroys rooms.
+
+## Current Stage G status
+
+Social chat/reactions have their own ephemeral connection sequence and do not advance game versions. Shared music has an independent host-controlled revision/timeline. Local audio, profanity preferences and incoming blocks are device/table controls; reports never modify scores or adjudicate cheating. Disconnect pauses local audio and revokes social access while preserving current room social history until room expiry. Backend restart still ends in-memory game/social state. No owner game rule changed.
+
 ## Current Stage F status
 
 Voice is an independent opt-in lifecycle: off → joining → connected, with bounded reconnecting/error paths and explicit leave. It never increments game versions, adds turns or changes scores. Voice-local action sequence/call IDs are distinct from game state versions. Leaving voice preserves game membership; game socket loss/logout closes voice and microphone tracks. No OMI engine phase or owner rule changed.

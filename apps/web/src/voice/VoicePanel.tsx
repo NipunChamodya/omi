@@ -2,16 +2,19 @@ import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Member } from '@omi/shared';
 import { VoiceClient } from './client';
+const noBlocked: readonly string[] = [];
 export default function VoicePanel({
   roomId,
   actorId,
   members,
   online,
+  blockedActorIds = noBlocked,
 }: {
   roomId: string;
   actorId: string;
   members: readonly Member[];
   online: boolean;
+  blockedActorIds?: readonly string[];
 }) {
   const [client] = useState(() => new VoiceClient(roomId, actorId));
   const state = useStore(client.store);
@@ -19,6 +22,9 @@ export default function VoicePanel({
   useEffect(() => {
     client.setOnline(online);
   }, [client, online]);
+  useEffect(() => {
+    client.setBlocked(blockedActorIds);
+  }, [client, blockedActorIds]);
   const active = ['joining', 'connected', 'reconnecting'].includes(
     state.status,
   );
@@ -104,17 +110,20 @@ export default function VoicePanel({
                 />
                 <span>
                   {name} ·{' '}
-                  {peer.muted
-                    ? 'Muted'
-                    : peer.speaking
-                      ? 'Speaking'
-                      : peer.connection === 'connected'
-                        ? 'Listening'
-                        : 'Connecting'}
+                  {blockedActorIds.includes(peer.actorId)
+                    ? 'Blocked'
+                    : peer.muted
+                      ? 'Muted'
+                      : peer.speaking
+                        ? 'Speaking'
+                        : peer.connection === 'connected'
+                          ? 'Listening'
+                          : 'Connecting'}
                 </span>
                 <label className="voice-volume">
                   Volume for {name}
                   <input
+                    disabled={blockedActorIds.includes(peer.actorId)}
                     type="range"
                     min="0"
                     max="1"

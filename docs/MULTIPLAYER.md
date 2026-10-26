@@ -1,5 +1,9 @@
 # Multiplayer backend and wire protocol — Stage C
 
+## Current Stage G status
+
+Stage G adds /rooms/:roomId/social/ws under the existing same-origin /api proxy. A valid session and current game socket under that credential are required. Social snapshots contain only bounded public chat and shared music; actions carry actor/room/connection IDs, UUID action IDs and expected social sequence. Host music additionally checks its independent music revision. Separate rate/queue budgets, heartbeat/backpressure and composed disconnect callbacks preserve game/voice behavior. No audio, hand or private cheating evidence is broadcast by this channel. See SOCIAL.md for schemas, retention, filtering and synchronization.
+
 ## Current Stage F status
 
 Stage F adds dedicated member-only POST `/rooms/:roomId/voice/config` and WebSocket `/rooms/:roomId/voice/ws`, behind the existing /api proxy. The actor must have a current game connection under the same session credential. Voice signaling is independent of ClientCommand/ServerMessage and game room versions; VOICE.md describes its call IDs, private target routing, per-connection sequence and separate rate/queue limits. Socket replacement/logout/detach closes voice. Audio itself never travels on either WebSocket; gameplay limits/projections remain unchanged.
