@@ -3,6 +3,7 @@ import { useStore } from 'zustand';
 import { GameClient } from './game/client';
 import type { AuthSession, PublicProfile } from '@omi/shared';
 import { authApi, avatarSource } from './auth/api';
+import { ThemeControls } from './themes/ThemeControls';
 import { PwaControls } from './pwa/PwaControls';
 import { Brand, Avatar } from './components/Cards';
 import { Home } from './components/Home';
@@ -130,6 +131,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
         </div>
       </header>
       <PwaControls />
+      <ThemeControls />
       <main
         id="main"
         tabIndex={-1}

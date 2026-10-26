@@ -1,5 +1,9 @@
 # Game states
 
+## Current Stage I status
+
+Stage I adds no game state. Local selected/loading/applied/error theme state controls presentation only. Generic card backs reveal no identity. Theme switches do not send game actions, mutate hands/scores or change turns; failed loads leave the last usable renderer. Preferences live only in browser local storage.
+
 ## Current Stage H status
 
 Stage H adds no engine or server state. Offline navigation displays a generic static fallback; live tabs retain existing disconnected/reconnect handling and server-only actions. No hands, account data, commands or game snapshots are persisted by the service worker. Data Saver is visual/audio preference only. Updates wait for clients to close; backend restart still destroys rooms.

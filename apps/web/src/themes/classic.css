@@ -1,0 +1,15 @@
+[data-card-theme='classic'] .card-face {
+  background: linear-gradient(145deg, #fffdf4 0%, #f1ecdb 100%);
+  border-color: #c9b785;
+  box-shadow:
+    inset 0 0 0 3px #fffdf4,
+    inset 0 0 0 4px #d4c9a7;
+  color: #173d32;
+}
+[data-card-theme='classic'] .card-face.red {
+  color: #a32e36;
+}
+
+[data-card-theme='classic'] .card-pip {
+  text-shadow: 0 1px 0 #fff;
+}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Card, Member, Seat, Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
 import { avatarSource } from '../auth/api';
-import { Avatar, CardFace, cardName, suits } from './Cards';
+import { Avatar, CardBack, CardFace, cardName, suits } from './Cards';
 const cardKey = (card: Card) => `${card.suit}:${card.rank}`;
 const relative = (seat: Seat, local: Seat) => (seat - local + 4) % 4;
 const positions = ['bottom', 'right', 'top', 'left'] as const;
@@ -48,7 +48,11 @@ function Player({
           className="hidden-hand"
           aria-label={`${snapshot.game!.handCounts[member.seat]} cards face down`}
         >
-          <span aria-hidden="true">▧ ▧ ▧</span>
+          <span className="hidden-card-backs" aria-hidden="true">
+            <CardBack />
+            <CardBack />
+            <CardBack />
+          </span>
           <small>{snapshot.game!.handCounts[member.seat]}</small>
         </span>
       )}

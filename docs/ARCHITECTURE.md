@@ -1,5 +1,9 @@
 # Architecture
 
+## Current Stage I status
+
+Stage I adds a frontend-only fixed theme registry, async selection store and native selector/preview. Classic and Royal use CSS faces and original generic SVG backs; rank/suit values and all engine/server actions stay unchanged. Preferences are browser-local. Same-origin styles load only on selection, with safe retry and stale-load protection. Entry-only PWA CSS precaching preserves lazy themes. See THEMES.md.
+
 ## Current Stage H status
 
 A build-generated root service worker caches an exact static JS/CSS allowlist and generic offline page. It never caches API/player data or queues gameplay. Updates wait for old tabs to close. A small global Data Saver preference skips avatars and decorative motion and turns off locally enabled music/effects until explicit opt-in. Manifest, original PNG icons and iOS metadata support installation. See PWA.md for implementation and hardware-test limits.
@@ -56,7 +60,7 @@ The Vite dev proxy serves `/api` HTTP/WebSockets; optional public API configurat
 
 ## Planned
 
-Stage H is implemented above. I: replaceable lazy-loaded visual themes. J: final hardening and deployment verification. Stages E/F/G are implemented as described above.
+Stages H/I are implemented above. J: final hardening and deployment verification. Stages E/F/G are implemented as described above.
 
 Stage E owns SQLite/Drizzle persistence, migrations and external avatar storage. Migrating to PostgreSQL requires an adapter and asynchronous integration changes. Permanent avatars are never stored on temporary hosting filesystems.
 

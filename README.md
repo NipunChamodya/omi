@@ -2,7 +2,7 @@
 
 A lightweight, mobile-first Sri Lankan card game for four friends.
 
-**Status: Stage H adds the installable PWA foundation, static-only offline fallback and Data Saver Mode. Stages A–G remain intact. Chromium/Firefox verification is complete; physical Android/iOS installation, public Google callback registration and remote-network verification remain pending.**
+**Status: Stage I adds Classic OMI and Royal Black & Gold card designs, local theme persistence, lazy artwork/styles and lightweight motion. Stages A–H remain intact. Physical Android/iOS, public Google callbacks and remote-network verification remain pending.**
 
 ## Local setup
 
@@ -46,7 +46,7 @@ Accounts, sessions and profile metadata persist in SQLite; avatars persist in ex
 - `packages/game-engine`: dependency-free, server-private OMI rules engine with deterministic transitions and tested rule-clarification gates.
 - `docs`: architecture, owner rules, unresolved decisions, testing and operations.
 
-Development stops after each authorized stage. Stage I requires explicit owner authorization. See [PWA setup](docs/PWA.md) and [Stage H report](docs/STAGE_H_REPORT.md).
+Development stops after each authorized stage. Stage J requires explicit owner authorization. See [Card themes](docs/THEMES.md) and [Stage I report](docs/STAGE_I_REPORT.md). See [PWA setup](docs/PWA.md) and [Stage H report](docs/STAGE_H_REPORT.md).
 See [Stage E report](docs/STAGE_E_REPORT.md), [Accounts setup](docs/ACCOUNTS.md), [Stage D report](docs/STAGE_D_REPORT.md), [UI guide](docs/UI.md), [multiplayer protocol](docs/MULTIPLAYER.md), [engine API](docs/ENGINE.md), and [owner rules](docs/OWNER_RULES.md).
 
 For the Stage E blank-screen investigation, environment-aware CSP, Firefox verification and exact restart commands, see [CSP fix report](docs/CSP_FIX_REPORT.md).

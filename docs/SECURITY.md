@@ -1,5 +1,9 @@
 # Security
 
+## Current Stage I status
+
+Stage I accepts only two registry IDs and trusted local CSS/SVG URLs. Arbitrary stored values cannot become imports, HTML or style URLs. No CSP change, private-card metadata, payment route or backend endpoint was added. Generic backs carry no card identity; rank/suit data and server validation remain authoritative. Existing XSS assertions now distinguish legitimate back images from injected player-name markup. See THEMES.md.
+
 ## Current Stage H status
 
 The worker is production/secure-context only, same-origin and GET-only. Exact build assets are eligible; API/OAuth, profiles/avatars, credentials, hands, messages and music are excluded. No automatic update takeover or offline action replay exists. CSP adds only self-scoped worker-src and manifest-src. Existing OIDC, cookies, CSRF, Origin and private projections remain unchanged. See PWA.md.

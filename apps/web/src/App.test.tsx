@@ -93,7 +93,10 @@ it('places the local player at bottom, teammate opposite, escapes names and allo
   expect(screen.getByTestId('seat-right')).toHaveTextContent(
     '<img src=x onerror=alert(1)>',
   );
-  expect(document.querySelector('img')).toBeNull();
+  expect(
+    screen.getByTestId('seat-right').querySelector('.player-name img'),
+  ).toBeNull();
+  expect(document.querySelector('img[src="x"], [onerror]')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Select 7 of clubs' }));
   expect(
     screen.getByRole('button', { name: 'Select 7 of clubs' }),

@@ -51,6 +51,18 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         ),
       ).toBe(true);
     }
+    // Every participant chooses independently before the same authoritative round.
+    for (let i = 0; i < pages.length; i++) {
+      await pages[i]!.getByText('Card themes', { exact: true }).click();
+      await pages[i]!.getByLabel('Card design', { exact: true }).selectOption(
+        i % 2 === 0 ? 'royal' : 'classic',
+      );
+      await expect(pages[i]!.locator('html')).toHaveAttribute(
+        'data-card-theme',
+        i % 2 === 0 ? 'royal' : 'classic',
+      );
+      await pages[i]!.getByText('Card themes', { exact: true }).click();
+    }
     for (let i = 0; i < pages.length; i++) {
       await pages[i]!.getByRole('button', { name: 'Ready to play' }).click();
       await Promise.all(
@@ -121,7 +133,33 @@ test('four mobile friends create, join, deal, play a round and resume after relo
       .evaluateAll((cards) =>
         cards.map((card) => card.getAttribute('aria-label')),
       );
+    const beforeScore = await host.getByTestId('score').innerText();
+    await host.getByText('Card themes', { exact: true }).click();
+    await host
+      .getByLabel('Card design', { exact: true })
+      .selectOption('classic');
+    await expect(host.locator('html')).toHaveAttribute(
+      'data-card-theme',
+      'classic',
+    );
+    expect(
+      await host
+        .getByTestId('hand-card')
+        .evaluateAll((cards) =>
+          cards.map((card) => card.getAttribute('aria-label')),
+        ),
+    ).toEqual(beforeReload);
+    expect(await host.getByTestId('score').innerText()).toBe(beforeScore);
+    await host.getByLabel('Card design', { exact: true }).selectOption('royal');
+    await expect(host.locator('html')).toHaveAttribute(
+      'data-card-theme',
+      'royal',
+    );
     await host.reload();
+    await expect(host.locator('html')).toHaveAttribute(
+      'data-card-theme',
+      'royal',
+    );
     await expect(host.getByTestId('hand-card')).toHaveCount(8);
     await expect(host.locator('.header-note')).toHaveText('At the table');
     expect(

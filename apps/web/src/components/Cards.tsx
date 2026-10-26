@@ -1,4 +1,7 @@
 import { useDataSaver } from '../pwa/preferences';
+import { useStore } from 'zustand';
+import { themeStore } from '../themes/store';
+import { themes } from '../themes/registry';
 import { useState } from 'react';
 import type { Card, Suit } from '@omi/shared';
 export const suits: Record<
@@ -14,6 +17,7 @@ export const cardName = (card: Card) => `${card.rank} of ${card.suit}`;
 export function CardFace({ card }: { card: Card }) {
   return (
     <span
+      aria-hidden="true"
       className={`card-face ${card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : ''}`}
     >
       <span className="card-corner">
@@ -27,6 +31,25 @@ export function CardFace({ card }: { card: Card }) {
         <b>{card.rank}</b>
         <span>{suits[card.suit].symbol}</span>
       </span>
+    </span>
+  );
+}
+export function CardBack() {
+  const active = useStore(themeStore, (state) => state.active);
+  const [failed, setFailed] = useState<string | null>(null);
+  const back = themes.find((theme) => theme.id === active)!.back;
+  return (
+    <span className="card-back" aria-hidden="true">
+      <span>♠</span>
+      {failed !== back && (
+        <img
+          src={back}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(back)}
+        />
+      )}
     </span>
   );
 }
