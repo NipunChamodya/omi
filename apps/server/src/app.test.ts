@@ -1,7 +1,13 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { parseConfig } from './config.js';
-const app = buildApp();
+const app = buildApp({
+  config: parseConfig({
+    NODE_ENV: 'test',
+    ALLOW_GUESTS: 'true',
+    DATABASE_PATH: ':memory:',
+  }),
+});
 afterAll(async () => {
   await app.close();
 });
@@ -11,18 +17,130 @@ describe('foundation API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'ok', service: 'omi-server' });
   });
-  it('returns 404 for routes not implemented in Stage A', async () => {
-    const response = await app.inject({ method: 'POST', url: '/rooms' });
-    expect(response.statusCode).toBe(404);
+  it('requires a transport session before room creation', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/rooms',
+      headers: { origin: 'http://127.0.0.1:5173' },
+      payload: {},
+    });
+    expect(response.statusCode).toBe(401);
+    expect(response.json().code).toBe('SESSION_REQUIRED');
   });
 });
 it('validates environment configuration and supplies safe local defaults', () => {
-  expect(parseConfig({})).toEqual({
+  expect(parseConfig({})).toMatchObject({
     HOST: '127.0.0.1',
     PORT: 3000,
+    APP_ORIGIN: 'http://127.0.0.1:5173',
     NODE_ENV: 'development',
   });
   for (const PORT of ['0', '65536', 'abc', '1.5'])
     expect(() => parseConfig({ PORT })).toThrow();
   expect(() => parseConfig({ NODE_ENV: 'invalid' })).toThrow();
+});
+
+it('rejects invalid origins and insecure production configuration', () => {
+  for (const APP_ORIGIN of [
+    'https://example.com/path',
+    'null',
+    'file:///tmp',
+    'http://example.com/',
+  ])
+    expect(() => parseConfig({ APP_ORIGIN })).toThrow();
+  expect(() => parseConfig({ NODE_ENV: 'production' })).toThrow();
+  expect(
+    parseConfig({ NODE_ENV: 'production', APP_ORIGIN: 'https://omi.example' })
+      .APP_ORIGIN,
+  ).toBe('https://omi.example');
+});
+
+it('supports private browser POST reads without relaxing Origin or membership checks', async () => {
+  const origin = 'http://127.0.0.1:5173';
+  const response = await app.inject({
+    method: 'POST',
+    url: '/transport/session',
+    headers: { origin },
+    payload: { displayName: 'Browser' },
+  });
+  const identity = response.json<{ actorId: string }>();
+  const guestCookie = response.cookies[0]!;
+  const headers = {
+    origin,
+    cookie: `${guestCookie.name}=${guestCookie.value}`,
+  };
+  const created = await app.inject({
+    method: 'POST',
+    url: '/rooms',
+    headers,
+    payload: {
+      actorId: identity.actorId,
+      actionId: crypto.randomUUID(),
+      expectedVersion: 0,
+    },
+  });
+  const room = created.json<{ roomId: string; code: string }>();
+  const preview = await app.inject({
+    method: 'POST',
+    url: '/rooms/preview',
+    headers,
+    payload: { code: room.code },
+  });
+  expect(preview.statusCode).toBe(200);
+  expect(preview.json().roomId).toBe(room.roomId);
+  expect(preview.json()).not.toHaveProperty('members');
+  const snapshot = await app.inject({
+    method: 'POST',
+    url: '/rooms/snapshot',
+    headers,
+    payload: { roomId: room.roomId },
+  });
+  expect(snapshot.statusCode).toBe(200);
+  expect(snapshot.json().you.actorId).toBe(identity.actorId);
+  const missingOrigin = await app.inject({
+    method: 'POST',
+    url: '/rooms/snapshot',
+    headers: { cookie: headers.cookie },
+    payload: { roomId: room.roomId },
+  });
+  expect(missingOrigin.statusCode).toBe(403);
+});
+
+it('trusts one explicitly configured loopback proxy, never a remote forwarding chain', async () => {
+  const proxyApp = buildApp({
+    logger: false,
+    config: parseConfig({
+      HOST: '127.0.0.1',
+      TRUST_LOCAL_PROXY: 'true',
+      NODE_ENV: 'test',
+      DATABASE_PATH: ':memory:',
+    }),
+  });
+  proxyApp.get('/test-proxy', async (request) => ({ ip: request.ip }));
+  try {
+    const headers = { 'x-forwarded-for': '198.51.100.25' };
+    expect(
+      (
+        await proxyApp.inject({
+          url: '/test-proxy',
+          remoteAddress: '127.0.0.1',
+          headers,
+        })
+      ).json().ip,
+    ).toBe('198.51.100.25');
+    expect(
+      (
+        await proxyApp.inject({
+          url: '/test-proxy',
+          remoteAddress: '203.0.113.2',
+          headers,
+        })
+      ).json().ip,
+    ).toBe('203.0.113.2');
+    expect(() =>
+      parseConfig({ HOST: '0.0.0.0', TRUST_LOCAL_PROXY: 'true' }),
+    ).toThrow();
+  } finally {
+    await proxyApp.close();
+  }
 });

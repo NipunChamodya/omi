@@ -10,7 +10,7 @@
     "node": ">=22.13.0 <23"
   },
   "scripts": {
-    "dev:web": "npm run dev -w @omi/web",
+    "dev:web": "npm run dev -w @omi/web --",
     "dev:server": "npm run dev -w @omi/server",
     "build": "npm run build -w @omi/shared && npm run build -w @omi/game-engine && npm run build -w @omi/server && npm run build -w @omi/web",
     "typecheck": "npm run typecheck --workspaces",
@@ -18,7 +18,11 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:infra": "node --test infra/tests/*.test.mjs",
+    "test:e2e:nginx": "playwright test --config playwright.nginx.config.ts",
+    "test:voice": "playwright test --config playwright.voice.config.ts",
+    "test:voice:relay": "playwright test --config playwright.voice-relay.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
@@ -33,5 +37,9 @@
     "typescript": "~5.8.0",
     "typescript-eslint": "^8.0.0",
     "vitest": "^5.0.5"
-  }
+  },
+  "overrides": {
+    "better-sqlite3": "^12.11.1"
+  },
+  "type": "module"
 }
