@@ -1,5 +1,9 @@
 # Deployment
 
+## Current Stage J status
+
+Stage J provides patched-runtime startup enforcement, a fail-closed read-only readiness command, security headers, operational monitoring, WAL-safe backup/restore tooling and an optional syntax-checked launchd template. Nothing has been publicly deployed or installed as a service. The current development environment intentionally fails production readiness; real Google/S3/TURN/HTTPS/phone/recovery checks remain open. See OPERATIONS.md for exact commands, process ownership and manual release gates; local tests are not approval to expose the app.
+
 ## Current Stage I status
 
 Stage I uses existing same-origin fingerprinted CSS/SVG hosting and unchanged CSP. Deploy the complete compiled assets directory; do not prefetch all theme CSS. The service worker precaches entry styles only and caches eligible lazy CSS on demand. Browser-local choices are origin-specific and do not migrate between temporary tunnel hostnames. No deployment or Stage J work was performed. See THEMES.md.

@@ -30,6 +30,10 @@ test('NGINX serves compiled assets, denies private files and preserves Origin ch
   expect(response.headers()['content-security-policy']).toBe(
     "frame-ancestors 'none'",
   );
+  expect(response.headers()['permissions-policy']).toBe(
+    'camera=(), geolocation=(), microphone=(self)',
+  );
+  expect(response.headers()['strict-transport-security']).toBeUndefined(); // Local HTTP fixture must not advertise HSTS.
   const html = await response.text();
   expect(html).not.toMatch(/@vite|src\/main\.tsx|__OMI_CSP_NONCE__/);
   const script = html.match(/src="([^"]+\.js)"/)![1]!;

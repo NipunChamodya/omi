@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { safeLogPath, registerRuntimeMonitoring } from './ops/runtime.js';
 import type { HealthResponse } from '@omi/shared';
 import { parseConfig } from './config.js';
 import { registerMultiplayer } from './multiplayer/routes.js';
@@ -36,9 +37,10 @@ export function buildApp(options: AppOptions = {}) {
         ? false
         : {
             serializers: {
+              path: safeLogPath,
               req: (request: { method?: string; url?: string }) => ({
                 method: request.method ?? '',
-                url: (request.url ?? '').split('?')[0] ?? '',
+                url: safeLogPath(request.url),
               }),
             },
             redact: [
@@ -49,7 +51,24 @@ export function buildApp(options: AppOptions = {}) {
           },
     bodyLimit: 16_384,
     requestTimeout: 30_000,
+    keepAliveTimeout: 5_000,
+    maxRequestsPerSocket: 1000,
   });
+  app.server.headersTimeout = 15_000;
+  app.addHook('onRequest', async (_request, reply) => {
+    reply
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Cache-Control', 'no-store')
+      .header(
+        'Content-Security-Policy',
+        "default-src 'none'; frame-ancestors 'none'",
+      )
+      .header('Referrer-Policy', 'no-referrer');
+    if (config.NODE_ENV === 'production')
+      reply.header('Strict-Transport-Security', 'max-age=86400');
+  });
+  if (config.NODE_ENV === 'production' && options.logger !== false)
+    registerRuntimeMonitoring(app);
   const repository =
     options.accounts?.repository ?? new SqliteAccounts(config.DATABASE_PATH);
   const provider =

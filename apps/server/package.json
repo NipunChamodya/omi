@@ -8,6 +8,9 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.test.json",
+    "db:backup": "tsx src/ops/backup-cli.ts",
+    "deploy:check": "tsx src/ops/preflight-cli.ts",
+    "test:load": "tsx ../../infra/tests/load.ts",
     "db:migrate": "tsx src/persistence/migrate.ts",
     "dev:e2e": "tsx test-fixtures/e2e.ts",
     "reports:review": "tsx src/social/review.ts"

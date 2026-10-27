@@ -2,11 +2,11 @@
 
 A lightweight, mobile-first Sri Lankan card game for four friends.
 
-**Status: Stage I adds Classic OMI and Royal Black & Gold card designs, local theme persistence, lazy artwork/styles and lightweight motion. Stages A–H remain intact. Physical Android/iOS, public Google callbacks and remote-network verification remain pending.**
+**Status: Stage J hardening and local verification are implemented. Production acceptance remains blocked by deployment configuration and external verification; no production readiness or public deployment is claimed. Use patched Node 22.23.4+ within Node 22. See [Operations](docs/OPERATIONS.md), [Security review](docs/SECURITY_REVIEW.md), and [Stage J report](docs/STAGE_J_REPORT.md).**
 
 ## Local setup
 
-Use Node 22 (see `.nvmrc`) and npm 10.
+Use Node 22.23.4 or a newer patched Node 22 (see `.nvmrc`) and npm. Activate the selected runtime before building or starting the server; the global Mac installation was not changed.
 
 ```sh
 npm ci
@@ -32,6 +32,9 @@ npm test
 npx playwright install chromium
 npm run test:e2e
 npm run test:pwa # build first; production worker/offline checks
+npm run check:build
+npm run test:infra # compiled CLI/backup/shutdown checks; build first
+npm run test:load -- 8 30 # private loopback benchmark
 ```
 
 `npm test` now binds ephemeral loopback ports for real four-client integration tests. Sandboxed environments must allow local listening; tests do not skip this requirement. For just multiplayer integration, run `npm test -- apps/server/src/multiplayer/multiplayer.test.ts`.
@@ -46,7 +49,7 @@ Accounts, sessions and profile metadata persist in SQLite; avatars persist in ex
 - `packages/game-engine`: dependency-free, server-private OMI rules engine with deterministic transitions and tested rule-clarification gates.
 - `docs`: architecture, owner rules, unresolved decisions, testing and operations.
 
-Development stops after each authorized stage. Stage J requires explicit owner authorization. See [Card themes](docs/THEMES.md) and [Stage I report](docs/STAGE_I_REPORT.md). See [PWA setup](docs/PWA.md) and [Stage H report](docs/STAGE_H_REPORT.md).
+Development stops after each authorized stage. No further stage or public deployment is authorized automatically. Release gates remain open in [Operations](docs/OPERATIONS.md). See [Card themes](docs/THEMES.md) and [Stage I report](docs/STAGE_I_REPORT.md). See [PWA setup](docs/PWA.md) and [Stage H report](docs/STAGE_H_REPORT.md).
 See [Stage E report](docs/STAGE_E_REPORT.md), [Accounts setup](docs/ACCOUNTS.md), [Stage D report](docs/STAGE_D_REPORT.md), [UI guide](docs/UI.md), [multiplayer protocol](docs/MULTIPLAYER.md), [engine API](docs/ENGINE.md), and [owner rules](docs/OWNER_RULES.md).
 
 For the Stage E blank-screen investigation, environment-aware CSP, Firefox verification and exact restart commands, see [CSP fix report](docs/CSP_FIX_REPORT.md).
