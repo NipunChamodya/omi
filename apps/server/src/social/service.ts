@@ -93,6 +93,7 @@ export const socialCommand = z.discriminatedUnion('type', [
   }),
 ]);
 type Peer = {
+  roomId: string;
   socket: WebSocket;
   identity: Identity;
   connectionId: string;
@@ -133,6 +134,12 @@ export class SocialService {
   private send(peer: Peer, message: SocialMessage) {
     const data = JSON.stringify(message);
     if (peer.socket.readyState !== WebSocket.OPEN) return;
+    try {
+      this.authorize(peer.roomId, peer.identity);
+    } catch {
+      peer.socket.close(1008, 'Authorization expired');
+      return;
+    }
     if (peer.socket.bufferedAmount + Buffer.byteLength(data) > 65_536) {
       peer.socket.terminate();
       return;
@@ -170,6 +177,7 @@ export class SocialService {
       throw new RoomError('SOCIAL_CAPACITY', 503);
     this.disconnect(roomId, identity.actorId, 4001);
     const peer: Peer = {
+      roomId,
       socket,
       identity,
       connectionId: randomUUID(),

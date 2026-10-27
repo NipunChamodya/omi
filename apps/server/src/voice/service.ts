@@ -49,6 +49,7 @@ export const voiceCommand = z.discriminatedUnion('type', [
   }),
 ]);
 type VoicePeer = {
+  roomId: string;
   socket: WebSocket;
   identity: Identity;
   public: VoiceParticipant;
@@ -70,6 +71,12 @@ export class VoiceService {
   private send(peer: VoicePeer, message: VoiceMessage) {
     const data = JSON.stringify(message);
     if (peer.socket.readyState !== WebSocket.OPEN) return;
+    try {
+      this.authorized(peer.roomId, peer.identity);
+    } catch {
+      peer.socket.close(1008, 'Authorization expired');
+      return;
+    }
     if (peer.socket.bufferedAmount + Buffer.byteLength(data) > 65_536) {
       peer.socket.terminate();
       return;
@@ -93,6 +100,7 @@ export class VoiceService {
     this.disconnect(roomId, identity.actorId, 4001);
     this.channels.set(roomId, channel);
     const peer: VoicePeer = {
+      roomId,
       socket,
       identity,
       public: { actorId: identity.actorId, callId: randomUUID(), muted: false },
