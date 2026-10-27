@@ -1,5 +1,13 @@
 # Security
 
+## Current Stage J status
+
+Stage J fixes owner-only .env permissions, query-bearing plugin path logs, endpoint userinfo/scheme validation, API/header defaults and the outdated Node runtime baseline. Production requires Node 22.23.4+ within Node 22; global Node is untouched and final tests use a checksum-verified project-local runtime. Backups/restore never overwrite active data and restored copies clear session/OAuth rows. Full and production npm audits reported zero advisories, separately from runtime security. See SECURITY_REVIEW.md for reviewed controls, executed evidence and unverified release gates. This is not an independent penetration test or production certification.
+
+## Current Stage I status
+
+Stage I accepts only two registry IDs and trusted local CSS/SVG URLs. Arbitrary stored values cannot become imports, HTML or style URLs. No CSP change, private-card metadata, payment route or backend endpoint was added. Generic backs carry no card identity; rank/suit data and server validation remain authoritative. Existing XSS assertions now distinguish legitimate back images from injected player-name markup. See THEMES.md.
+
 ## Current Stage H status
 
 The worker is production/secure-context only, same-origin and GET-only. Exact build assets are eligible; API/OAuth, profiles/avatars, credentials, hands, messages and music are excluded. No automatic update takeover or offline action replay exists. CSP adds only self-scoped worker-src and manifest-src. Existing OIDC, cookies, CSRF, Origin and private projections remain unchanged. See PWA.md.

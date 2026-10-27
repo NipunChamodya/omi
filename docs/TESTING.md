@@ -1,5 +1,13 @@
 # Testing
 
+## Current Stage J status
+
+Stage J final verification uses patched Node 22.23.4: 155 unit/integration tests, five infrastructure/compiled-CLI tests, all gameplay/profile/theme/social/voice/relay/PWA/CSP browser suites, and the real eight-room load harness. Infrastructure checks now require a build and test tracked migrations twice, live-WAL backup, new-file restore/session invalidation, sanitized query logs, readiness and SIGTERM. A transient Firefox speaking-meter failure was not reproduced in three isolated repetitions and the subsequent full run; diagnostics were added and assertions preserved. See STAGE_J_REPORT.md for exact executed results and limits.
+
+## Current Stage I status
+
+Stage I adds test:themes (Chromium/Firefox), covering actual colors/artwork decoding, lazy requests/caches, independent preferences/reload, stylesheet failure/retry, 320px settings, reduced motion and Data Saver under CSP. Full-round tests now use alternating player designs and verify unchanged hand/score during switching, then reload/reconnect/finish. Unit tests cover every card identity, safe storage and async races. See STAGE_I_REPORT.md for executed results; hardware/public Google remain unverified.
+
 ## Current Stage H status
 
 Stage H adds npm run test:pwa for Chromium/Firefox: actual stopped-origin offline fallback/recovery, bounded private-data-free cache contents, waiting updates, PNG/manifest responses, 320px settings and persisted Data Saver. Unit tests validate generated-worker syntax, routing/caps/cleanup and safe preferences/avatar suppression; four-client social tests check local music stopping on mode changes. Existing full-round/profile/CSP suites remain passing. Physical Android/iOS and installed-mode real Google login remain unverified. See PWA.md and STAGE_H_REPORT.md.

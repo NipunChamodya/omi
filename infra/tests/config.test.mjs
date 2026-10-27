@@ -20,6 +20,9 @@ test('renders one loopback entry with controlled forwarding and actual API/socke
   );
   assert.match(config, /snapshot\|ws/);
   assert.match(config, /client_max_body_size 5m/);
+  assert.match(config, /map "https" \$omi_hsts/);
+  assert.match(config, /https "max-age=86400"/);
+  assert.match(config, /microphone=\(self\)/);
 });
 test('closed gate serves no application or API', () => {
   const config = renderConfig({ ...settings, locked: true });

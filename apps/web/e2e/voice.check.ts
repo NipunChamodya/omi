@@ -193,20 +193,65 @@ test('four real peer connections carry audio, mute, recover and stop without pla
     for (const page of pages) {
       await page.bringToFront();
       const audible = new Set<string>();
-      await expect
-        .poll(
-          async () => {
-            for (const id of await page
-              .locator('[data-voice-peer]:has(.voice-indicator.speaking)')
-              .evaluateAll((nodes) =>
-                nodes.map((node) => node.getAttribute('data-voice-peer')!),
-              ))
-              audible.add(id);
-            return audible.size;
-          },
-          { timeout: 15_000 },
-        )
-        .toBe(3);
+      try {
+        await expect
+          .poll(
+            async () => {
+              for (const id of await page
+                .locator('[data-voice-peer]:has(.voice-indicator.speaking)')
+                .evaluateAll((nodes) =>
+                  nodes.map((node) => node.getAttribute('data-voice-peer')!),
+                ))
+                audible.add(id);
+              return audible.size;
+            },
+            { timeout: 15_000 },
+          )
+          .toBe(3);
+      } catch (error) {
+        const diagnostics = await page.evaluate(async () => ({
+          contexts: (
+            window as unknown as { __voiceAudioContexts: AudioContext[] }
+          ).__voiceAudioContexts.map((context) => context.state),
+          streams: (
+            window as unknown as { __voiceStreams: MediaStream[] }
+          ).__voiceStreams.map((stream) =>
+            stream.getAudioTracks().map((track) => ({
+              enabled: track.enabled,
+              muted: track.muted,
+              state: track.readyState,
+              settings: {
+                echoCancellation: track.getSettings().echoCancellation,
+                noiseSuppression: track.getSettings().noiseSuppression,
+                autoGainControl: track.getSettings().autoGainControl,
+              },
+            })),
+          ),
+          peers: await Promise.all(
+            (
+              window as unknown as { __voicePeers: RTCPeerConnection[] }
+            ).__voicePeers.map(async (peer) =>
+              [...(await peer.getStats()).values()]
+                .filter((item) =>
+                  ['inbound-rtp', 'media-source'].includes(item.type),
+                )
+                .map((item) => ({
+                  type: item.type,
+                  kind: item.kind,
+                  bytesReceived: item.bytesReceived,
+                  audioLevel: item.audioLevel,
+                  totalAudioEnergy: item.totalAudioEnergy,
+                  totalSamplesDuration: item.totalSamplesDuration,
+                })),
+            ),
+          ),
+        }));
+        await testInfo.attach('voice-meter-diagnostics', {
+          body: JSON.stringify(diagnostics),
+          contentType: 'application/json',
+        });
+        throw error;
+      }
     }
     const saver = pages[0]!.getByRole('checkbox', { name: 'Data Saver Mode' });
     await saver.check();

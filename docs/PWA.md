@@ -8,7 +8,7 @@ The compiled app registers `/sw.js` only in a secure context and production buil
 
 ## Static caching and privacy
 
-The build plugin generates an exact allowlist from fingerprinted JavaScript/CSS files. Installation precaches only the entry JavaScript, CSS and a small static offline page/style. Lazy table/profile/voice/social chunks cache only when requested. Music, effects, avatars, API responses, account details, session credentials, WebSocket messages, hands and game snapshots never enter this worker's cache. The application HTML is network-only. No offline game actions or background synchronization queue exists.
+Stage I refines CSS precaching to entry-chunk imports so unused themes stay lazy. The build plugin generates an exact allowlist from fingerprinted JavaScript/CSS files. Installation precaches only the entry JavaScript, entry CSS and a small static offline page/style. Lazy table/profile/voice/social chunks cache only when requested. Music, effects, avatars, API responses, account details, session credentials, WebSocket messages, hands and game snapshots never enter this worker's cache. The application HTML is network-only. No offline game actions or background synchronization queue exists.
 
 Navigations use the network and fall back to the static offline page on network failure. `/api` and `/api/*`, including the Google callback, always bypass the worker. Cross-origin and non-GET requests bypass it. Query-bearing static asset URLs are excluded. A query-bearing frontend navigation can receive the same generic offline page; the query itself is never cached. The offline page contains no account or room state.
 

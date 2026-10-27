@@ -66,6 +66,8 @@ const schema = z
       (new URL(config.GOOGLE_CALLBACK_URL).pathname.endsWith(
         '/auth/google/callback',
       ) &&
+        !new URL(config.GOOGLE_CALLBACK_URL).username &&
+        !new URL(config.GOOGLE_CALLBACK_URL).password &&
         !new URL(config.GOOGLE_CALLBACK_URL).search &&
         !new URL(config.GOOGLE_CALLBACK_URL).hash &&
         ['http:', 'https:'].includes(
@@ -87,11 +89,14 @@ const schema = z
   .refine(
     (config) =>
       !config.AVATAR_ENDPOINT ||
-      config.AVATAR_ENDPOINT.startsWith('https://') ||
-      (config.NODE_ENV !== 'production' &&
-        ['127.0.0.1', 'localhost', '[::1]'].includes(
-          new URL(config.AVATAR_ENDPOINT).hostname,
-        )),
+      (!new URL(config.AVATAR_ENDPOINT).username &&
+        !new URL(config.AVATAR_ENDPOINT).password &&
+        (new URL(config.AVATAR_ENDPOINT).protocol === 'https:' ||
+          (config.NODE_ENV !== 'production' &&
+            new URL(config.AVATAR_ENDPOINT).protocol === 'http:' &&
+            ['127.0.0.1', 'localhost', '[::1]'].includes(
+              new URL(config.AVATAR_ENDPOINT).hostname,
+            )))),
     {
       message:
         'Avatar storage endpoint requires HTTPS (loopback HTTP allowed for local testing)',

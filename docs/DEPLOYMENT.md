@@ -1,5 +1,13 @@
 # Deployment
 
+## Current Stage J status
+
+Stage J provides patched-runtime startup enforcement, a fail-closed read-only readiness command, security headers, operational monitoring, WAL-safe backup/restore tooling and an optional syntax-checked launchd template. Nothing has been publicly deployed or installed as a service. The current development environment intentionally fails production readiness; real Google/S3/TURN/HTTPS/phone/recovery checks remain open. See OPERATIONS.md for exact commands, process ownership and manual release gates; local tests are not approval to expose the app.
+
+## Current Stage I status
+
+Stage I uses existing same-origin fingerprinted CSS/SVG hosting and unchanged CSP. Deploy the complete compiled assets directory; do not prefetch all theme CSS. The service worker precaches entry styles only and caches eligible lazy CSS on demand. Browser-local choices are origin-specific and do not migrate between temporary tunnel hostnames. No deployment or Stage J work was performed. See THEMES.md.
+
 ## Current Stage H status
 
 Serve the full compiled apps/web/dist at the origin root, including sw.js, manifest.webmanifest, icons and offline files. HTTPS is required publicly. NGINX revalidates worker/manifest, types the manifest explicitly and keeps immutable caching on fingerprinted assets. Preserve old fingerprinted files while older clients remain open. PWA registration is disabled in Vite development; loopback preview supports verification. No public deployment or Google hostname gate bypass is part of this stage. See PWA.md.

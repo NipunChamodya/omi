@@ -1,5 +1,9 @@
 # Mobile game interface — Stage D
 
+## Current Stage I status
+
+Card themes adds Classic OMI and Royal Black & Gold with four-suit/back previews and a labeled select. Home, hand, trick and generic backs use the local design. Short position-aware card arrival and selection easing preserve authoritative input and respect Data Saver/reduced motion. A failure message and retry retain playable fallback cards. See THEMES.md and STAGE_I_REPORT.md.
+
 ## Current Stage H status
 
 App settings adds persistent Data Saver, install guidance/native deferred prompt when supported, offline status and waiting-update guidance. Existing portrait layout/safe areas/reduced motion remain. Data Saver shows initials instead of shared Avatar images, disables decorative motion and stops locally enabled music/effects; explicit audio opt-in and voice controls remain available. See PWA.md for mobile hardware verification limits.

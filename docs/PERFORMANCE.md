@@ -1,5 +1,13 @@
 # Performance
 
+## Current Stage J status
+
+Stage J adds repeatable initial gzip budgets (JS 90KiB, CSS 12KiB, combined 100KiB) and source-map/server-marker smoke checks. Actual combined gzip is 87,676 bytes. The patched-runtime eight-room/32-client loopback benchmark completes eight rounds, duplicate/reconnect/privacy checks and a 30-second idle soak: action p95 2.31ms, event-loop p99 22.05ms at 20ms resolution, peak combined backend+client RSS 205.2MiB. These are local smoke results, not phone/Internet/voice/NGINX capacity. See LOAD_TEST_REPORT.md.
+
+## Current Stage I status
+
+Stage I measured build: initial JS 257.53 kB / 80.47 kB gzip, CSS 30.90 / 8.08 kB gzip, worker about 1.93 kB. Each optional design stylesheet is about 300 bytes; Classic SVG is 456 bytes and Royal 572 bytes. Only the selected design loads; PWA installation precaches entry CSS rather than every build stylesheet. New motion uses short CSS transforms/opacity and respects Data Saver/reduced motion. No runtime dependency, game polling or device benchmark was added. See THEMES.md.
+
 ## Current Stage H status
 
 Measured build: entry JS 254.29 kB / 79.47 kB gzip; CSS 28.85 / 7.68 kB gzip; worker about 1.87 kB. Installation caches entry JS/CSS plus the tiny offline files; lazy chunks cache on demand. Audio is excluded. Data Saver avoids shared avatar downloads, suppresses decorative motion and stops optional local audio until explicit opt-in. No new runtime dependency, background polling or game-state cache was added. No hardware CPU/battery/data benchmark was run. See PWA.md.

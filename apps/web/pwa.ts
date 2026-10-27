@@ -19,7 +19,15 @@ export function pwa(): Plugin {
         '/offline.html',
         '/offline.css',
         ...entry.map((file) => '/' + file.fileName),
-        ...assets.filter((path) => path.endsWith('.css')),
+        ...entry.flatMap((file) =>
+          [
+            ...((
+              file as typeof file & {
+                viteMetadata?: { importedCss: Set<string> };
+              }
+            ).viteMetadata?.importedCss ?? []),
+          ].map((path) => '/' + path),
+        ),
       ];
       const version = createHash('sha256')
         .update(JSON.stringify(assets))

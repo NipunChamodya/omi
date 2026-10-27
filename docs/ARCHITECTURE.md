@@ -1,5 +1,13 @@
 # Architecture
 
+## Current Stage J status
+
+Stage J adds private operational modules for runtime compatibility/aggregates, read-only deployment checks and WAL-safe backup/new-file restore with session invalidation. It hardens API/proxy headers, sanitizes plugin path logging and bounds shutdown/HTTP reuse. The production runner requires patched Node 22.23.4+. A private loopback harness tests eight real four-player rooms under default limits. One backend process and existing SQLite/S3 boundaries remain; no public metrics, new database schema, rule changes or external deployment were added. See OPERATIONS.md, SECURITY_REVIEW.md and STAGE_J_REPORT.md.
+
+## Current Stage I status
+
+Stage I adds a frontend-only fixed theme registry, async selection store and native selector/preview. Classic and Royal use CSS faces and original generic SVG backs; rank/suit values and all engine/server actions stay unchanged. Preferences are browser-local. Same-origin styles load only on selection, with safe retry and stale-load protection. Entry-only PWA CSS precaching preserves lazy themes. See THEMES.md.
+
 ## Current Stage H status
 
 A build-generated root service worker caches an exact static JS/CSS allowlist and generic offline page. It never caches API/player data or queues gameplay. Updates wait for old tabs to close. A small global Data Saver preference skips avatars and decorative motion and turns off locally enabled music/effects until explicit opt-in. Manifest, original PNG icons and iOS metadata support installation. See PWA.md for implementation and hardware-test limits.
@@ -56,7 +64,7 @@ The Vite dev proxy serves `/api` HTTP/WebSockets; optional public API configurat
 
 ## Planned
 
-Stage H is implemented above. I: replaceable lazy-loaded visual themes. J: final hardening and deployment verification. Stages E/F/G are implemented as described above.
+Stages H/I/J local implementation is described above; external release acceptance remains gated in OPERATIONS.md. Stages E/F/G are implemented as described above.
 
 Stage E owns SQLite/Drizzle persistence, migrations and external avatar storage. Migrating to PostgreSQL requires an adapter and asynchronous integration changes. Permanent avatars are never stored on temporary hosting filesystems.
 

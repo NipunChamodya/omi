@@ -95,6 +95,9 @@ export async function registerMultiplayer(
   app.addHook('preClose', async () => {
     clearInterval(maintenance);
     rooms.stop();
+    // Includes upgraded peers still waiting to attach to the serialized room queue.
+    for (const socket of gameSockets) socket.terminate();
+    gameSockets.clear();
   });
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof RoomError)

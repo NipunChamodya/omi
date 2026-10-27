@@ -21,6 +21,7 @@ it('generates a bounded static-only worker with safe lifecycle and valid syntax'
           type: 'chunk',
           fileName: 'assets/index-123.js',
           isEntry: true,
+          viteMetadata: { importedCss: new Set(['assets/index-123.css']) },
         },
         lazy: {
           type: 'chunk',
@@ -28,6 +29,7 @@ it('generates a bounded static-only worker with safe lifecycle and valid syntax'
           isEntry: false,
         },
         css: { type: 'asset', fileName: 'assets/index-123.css' },
+        theme: { type: 'asset', fileName: 'assets/royal-123.css' },
         music: { type: 'asset', fileName: 'assets/song-123.mp3' },
       },
       false,
