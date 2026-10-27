@@ -14,8 +14,13 @@ export function deploymentChecks(config: ReturnType<typeof parseConfig>) {
       'private-env-file-if-present',
       file.isFile() && !file.isSymbolicLink() && (file.mode & 0o077) === 0,
     );
-  } catch {
-    /* Environment injection need not use a file. */
+  } catch (error) {
+    // Environment injection need not use a file, but inspection failures
+    // must not silently waive the credential-file permission requirement.
+    add(
+      'private-env-file-if-present',
+      error instanceof Error && 'code' in error && error.code === 'ENOENT',
+    );
   }
   add('patched-node-22', supportedNode22(process.versions.node));
   add('production-mode', config.NODE_ENV === 'production');
