@@ -69,3 +69,29 @@ it('refuses microphone capture outside a secure context', async () => {
   expect(client.store.getState().error).toContain('HTTPS');
   client.leave();
 });
+it('keeps voice master volume separate, composes peer volume and preserves blocks', () => {
+  const client = new VoiceClient('room', 'actor');
+  const audio = { volume: 1 };
+  const gain = { gain: { value: 1 } };
+  const links = (client as unknown as { links: Map<string, unknown> }).links;
+  links.set('friend', {
+    peer: { actorId: 'friend', callId: 'call', muted: false },
+    pc: { connectionState: 'connected' },
+    audio,
+    gain,
+  });
+  client.setMasterVolume(0.4);
+  client.setVolume('friend', 0.5);
+  expect(audio.volume).toBe(0.2);
+  expect(gain.gain.value).toBe(0.2);
+  expect(client.store.getState().peers[0]!.volume).toBe(0.5);
+  client.setBlocked(['friend']);
+  client.setMasterVolume(0.7);
+  expect(gain.gain.value).toBe(0);
+  client.setBlocked([]);
+  expect(gain.gain.value).toBe(0.35);
+  client.setMasterVolume(NaN);
+  expect(gain.gain.value).toBe(0.35);
+  links.clear();
+  client.leave();
+});

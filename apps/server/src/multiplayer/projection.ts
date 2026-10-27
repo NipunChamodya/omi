@@ -63,9 +63,11 @@ export function snapshot(
   room: Room,
   member: RoomMember,
   requestId: string | null = null,
+  nextRoundConfigured = false,
 ): Snapshot {
   const round = room.round;
   return {
+    capabilities: { nextRound: nextRoundConfigured },
     type: 'snapshot',
     roomId: room.id,
     requestId,

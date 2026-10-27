@@ -5,6 +5,7 @@ import coast from './assets/coast-v1.mp3?url';
 import tap from './assets/tap-v1.wav?url';
 import chime from './assets/chime-v1.wav?url';
 import chuckle from './assets/chuckle-v1.wav?url';
+import { useSoundPreferences } from '../audio/preferences';
 const songs = { emerald, coast };
 const sounds = { tap, chime, chuckle };
 export class SocialAudio {
@@ -26,11 +27,16 @@ export class SocialAudio {
   private generation = 0;
   private effectGeneration = 0;
   private timer?: ReturnType<typeof setInterval> | undefined;
+  private preferenceCleanup: () => void;
   constructor(
     private readonly serverNow: () => number,
     private readonly notify: (error: string | null) => void,
     private readonly positionChanged: (position: number) => void,
-  ) {}
+  ) {
+    this.preferenceCleanup = useSoundPreferences.subscribe(() =>
+      this.volumes(this.musicVolume, this.effectsVolume),
+    );
+  }
   private prepare(kind: 'music' | 'effect') {
     let element = kind === 'music' ? this.music : this.effect;
     if (element) return element;
@@ -69,6 +75,10 @@ export class SocialAudio {
   volumes(music: number, effects: number) {
     this.musicVolume = music;
     this.effectsVolume = effects;
+    if (!useSoundPreferences.getState().enabled) {
+      music = 0;
+      effects = 0;
+    }
     if (this.musicGain) this.musicGain.gain.value = music;
     if (this.effectGain) this.effectGain.gain.value = effects;
     if (this.music) this.music.volume = this.musicGain ? 1 : music;
@@ -247,6 +257,7 @@ export class SocialAudio {
     }
   }
   dispose() {
+    this.preferenceCleanup();
     this.disableMusic();
     this.disableEffects();
     for (const source of this.sources) source.disconnect();

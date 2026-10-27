@@ -339,6 +339,54 @@ test('four real peer connections carry audio, mute, recover and stop without pla
       await expect(
         page.locator('[data-voice-peer][data-connection="connected"]'),
       ).toHaveCount(3, { timeout: 25_000 });
+    const streamCounts = await Promise.all(
+      pages.map((page) =>
+        page.evaluate(
+          () =>
+            (window as unknown as { __voiceStreams: MediaStream[] })
+              .__voiceStreams.length,
+        ),
+      ),
+    );
+    for (let i = 0; i < pages.length; i++) {
+      await pages[i]!.getByRole('button', {
+        name: 'Ready to play',
+        exact: true,
+      }).click();
+      await expect(pages[0]!.locator('.ready-label.is-ready')).toHaveCount(
+        i + 1,
+      );
+    }
+    await pages[0]!.getByRole('button', { name: /Start game/ }).click();
+    for (let i = 0; i < pages.length; i++) {
+      await expect(
+        pages[i]!.getByRole('region', { name: 'Game table', exact: true }),
+      ).toBeVisible();
+      expect(
+        await pages[i]!.evaluate(
+          () =>
+            (window as unknown as { __voiceStreams: MediaStream[] })
+              .__voiceStreams.length,
+        ),
+      ).toBe(streamCounts[i]);
+      expect(
+        await pages[i]!.evaluate(() =>
+          (
+            window as unknown as { __voiceStreams: MediaStream[] }
+          ).__voiceStreams
+            .at(-1)!
+            .getAudioTracks()
+            .every((track) => track.readyState === 'live'),
+        ),
+      ).toBe(true);
+      await pages[i]!.getByRole('button', {
+        name: 'Sound & tools',
+        exact: true,
+      }).click();
+      await expect(
+        pages[i]!.locator('[data-voice-peer][data-connection="connected"]'),
+      ).toHaveCount(3);
+    }
     for (const page of pages)
       await page
         .getByRole('button', { name: 'Leave voice', exact: true })
@@ -356,7 +404,7 @@ test('four real peer connections carry audio, mute, recover and stop without pla
           ),
         ),
       ).toBe(true);
-      await expect(page.locator('.lobby-seat:not(.empty)')).toHaveCount(4);
+      await expect(page.locator('.table-player')).toHaveCount(4);
     }
   } finally {
     {

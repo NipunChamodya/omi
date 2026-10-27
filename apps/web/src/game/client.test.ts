@@ -165,3 +165,71 @@ it('disables actions immediately when offline and restores the same cookie-bound
     state().you.actorId,
   );
 });
+it('publishes presentation only for accepted ordered deltas and clears it on reconnect snapshots', async () => {
+  await client.enter('Nipun');
+  const socket = MockSocket.instances[0]!;
+  socket.message(state());
+  const event = {
+    type: 'event',
+    roomId: state().roomId,
+    fromVersion: 1,
+    version: 2,
+    event: { kind: 'presence', seat: 1, connected: true },
+  } as const;
+  socket.message(event);
+  const presentation = client.store.getState().presentation;
+  expect(presentation?.version).toBe(2);
+  socket.message(event);
+  socket.message({ ...event, fromVersion: 0, version: 1 });
+  expect(client.store.getState().presentation).toBe(presentation);
+  socket.message({ ...state(), version: 2 });
+  expect(client.store.getState().presentation).toBeNull();
+  socket.message({ ...event, fromVersion: 3, version: 4 });
+  expect(client.store.getState().presentation).toBeNull();
+  expect(client.store.getState().connection).toBe('reconnecting');
+});
+it('navigates menus without creating a room and handles browser history entries', () => {
+  client.navigate('multiplayer');
+  client.navigate('friends');
+  client.navigate('create');
+  expect(client.store.getState().view).toBe('create');
+  client.onPopState(
+    new PopStateEvent('popstate', {
+      state: { omi: true, view: 'friends', index: 2 },
+    }),
+  );
+  expect(client.store.getState().view).toBe('friends');
+  expect(api.create).not.toHaveBeenCalled();
+});
+it('confirms leaving an active table while preserving its identity, saved seat and server state', async () => {
+  await client.enter('Nipun');
+  const socket = MockSocket.instances[0]!;
+  socket.message({
+    ...state(),
+    game: {
+      id: 'round',
+      phase: 'playing',
+      dealer: 0,
+      selector: 0,
+      trump: 'clubs',
+      turn: 0,
+      hand: [{ rank: 'A', suit: 'clubs' }],
+      handCounts: [1, 1, 1, 1],
+      trick: [],
+      tricks: [],
+    },
+  });
+  const snapshot = client.store.getState().snapshot;
+  client.home();
+  expect(client.store.getState().view).toBe('room');
+  expect(client.store.getState().leaveRequest).not.toBeNull();
+  expect(socket.readyState).toBe(1);
+  client.cancelLeave();
+  expect(client.store.getState().view).toBe('room');
+  client.home();
+  client.confirmLeave();
+  expect(client.store.getState().view).toBe('home');
+  expect(client.store.getState().snapshot).toBe(snapshot);
+  expect(client.store.getState().saved?.roomId).toBe(state().roomId);
+  expect(api.create).toHaveBeenCalledTimes(1);
+});

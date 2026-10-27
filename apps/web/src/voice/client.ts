@@ -66,6 +66,7 @@ export class VoiceClient {
   private localAnalyser: AnalyserNode | null = null;
   private blocked = new Set<string>();
   private readonly volumes = new Map<string, number>();
+  private masterVolume = 0.8;
   constructor(
     readonly roomId: string,
     readonly actorId: string,
@@ -80,7 +81,9 @@ export class VoiceClient {
             .getState()
             .peers.find((peer) => peer.actorId === link.peer.actorId)
             ?.speaking ?? false,
-        volume: link.audio.volume,
+        volume: this.blocked.has(link.peer.actorId)
+          ? 0
+          : (this.volumes.get(link.peer.actorId) ?? 1),
       })),
     });
   }
@@ -340,7 +343,7 @@ export class VoiceClient {
     audio.setAttribute('playsinline', '');
     audio.volume = this.blocked.has(peer.actorId)
       ? 0
-      : (this.volumes.get(peer.actorId) ?? 1);
+      : (this.volumes.get(peer.actorId) ?? 1) * this.masterVolume;
     document.body.append(audio);
     const link: Link = {
       peer,
@@ -552,22 +555,30 @@ export class VoiceClient {
     for (const [actorId, link] of this.links) {
       const value = this.blocked.has(actorId)
         ? 0
-        : (this.volumes.get(actorId) ?? 1);
+        : (this.volumes.get(actorId) ?? 1) * this.masterVolume;
       link.audio.volume = value;
       if (link.gain) link.gain.gain.value = value;
     }
     this.peerStates();
   };
   setVolume = (actorId: string, value: number) => {
+    if (!Number.isFinite(value)) return;
     const volume = Math.max(0, Math.min(1, value));
     this.volumes.set(actorId, volume);
     const link = this.links.get(actorId);
     if (link) {
-      const playback = this.blocked.has(actorId) ? 0 : volume;
+      const playback = this.blocked.has(actorId)
+        ? 0
+        : volume * this.masterVolume;
       link.audio.volume = playback;
       if (link.gain) link.gain.gain.value = playback;
       this.peerStates();
     }
+  };
+  setMasterVolume = (value: number) => {
+    if (!Number.isFinite(value)) return;
+    this.masterVolume = Math.max(0, Math.min(1, value));
+    this.setBlocked([...this.blocked]);
   };
   private meters() {
     const level = (analyser: AnalyserNode | undefined | null) => {

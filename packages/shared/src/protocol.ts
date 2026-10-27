@@ -54,6 +54,7 @@ export type PlayerGame = RoundHeader &
     tricks: readonly PublicTrick[];
   }>;
 export type Snapshot = Readonly<{
+  capabilities?: Readonly<{ nextRound: boolean }>;
   type: 'snapshot';
   roomId: string;
   requestId: string | null;

@@ -1,5 +1,9 @@
 # Mobile game interface — Stage D
 
+## Remaining-work audit update
+
+Home now offers a Multiplayer menu, with Play Online and Play with Friends → Create Room / Join Room paths; existing direct private-table actions remain available. Same-document history and active-table leave confirmation preserve the saved seat and server state. Browser reload/tab departure uses the native beforeunload guard after user activation. Game settings, voice and social controls stay mounted in an accessible tools dialog during play, so opening settings or starting the game does not recreate voice sessions. The gameplay stage uses a bounded dynamic viewport; settings/history scroll within their own surfaces, while essential table controls remain visible without document scrolling. See [remaining-work audit](OMI_REMAINING_WORK_AUDIT.md) for screenshots, verification and unresolved rules.
+
 ## Current Stage I status
 
 Card themes adds Classic OMI and Royal Black & Gold with four-suit/back previews and a labeled select. Home, hand, trick and generic backs use the local design. Short position-aware card arrival and selection easing preserve authoritative input and respect Data Saver/reduced motion. A failure message and retry retain playable fallback cards. See THEMES.md and STAGE_I_REPORT.md.

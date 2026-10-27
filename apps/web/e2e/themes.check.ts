@@ -116,7 +116,7 @@ test('themes load on demand, persist privately, and respect reduced motion and D
   // Real animation selectors are exercised on a decorative DOM fixture, no game state is invented.
   await page.evaluate(() => {
     const card = document.createElement('div');
-    card.className = 'thrown-card';
+    card.className = 'thrown-card animate-play';
     card.id = 'motion-probe';
     document.querySelector('.theme-preview')!.append(card);
   });
@@ -130,7 +130,7 @@ test('themes load on demand, persist privately, and respect reduced motion and D
     await page
       .locator('#motion-probe')
       .evaluate((element) => getComputedStyle(element).animationName),
-  ).toBe('premium-card-arrive');
+  ).toBe('physical-play');
   await page.getByRole('checkbox', { name: 'Data Saver Mode' }).check();
   expect(
     await page
