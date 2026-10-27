@@ -1,4 +1,9 @@
 import { expect, it, vi } from 'vitest';
+import * as fs from 'node:fs';
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual, lstatSync: vi.fn(actual.lstatSync) };
+});
 import {
   mkdtempSync,
   rmSync,
@@ -16,6 +21,32 @@ import { safeLogPath, registerRuntimeMonitoring } from './runtime.js';
 import { parseConfig } from '../config.js';
 import { supportedNode22 } from './node.js';
 import { buildApp } from '../app.js';
+it.each(['EACCES', 'EIO', 'ENOENT'])(
+  'treats only a missing optional environment file as acceptable (%s)',
+  (code) => {
+    const inspection = vi.mocked(fs.lstatSync);
+    const original = inspection.getMockImplementation()!;
+    inspection.mockImplementation((...args) => {
+      if (args[0] === '.env')
+        throw Object.assign(new Error('synthetic filesystem failure'), {
+          code,
+        });
+      return Reflect.apply(original, fs, args);
+    });
+    try {
+      const checks = deploymentChecks(
+        parseConfig({ DATABASE_PATH: '/does-not-exist/omi.sqlite' }),
+      );
+      const check = checks.find(
+        (item) => item.name === 'private-env-file-if-present',
+      );
+      if (code === 'ENOENT') expect(check?.passed).toBe(true);
+      else expect(check?.passed).toBe(false);
+    } finally {
+      inspection.mockImplementation(original);
+    }
+  },
+);
 it('backs up committed WAL data, verifies restore integrity and refuses overwrites/symlinks', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'omi-backup-'));
   const source = join(dir, 'live.sqlite'),
