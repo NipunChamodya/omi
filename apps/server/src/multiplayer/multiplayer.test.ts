@@ -818,6 +818,59 @@ describe('resource and lifetime bounds', () => {
     resumed.socket.send('{}');
     expect(await closedAgain).toBe(1008);
   });
+  it('does not deliver private deals to silent expired sockets between heartbeats', async () => {
+    let now = 0;
+    await reset({
+      multiplayer: {
+        now: () => now,
+        entropy: () => 0,
+        limits: { sessionTtlMs: 100 },
+      },
+    });
+    const owner = await guest('expires first');
+    now = 50;
+    const guests = [owner, ...(await Promise.all([guest(), guest(), guest()]))];
+    const room = await create(owner);
+    for (const who of guests.slice(1))
+      expect((await join(who, room)).statusCode).toBe(200);
+    const clients = await Promise.all(
+      guests.map((who) => connect(who, room.roomId)),
+    );
+    let state = await snap(owner, room.roomId);
+    for (const client of clients) {
+      const { reply } = await client.send(
+        'ready',
+        { ready: true },
+        state.version,
+      );
+      expect(reply.type).toBe('ack');
+      state = await snap(owner, room.roomId);
+    }
+    expect(
+      (await clients[0]!.send('start', {}, state.version)).reply.type,
+    ).toBe('ack');
+    state = await snap(owner, room.roomId);
+    const cutter = leftOf(state.game!.dealer);
+    expect(cutter).not.toBe(0);
+    const since = clients[0]!.messages.length;
+    const closed = closeCode(clients[0]!.socket);
+    now = 100;
+    expect(
+      (await clients[cutter]!.send('cut', { offset: 12 }, state.version)).reply
+        .type,
+    ).toBe('ack');
+    // Observe delivery to an authorized recipient before examining the expired peer.
+    await clients[cutter]!.wait(
+      (m) => m.type === 'event' && m.event.kind === 'cards-dealt',
+    );
+    expect(
+      clients[0]!.messages.slice(since).filter((m) => m.type === 'event'),
+    ).toEqual([]);
+    expect(await closed).toBe(1008);
+    expect((await snap(guests[cutter]!, room.roomId)).game!.hand).toHaveLength(
+      4,
+    );
+  });
   it('expires sessions on active sockets and releases idle rooms without inventing forfeits', async () => {
     let now = 0;
     await reset({

@@ -624,6 +624,12 @@ export class RoomService {
   }
   send(peer: Peer, message: ServerMessage): void {
     if (peer.socket.readyState !== WebSocket.OPEN) return;
+    // A silent socket can outlive its session until the next heartbeat.
+    // Authorize each delivery, including recipient-specific private deals.
+    if (!this.active(peer.identity)) {
+      peer.socket.close(1008, 'Session expired');
+      return;
+    }
     const encoded = JSON.stringify(message);
     if (
       peer.socket.bufferedAmount + Buffer.byteLength(encoded) >
