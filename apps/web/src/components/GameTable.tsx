@@ -1,4 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useStore } from 'zustand';
+import { InteractiveCard } from '../interactions/InteractiveCard';
+import { TableMotion } from '../interactions/TableMotion';
+import { gameAudio } from '../audio/gameAudio';
 import type { Card, Member, Seat, Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
 import { avatarSource } from '../auth/api';
@@ -73,11 +77,36 @@ export default function GameTable({
   const game = snapshot.game!;
   const [selected, setSelected] = useState<string | null>(null);
   const [cut, setCut] = useState(16);
+  const dropZone = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [over, setOver] = useState(false);
+  const submitted = useRef(false);
+  const presentation = useStore(client.store, (state) => state.presentation);
+  const live =
+    enabled && presentation?.roomId === snapshot.roomId ? presentation : null;
+  useEffect(() => {
+    if (!pending) submitted.current = false;
+  }, [pending]);
+  useEffect(() => {
+    if (!enabled) {
+      setDragging(false);
+      setOver(false);
+    }
+  }, [enabled]);
   useEffect(() => {
     if (!game.hand.some((card) => cardKey(card) === selected))
       setSelected(null);
   }, [game.hand, selected]);
   const yours = game.turn === snapshot.you.seat;
+  const playable = enabled && !pending && yours && game.phase === 'playing';
+  const play = (card: Card) => {
+    if (!playable || submitted.current || client.store.getState().pending)
+      return;
+    submitted.current = true;
+    client.act({ type: 'play', payload: { card } });
+    // The transport may decline synchronously; never strand a visual card.
+    if (!client.store.getState().pending) submitted.current = false;
+  };
   const chosen = game.hand.find((card) => cardKey(card) === selected);
   const cutter = ((game.dealer + 3) % 4) as Seat;
   const name = (seat: Seat | null) =>
@@ -93,7 +122,7 @@ export default function GameTable({
       .length,
   ];
   return (
-    <div className="game-view">
+    <div className={`game-view phase-${game.phase}`}>
       <section
         className="scoreboard"
         aria-label="Team scores"
@@ -133,7 +162,10 @@ export default function GameTable({
         <span>Round · {game.tricks.length} / 8 tricks</span>
         <span lang="si">කැට කොල{snapshot.score.carry ? ' · 1 carry' : ''}</span>
       </div>
-      <section className="felt-table" aria-label="Game table">
+      <section
+        className={`felt-table ${dragging ? 'drag-active' : ''}`}
+        aria-label="Game table"
+      >
         {snapshot.members.map((member) => (
           <Player
             key={member.actorId}
@@ -143,7 +175,10 @@ export default function GameTable({
           />
         ))}
         <div
-          className={`trick-area ${completed ? 'completed' : ''}`}
+          ref={dropZone}
+          data-testid="card-drop-zone"
+          data-drop-ready={dragging && playable}
+          className={`trick-area ${completed ? 'completed' : ''} ${over ? 'drop-over' : ''} ${live?.event.kind === 'card-played' && live.event.completedTrick ? `trick-collect collect-${positions[relative(live.event.completedTrick.winner, snapshot.you.seat)]}` : ''}`}
           aria-label={completed ? 'Last completed trick' : 'Current trick'}
         >
           {!plays.length && (
@@ -154,8 +189,8 @@ export default function GameTable({
           )}
           {plays.map((play) => (
             <div
-              className={`thrown-card thrown-${positions[relative(play.seat, snapshot.you.seat)]}`}
-              key={`${game.id}-${game.tricks.length}-${play.seat}-${cardKey(play.card)}`}
+              className={`thrown-card thrown-${positions[relative(play.seat, snapshot.you.seat)]} ${live?.event.kind === 'card-played' && cardKey(live.event.card) === cardKey(play.card) ? 'animate-play' : ''}`}
+              key={`${game.id}-${cardKey(play.card)}`}
               role="img"
               aria-label={`${name(play.seat)} played ${cardName(play.card)}`}
             >
@@ -163,6 +198,12 @@ export default function GameTable({
             </div>
           ))}
         </div>
+        <TableMotion message={live} />
+        {dragging && (
+          <span className="drop-caption" role="status">
+            {playable ? 'Release in the center to play' : 'Wait for your turn'}
+          </span>
+        )}
       </section>
       {completed && (
         <p className="trick-winner">
@@ -256,24 +297,29 @@ export default function GameTable({
             <h2>Your hand</h2>
             <span>
               {game.hand.length} cards
-              {game.phase === 'playing' ? ' · Tap to select' : ''}
+              {game.phase === 'playing' ? ' · Hold & drag, or select' : ''}
             </span>
           </div>
           <div className={`hand-grid hand-${game.hand.length}`}>
             {game.hand.map((card) => (
-              <button
-                className={`hand-card ${selected === cardKey(card) ? 'selected' : ''}`}
-                data-testid="hand-card"
+              <InteractiveCard
                 key={cardKey(card)}
-                aria-label={`Select ${cardName(card)}`}
-                aria-pressed={selected === cardKey(card)}
+                card={card}
+                selected={selected === cardKey(card)}
                 disabled={game.phase !== 'playing' || !enabled || pending}
-                onClick={() =>
+                playable={playable}
+                pending={pending}
+                zone={dropZone}
+                deal={live?.event.kind === 'cards-dealt'}
+                onDrag={(active, inside) => {
+                  setDragging(active);
+                  setOver(inside);
+                }}
+                onSelect={() =>
                   setSelected(selected === cardKey(card) ? null : cardKey(card))
                 }
-              >
-                <CardFace card={card} />
-              </button>
+                onPlay={() => play(card)}
+              />
             ))}
           </div>
           {game.phase === 'playing' && (
@@ -282,8 +328,10 @@ export default function GameTable({
               aria-label="Play selected card"
               disabled={!yours || !chosen || !enabled || pending}
               onClick={() => {
-                if (chosen)
-                  client.act({ type: 'play', payload: { card: chosen } });
+                if (chosen) {
+                  void gameAudio.play('release');
+                  play(chosen);
+                }
               }}
             >
               {pending
@@ -327,14 +375,22 @@ export default function GameTable({
               className="button primary"
               onClick={() => client.act({ type: 'next-round', payload: {} })}
               disabled={
-                !enabled || pending || snapshot.result?.status === 'unresolved'
+                !enabled ||
+                pending ||
+                snapshot.result?.status === 'unresolved' ||
+                snapshot.capabilities?.nextRound === false ||
+                snapshot.members.some((member) => !member.connected)
               }
             >
               Next round <span aria-hidden="true">→</span>
             </button>
           )}
           <p className="quiet-note">
-            The next deal pauses until the dealer rule is confirmed.
+            {snapshot.capabilities?.nextRound === false
+              ? 'Next round is unavailable: the owner has not approved dealer rotation.'
+              : snapshot.members.some((member) => !member.connected)
+                ? 'All four players must reconnect before the next round.'
+                : 'The host can start the next round when all four players are connected.'}
           </p>
         </section>
       )}

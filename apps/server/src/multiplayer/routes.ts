@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie';
+import { registerMatchmaking } from './matchmaking.js';
 import { registerSocial } from '../social/routes.js';
 import { registerVoice } from '../voice/routes.js';
 import type { IceSettings } from '../voice/config.js';
@@ -158,6 +159,13 @@ export async function registerMultiplayer(
       },
       now,
       limits.maxRooms,
+    );
+    registerMatchmaking(
+      api,
+      rooms,
+      identityFor,
+      (identity) => options.accounts.active(identity),
+      now,
     );
     registerSocial(
       api,

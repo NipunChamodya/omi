@@ -34,7 +34,13 @@ test('four friends exchange safe social content and synchronize real opt-in musi
       contexts.push(context);
       const page = await context.newPage();
       page.on('request', (request) => {
-        if (/\.(mp3|wav)(?:\?|$)/.test(request.url()))
+        // Game foley is gesture-enabled separately; shared music and reactions
+        // must still load only after their explicit opt-in controls.
+        if (
+          /\/(?:emerald|coast|tap|chime|chuckle)-v1[^/]*\.(mp3|wav)(?:\?|$)/.test(
+            request.url(),
+          )
+        )
           audioRequests.push(request.url());
       });
       pages.push(page);

@@ -28,6 +28,7 @@ export type {
 } from './protocol.js';
 
 export type { PublicProfile, AuthSession } from './protocol.js';
+export type { MatchmakingMessage } from './matchmaking.js';
 export type {
   VoiceParticipant,
   VoiceSignal,

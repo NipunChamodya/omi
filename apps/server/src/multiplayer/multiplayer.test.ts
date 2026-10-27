@@ -1090,6 +1090,92 @@ describe('trusted policy extension integration', () => {
     expect(state.score).toEqual(completed.score);
     expect(state.result).toBeNull();
   });
+  it('completes three consecutive rounds under an explicit hypothetical dealer policy, preserving scores and rejecting duplicate/stale transitions', async () => {
+    await reset({
+      multiplayer: {
+        entropy: () => 0,
+        policies: { nextDealer: (round) => nextSeat(round.dealer) },
+        limits: { httpPerMinute: 1000 },
+      },
+    });
+    const { guests, clients, room } = await playing();
+    const ids = new Set<string>();
+    for (let roundIndex = 0; roundIndex < 3; roundIndex++) {
+      let state = await snap(guests[0]!, room.roomId);
+      ids.add(state.game!.id);
+      for (let i = 0; i < 32; i++) {
+        const own = await snap(guests[state.game!.turn!]!, room.roomId);
+        const response = await clients[own.you.seat]!.send(
+          'play',
+          { card: own.game!.hand[0]! },
+          own.version,
+        );
+        expect(response.reply.type).toBe('ack');
+        state = await snap(guests[0]!, room.roomId);
+      }
+      expect(state.game!.tricks).toHaveLength(8);
+      expect(state.result?.status).toBe('settled');
+      expect(state.score.totals[0] + state.score.totals[1]).toBe(
+        roundIndex + 1,
+      );
+      for (const person of guests) {
+        const own = await snap(person, room.roomId);
+        expect(own.score).toEqual(state.score);
+        expect(own.game!.hand).toHaveLength(0);
+        noPrivateFields(own);
+      }
+      if (roundIndex === 2) break;
+      if (roundIndex === 0) {
+        clients[2]!.socket.close();
+        await clients[0]!.wait(
+          (item) =>
+            item.type === 'event' &&
+            item.event.kind === 'presence' &&
+            item.event.seat === 2 &&
+            !item.event.connected,
+        );
+        state = await snap(guests[0]!, room.roomId);
+        expect(
+          (await clients[0]!.send('next-round', {}, state.version)).reply,
+        ).toMatchObject({ type: 'error', code: 'FOUR_READY_PLAYERS_REQUIRED' });
+        clients[2] = await connect(guests[2]!, room.roomId);
+        state = await snap(guests[0]!, room.roomId);
+      }
+      const advanced = await clients[0]!.send('next-round', {}, state.version);
+      expect(advanced.reply.type).toBe('ack');
+      const fresh = await snap(guests[0]!, room.roomId);
+      expect(fresh.score).toEqual(state.score);
+      const duplicate = await clients[0]!.send(
+        'next-round',
+        {},
+        state.version,
+        { actionId: advanced.message.actionId },
+      );
+      expect(duplicate.reply).toMatchObject({ type: 'ack', duplicate: true });
+      expect(
+        (await clients[0]!.send('next-round', {}, state.version)).reply,
+      ).toMatchObject({ type: 'error', code: 'VERSION_CONFLICT' });
+      expect((await snap(guests[0]!, room.roomId)).game!.id).toBe(
+        fresh.game!.id,
+      );
+      const cutter = leftOf(fresh.game!.dealer);
+      expect(
+        (await clients[cutter]!.send('cut', { offset: 12 }, fresh.version))
+          .reply.type,
+      ).toBe('ack');
+      const selector = await snap(guests[fresh.game!.selector]!, room.roomId);
+      expect(
+        (
+          await clients[selector.you.seat]!.send(
+            'trump',
+            { suit: selector.game!.hand[0]!.suit },
+            selector.version,
+          )
+        ).reply.type,
+      ).toBe('ack');
+    }
+    expect(ids.size).toBe(3);
+  });
   it('keeps separate rooms isolated and accepts an immediate authenticated sync frame on connect', async () => {
     const { guests, clients, room } = await playing();
     const outsider = await guest('Other room');

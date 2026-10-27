@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { GameClient } from './game/client';
 import type { AuthSession, PublicProfile } from '@omi/shared';
@@ -8,16 +8,74 @@ import { PwaControls } from './pwa/PwaControls';
 import { Brand, Avatar } from './components/Cards';
 import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
+import { SoundSettings } from './audio/SoundSettings';
+import { useGameAudio } from './audio/useGameAudio';
+import { MultiplayerMenu } from './components/MultiplayerMenu';
 const RoomControls = lazy(() => import('./social/RoomControls'));
 const Profile = lazy(() => import('./auth/Profile'));
 const GameTable = lazy(() => import('./components/GameTable'));
 export function App({ client: supplied }: { client?: GameClient }) {
   const [client] = useState(() => supplied ?? new GameClient());
+  useGameAudio(client);
   const state = useStore(client.store);
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const tools = useRef<HTMLDialogElement>(null);
+  const leaving = useRef<HTMLDialogElement>(null);
+  const playing = state.view === 'room' && !!state.snapshot?.game;
+  useEffect(() => {
+    const dialog = tools.current;
+    if (!dialog) return;
+    if (!playing) {
+      if (dialog.open) dialog.close?.();
+      dialog.removeAttribute('data-modal');
+      dialog.setAttribute('open', '');
+    } else {
+      if (dialog.open && !dialog.hasAttribute('data-modal')) {
+        dialog.close?.();
+        dialog.removeAttribute('open');
+      }
+      if (toolsOpen && !dialog.open) {
+        if (dialog.showModal) dialog.showModal();
+        else dialog.setAttribute('open', '');
+        dialog.setAttribute('data-modal', 'true');
+      }
+      if (!toolsOpen && dialog.open) {
+        dialog.close?.();
+        dialog.removeAttribute('open');
+        dialog.removeAttribute('data-modal');
+      }
+    }
+  }, [playing, toolsOpen]);
+  useEffect(() => {
+    const dialog = leaving.current;
+    if (state.leaveRequest && dialog && !dialog.open) {
+      if (dialog.showModal) dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+    if (!state.leaveRequest && dialog?.open) {
+      dialog.close?.();
+      dialog.removeAttribute('open');
+    }
+  }, [state.leaveRequest]);
+  useEffect(() => {
+    const unload = (event: BeforeUnloadEvent) => {
+      const current = client.store.getState();
+      if (current.view === 'room' && current.snapshot?.game) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('popstate', client.onPopState);
+    window.addEventListener('beforeunload', unload);
+    return () => {
+      window.removeEventListener('popstate', client.onPopState);
+      window.removeEventListener('beforeunload', unload);
+    };
+  }, [client]);
   async function refreshAuth() {
     const session = await authApi.session();
     setAuth(session);
@@ -89,7 +147,9 @@ export function App({ client: supplied }: { client?: GameClient }) {
   }, [client]);
   const online = state.connection === 'online';
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell ${state.view === 'room' && state.snapshot?.game ? 'playing-room' : ''}`}
+    >
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -130,8 +190,6 @@ export function App({ client: supplied }: { client?: GameClient }) {
           )}
         </div>
       </header>
-      <PwaControls />
-      <ThemeControls />
       <main
         id="main"
         tabIndex={-1}
@@ -172,6 +230,16 @@ export function App({ client: supplied }: { client?: GameClient }) {
               <button className="text-button" onClick={client.home}>
                 ← Home
               </button>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setToolsOpen(true);
+                  const panel = document.getElementById('table-sound-settings');
+                  if (panel instanceof HTMLDetailsElement) panel.open = true;
+                }}
+              >
+                Sound & tools
+              </button>
               <span className="room-code">
                 TABLE{' '}
                 <strong>{state.snapshot?.code ?? state.saved?.code}</strong>
@@ -196,17 +264,6 @@ export function App({ client: supplied }: { client?: GameClient }) {
                   </button>
                 )}
               </div>
-            )}
-            {state.snapshot && (
-              <Suspense fallback={<p role="status">Loading room controls…</p>}>
-                <RoomControls
-                  key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
-                  roomId={state.snapshot.roomId}
-                  actorId={state.snapshot.you.actorId}
-                  members={state.snapshot.members}
-                  online={online}
-                />
-              </Suspense>
             )}
             {state.snapshot ? (
               state.snapshot.game ? (
@@ -238,6 +295,12 @@ export function App({ client: supplied }: { client?: GameClient }) {
               </p>
             )}
           </>
+        ) : ['multiplayer', 'friends', 'online'].includes(state.view) ? (
+          <MultiplayerMenu
+            client={client}
+            session={auth}
+            onSignIn={() => void signIn()}
+          />
         ) : (
           <Home
             client={client}
@@ -248,6 +311,64 @@ export function App({ client: supplied }: { client?: GameClient }) {
           />
         )}
       </main>
+      <dialog
+        ref={tools}
+        className="table-utilities"
+        aria-label={playing ? 'Table settings and voice' : 'Game settings'}
+        onClick={(event) => {
+          if (playing && (event.target as Element).closest('a[href="#main"]')) {
+            event.preventDefault();
+            setToolsOpen(false);
+            document.getElementById('main')?.focus();
+          }
+        }}
+        onCancel={() => setToolsOpen(false)}
+        onClose={() => setToolsOpen(false)}
+      >
+        {playing && (
+          <button
+            className="button secondary"
+            onClick={() => setToolsOpen(false)}
+          >
+            Back to game
+          </button>
+        )}
+        <PwaControls />
+        <ThemeControls />
+        <SoundSettings />
+        {state.view === 'room' && state.snapshot && (
+          <Suspense fallback={<p role="status">Loading room controls…</p>}>
+            <RoomControls
+              key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
+              roomId={state.snapshot.roomId}
+              actorId={state.snapshot.you.actorId}
+              members={state.snapshot.members}
+              online={online}
+            />
+          </Suspense>
+        )}
+      </dialog>
+      <dialog
+        ref={leaving}
+        className="leave-dialog"
+        aria-labelledby="leave-title"
+        onCancel={(event) => {
+          event.preventDefault();
+          client.cancelLeave();
+        }}
+      >
+        <h2 id="leave-title">Return from your table?</h2>
+        <p>
+          Your seat, hand and scores stay at the server. Your friends will see
+          you disconnect. You can return to this table.
+        </p>
+        <button className="button primary" onClick={client.cancelLeave}>
+          Keep playing
+        </button>
+        <button className="button secondary" onClick={client.confirmLeave}>
+          Return home and keep my seat
+        </button>
+      </dialog>
       {profileOpen && auth?.user && (
         <Suspense
           fallback={

@@ -6,6 +6,7 @@ import type {
   Snapshot,
   PublicProfile,
   RoomDescriptor,
+  EventMessage,
 } from '@omi/shared';
 import { api, ApiError, socketUrl } from './api';
 import { applyEvent } from './reducer';
@@ -17,8 +18,20 @@ export type GameAction = ClientCommand extends infer T
     : never
   : never;
 type SavedTable = { roomId: string; code: string; displayName: string };
+export type View =
+  'home' | 'multiplayer' | 'friends' | 'create' | 'join' | 'online' | 'room';
+const views: readonly View[] = [
+  'home',
+  'multiplayer',
+  'friends',
+  'create',
+  'join',
+  'online',
+  'room',
+];
 export type ClientState = {
-  view: 'home' | 'join' | 'room';
+  view: View;
+  leaveRequest: { view: View; back: boolean } | null;
   inviteCode: string;
   identity: GuestIdentity | null;
   snapshot: Snapshot | null;
@@ -28,6 +41,7 @@ export type ClientState = {
   error: string | null;
   notice: string | null;
   saved: SavedTable | null;
+  presentation: EventMessage | null;
 };
 const key = 'omi.table.v1';
 function loadSaved(): SavedTable | null {
@@ -115,8 +129,28 @@ export class GameClient {
         .get('room')
         ?.trim()
         .toUpperCase() ?? '';
+    const screen = new URLSearchParams(window.location.search).get(
+      'screen',
+    ) as View;
+    const view: View = inviteCode
+      ? 'join'
+      : views.includes(screen) && screen !== 'room'
+        ? screen
+        : 'home';
+    const prior = window.history.state;
+    window.history.replaceState(
+      {
+        omi: true,
+        view:
+          prior?.omi && prior.view === 'room' && loadSaved() ? 'room' : view,
+        index: prior?.omi && Number.isInteger(prior.index) ? prior.index : 0,
+      },
+      '',
+      window.location.href,
+    );
     this.store = createStore<ClientState>(() => ({
-      view: inviteCode ? 'join' : 'home',
+      view,
+      leaveRequest: null,
       inviteCode,
       identity: null,
       snapshot: null,
@@ -126,6 +160,7 @@ export class GameClient {
       error: null,
       notice: null,
       saved: loadSaved(),
+      presentation: null,
     }));
   }
   private save(saved: SavedTable | null) {
@@ -156,6 +191,7 @@ export class GameClient {
     this.socket = null;
     socket?.close();
     this.clearPending();
+    this.store.setState({ presentation: null });
   };
   start = async () => {
     this.stopped = false;
@@ -197,23 +233,79 @@ export class GameClient {
       this.save({ ...state.saved, displayName: profile.displayName });
   };
   forgetIdentity = () => {
-    this.home();
+    this.changeView('home', true);
     this.save(null);
     this.store.setState({ identity: null, snapshot: null });
   };
-  showJoin = () => this.store.setState({ view: 'join', error: null });
+  showJoin = () => this.navigate('join');
   dismiss = () => this.store.setState({ error: null, notice: null });
-  home = () => {
+  private rememberView(view: View, replace = false) {
+    const index = Number(window.history.state?.index ?? 0);
+    const url =
+      view === 'room'
+        ? `?room=${this.store.getState().saved?.code ?? ''}`
+        : view === 'home'
+          ? ''
+          : `?screen=${view}`;
+    window.history[replace ? 'replaceState' : 'pushState'](
+      { omi: true, view, index: replace ? index : index + 1 },
+      '',
+      window.location.pathname + url,
+    );
+  }
+  private changeView(view: View, history: boolean) {
+    if (view === 'room') {
+      if (this.store.getState().view !== 'room') void this.resume(false);
+      return;
+    }
     this.stop();
     this.stopped = false;
     this.store.setState({
-      view: 'home',
+      view,
+      leaveRequest: null,
       connection: 'idle',
       busy: false,
       error: null,
       notice: null,
     });
-    window.history.replaceState(null, '', window.location.pathname);
+    if (history) this.rememberView(view);
+  }
+  navigate = (view: View, back = false) => {
+    const state = this.store.getState();
+    if (state.view === 'room' && view !== 'room' && state.snapshot?.game) {
+      this.store.setState({ leaveRequest: { view, back } });
+      return;
+    }
+    this.changeView(view, !back);
+  };
+  home = () => this.navigate('home');
+  back = () => {
+    if (window.history.state?.omi && window.history.state.index > 0)
+      window.history.back();
+    else
+      this.navigate(
+        this.store.getState().view === 'multiplayer' ? 'home' : 'multiplayer',
+      );
+  };
+  onPopState = (event: PopStateEvent) => {
+    const target =
+      event.state?.omi && views.includes(event.state.view)
+        ? (event.state.view as View)
+        : 'home';
+    if (target === 'room' && this.store.getState().view === 'room') {
+      this.store.setState({ leaveRequest: null });
+      return;
+    }
+    this.navigate(target, true);
+  };
+  confirmLeave = () => {
+    const request = this.store.getState().leaveRequest;
+    if (request) this.changeView(request.view, !request.back);
+  };
+  cancelLeave = () => {
+    const request = this.store.getState().leaveRequest;
+    this.store.setState({ leaveRequest: null });
+    if (request?.back) window.history.forward();
   };
   enter = async (displayName: string, code?: string) => {
     if (this.store.getState().busy) return;
@@ -260,11 +352,7 @@ export class GameClient {
         code: room.code,
         displayName: identity.displayName,
       });
-      window.history.replaceState(
-        null,
-        '',
-        `${window.location.pathname}?room=${room.code}`,
-      );
+      this.rememberView('room');
       this.retries = 0;
       this.openSocket(room.roomId);
     } catch (error) {
@@ -277,7 +365,19 @@ export class GameClient {
         });
     }
   };
-  resume = async () => {
+  acceptMatch = (room: RoomDescriptor) => {
+    const identity = this.store.getState().identity;
+    if (!identity) return;
+    this.save({
+      roomId: room.roomId,
+      code: room.code,
+      displayName: identity.displayName,
+    });
+    this.store.setState({ view: 'room', snapshot: null, busy: false });
+    this.rememberView('room');
+    this.openSocket(room.roomId);
+  };
+  resume = async (history = true) => {
     const saved = this.store.getState().saved;
     if (!saved) return;
     const epoch = ++this.epoch;
@@ -298,6 +398,8 @@ export class GameClient {
       const snapshot = await api.snapshot(saved.roomId, this.controller.signal);
       if (this.stopped || epoch !== this.epoch) return;
       this.store.setState({ identity, snapshot, busy: false });
+      if (history && window.history.state?.view !== 'room')
+        this.rememberView('room');
       this.retries = 0;
       this.openSocket(saved.roomId);
     } catch (error) {
@@ -332,7 +434,11 @@ export class GameClient {
     const socket = this.socket;
     this.socket = null;
     socket?.close();
-    this.store.setState({ connection: 'offline', busy: false });
+    this.store.setState({
+      connection: 'offline',
+      busy: false,
+      presentation: null,
+    });
   };
   online = () => {
     if (!this.wentOffline) return;
@@ -411,6 +517,7 @@ export class GameClient {
     this.syncing = false;
     this.store.setState({
       connection: this.retries > 0 ? 'reconnecting' : 'connecting',
+      presentation: null,
     });
     this.connectTimer = setTimeout(() => socket.close(), 8000);
     socket.onmessage = (event) => {
@@ -458,6 +565,7 @@ export class GameClient {
       this.syncing = false;
       this.store.setState({
         snapshot: message,
+        presentation: null,
         connection: 'online',
         busy: false,
       });
@@ -469,7 +577,8 @@ export class GameClient {
       }
       const snapshot = applyEvent(state.snapshot, message);
       if (!snapshot) this.requestSync();
-      else this.store.setState({ snapshot });
+      else if (snapshot !== state.snapshot)
+        this.store.setState({ snapshot, presentation: message });
     } else if (message.type === 'ack') {
       if (message.actionId === this.pendingAction?.wire.actionId)
         this.clearPending();
@@ -495,7 +604,7 @@ export class GameClient {
     )
       return;
     this.syncing = true;
-    this.store.setState({ connection: 'reconnecting' });
+    this.store.setState({ connection: 'reconnecting', presentation: null });
     const socket = this.socket;
     this.syncTimer = setTimeout(() => {
       if (this.socket === socket) socket.close();

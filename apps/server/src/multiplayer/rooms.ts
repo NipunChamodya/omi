@@ -117,6 +117,7 @@ const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export class RoomService {
   onPeerDisconnect: (roomId: string, actorId: string) => void = () => undefined;
+  onSessionDisconnect: (hash: string) => void = () => undefined;
   private stopped = false;
   private readonly rooms = new Map<string, Room>();
   private readonly codes = new Map<string, string>();
@@ -140,6 +141,7 @@ export class RoomService {
     return room ? this.descriptor(room) : null;
   }
   disconnectSession(hash: string): void {
+    this.onSessionDisconnect(hash);
     for (const room of this.rooms.values())
       for (const peer of room.peers.values())
         if (peer.identity.tokenHash === hash) {
@@ -259,6 +261,51 @@ export class RoomService {
       this.descriptor(room),
     );
   }
+  /** Synchronous all-or-nothing assignment; only server-authenticated queue identities. */
+  match(identities: readonly Identity[]): RoomDescriptor {
+    if (
+      identities.length !== 4 ||
+      new Set(identities.map((item) => item.actorId)).size !== 4
+    )
+      throw new RoomError('FOUR_PLAYERS_REQUIRED');
+    for (const identity of identities) {
+      this.checkIdentity(identity, identity.actorId);
+      if (!identity.userId) throw new RoomError('LOGIN_REQUIRED', 401);
+      if (this.forActor(identity.actorId))
+        throw new RoomError('ALREADY_IN_ROOM');
+    }
+    const host = identities[0]!;
+    const created = this.create(host, {
+      actorId: host.actorId,
+      actionId: randomUUID(),
+      expectedVersion: 0,
+    });
+    const room = this.rooms.get(created.roomId)!;
+    // No awaits between validation and membership installation: competing entries cannot interleave.
+    room.members = identities.map((identity, seat) => ({
+      actorId: identity.actorId,
+      displayName: identity.displayName,
+      seat: seat as Seat,
+      ready: false,
+      avatarUrl: identity.avatarUrl ?? null,
+    }));
+    for (const identity of identities)
+      this.memberships.set(identity.actorId, room.id);
+    return this.descriptor(room);
+  }
+  private connected(room: Room): boolean {
+    return (
+      room.members.length === 4 &&
+      room.members.every((member) => {
+        const peer = room.peers.get(member.actorId);
+        return (
+          peer &&
+          peer.socket.readyState === WebSocket.OPEN &&
+          this.active(peer.identity)
+        );
+      })
+    );
+  }
   preview(identity: Identity, code: string): RoomDescriptor {
     this.checkIdentity(identity, identity.actorId);
     const room = this.rooms.get(this.codes.get(code) ?? '');
@@ -319,7 +366,7 @@ export class RoomService {
     const { room } = this.authorize(roomId, identity);
     return room.queue.run(() => {
       const { member } = this.authorize(roomId, identity);
-      return snapshot(room, member);
+      return snapshot(room, member, null, !!this.policies.nextDealer);
     });
   }
   attach(roomId: string, peer: Peer): Promise<void> {
@@ -346,7 +393,7 @@ export class RoomService {
       const member = room.members.find(
         (item) => item.actorId === peer.identity.actorId,
       )!;
-      this.send(peer, snapshot(room, member));
+      this.send(peer, snapshot(room, member, null, !!this.policies.nextDealer));
     });
   }
   detach(roomId: string, peer: Peer): Promise<void> {
@@ -377,7 +424,10 @@ export class RoomService {
         throw new RoomError('STALE_CONNECTION', 403);
       if (command.roomId !== roomId) throw new RoomError('ROOM_MISMATCH', 403);
       if (command.type === 'sync') {
-        this.send(peer, snapshot(room, member, command.actionId));
+        this.send(
+          peer,
+          snapshot(room, member, command.actionId, !!this.policies.nextDealer),
+        );
         return;
       }
       const key = `${member.actorId}:${command.actionId}`;
@@ -444,12 +494,7 @@ export class RoomService {
       if (member.actorId !== room.hostId)
         throw new RoomError('HOST_REQUIRED', 403);
       if (room.round) throw new RoomError('ROUND_ALREADY_STARTED');
-      if (
-        room.members.length !== 4 ||
-        room.members.some(
-          (item) => !item.ready || !room.peers.has(item.actorId),
-        )
-      )
+      if (!this.connected(room) || room.members.some((item) => !item.ready))
         throw new RoomError('FOUR_READY_PLAYERS_REQUIRED');
       room.round = createRound(
         randomUUID(),
@@ -561,6 +606,8 @@ export class RoomService {
       const dealer =
         this.policies.replacementDealer?.(previous) ?? 'unresolved';
       if (dealer === 'unresolved') throw new RoomError('UNRESOLVED_RULE');
+      if (!this.connected(room))
+        throw new RoomError('FOUR_READY_PLAYERS_REQUIRED');
       const result = restartCancelledRound(
         previous,
         randomUUID(),
@@ -586,7 +633,7 @@ export class RoomService {
         throw new RoomError('UNRESOLVED_RULE');
       const dealer = this.policies.nextDealer?.(previous) ?? 'unresolved';
       if (dealer === 'unresolved') throw new RoomError('UNRESOLVED_RULE');
-      if (room.members.some((item) => !room.peers.has(item.actorId)))
+      if (!this.connected(room))
         throw new RoomError('FOUR_READY_PLAYERS_REQUIRED');
       const round = createRound(
         randomUUID(),

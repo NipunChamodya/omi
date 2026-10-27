@@ -93,10 +93,10 @@ export function Home({
           </>
         ) : (
           <>
-            {joining && (
+            {(joining || state.view === 'create') && (
               <button
                 className="text-button back"
-                onClick={client.home}
+                onClick={client.back}
                 disabled={state.busy || authLoading}
               >
                 ← Back
@@ -208,6 +208,12 @@ export function Home({
                 </button>
               </>
             )}
+            <button
+              className="button secondary"
+              onClick={() => client.navigate('multiplayer')}
+            >
+              Multiplayer
+            </button>
             <p className="quiet-note">
               Private tables. Familiar rules.
               <br />A little space for the people you know.

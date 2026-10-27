@@ -6,6 +6,7 @@ export default defineConfig({
     '**/profile.spec.ts',
     '**/shell.spec.ts',
     '**/nginx.check.ts',
+    '**/sound.spec.ts',
   ],
   workers: 2,
   outputDir: './.remote-testing/browser-results',

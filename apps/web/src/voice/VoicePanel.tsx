@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Member } from '@omi/shared';
 import { VoiceClient } from './client';
+import { useSoundPreferences } from '../audio/preferences';
 const noBlocked: readonly string[] = [];
 export default function VoicePanel({
   roomId,
@@ -18,6 +19,10 @@ export default function VoicePanel({
 }) {
   const [client] = useState(() => new VoiceClient(roomId, actorId));
   const state = useStore(client.store);
+  const volume = useSoundPreferences((state) => state.voice);
+  useEffect(() => {
+    client.setMasterVolume(volume);
+  }, [client, volume]);
   useEffect(() => () => client.leave(), [client]);
   useEffect(() => {
     client.setOnline(online);
