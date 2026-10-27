@@ -13,6 +13,8 @@ import {
 } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
+import { dirname } from 'node:path';
+import { requireDeploymentNode, watchService } from './service-diagnostics.mjs';
 import dotenv from 'dotenv';
 import { root, renderConfig, quickUrl, origin, port } from './config.mjs';
 
@@ -33,7 +35,7 @@ function run(executable, args, options = {}) {
   });
   if (result.status !== 0)
     throw new Error(
-      `${executable} command failed; inspect local configuration (credentials are not printed)`,
+      `${executable} command failed (code=${result.status}, signal=${result.signal}, spawn=${result.error?.code ?? 'none'}); inspect local configuration (credentials are not printed)`,
     );
   return result.stdout?.trim();
 }
@@ -44,7 +46,14 @@ function stamp(pid) {
   return result.status === 0 ? result.stdout.trim() : null;
 }
 function owner(record) {
-  return record && stamp(record.pid) === record.stamp;
+  return Boolean(
+    record &&
+    Number.isSafeInteger(record.pid) &&
+    record.pid > 0 &&
+    typeof record.stamp === 'string' &&
+    record.stamp.length > 0 &&
+    stamp(record.pid) === record.stamp,
+  );
 }
 function readState() {
   if (!existsSync(statePath))
@@ -54,23 +63,33 @@ function readState() {
 function save() {
   writeFileSync(statePath, JSON.stringify(state), { mode: 0o600 });
 }
-function launch(executable, args, options = {}) {
+function launch(service, executable, args, options = {}) {
   const child = spawn(executable, args, {
     cwd: root,
     stdio: ['ignore', 'pipe', 'pipe'],
     ...options,
   });
   children.push(child);
-  child.stdout?.resume();
-  child.stderr?.resume();
-  child.on('error', () => {
-    void shutdown(1);
-  });
-  child.once('exit', () => {
-    if (!closing) {
-      console.error(
-        'A managed service stopped; shutting down this deployment.',
+  watchService(child, ({ code, signal, spawnCode, summary }) => {
+    if (closing) return;
+    console.error(
+      `Managed service ${service} failed (code=${code}, signal=${signal}, spawn=${spawnCode ?? 'none'}).`,
+    );
+    try {
+      // Only allowlisted operational summaries are retained, never raw logs.
+      const diagnosticPath = join(base, 'last-service-error.log');
+      writeFileSync(
+        diagnosticPath,
+        `service=${service} code=${code} signal=${signal} spawn=${spawnCode ?? 'none'}\n${summary}\n`,
+        { mode: 0o600 },
       );
+      chmodSync(diagnosticPath, 0o600);
+      console.error('Private summary: .remote-testing/last-service-error.log');
+    } catch {
+      console.error(
+        'Private diagnostic could not be saved; check runtime permissions and disk space.',
+      );
+    } finally {
       void shutdown(1);
     }
   });
@@ -230,11 +249,9 @@ async function check(record) {
   );
 }
 async function start() {
-  if (
-    !/^22\./.test(process.versions.node) ||
-    Number(process.versions.node.split('.')[1]) < 13
-  )
-    throw new Error('Use Node.js 22');
+  requireDeploymentNode(process.versions.node);
+  // npm's env-based node launcher and every child must use this same runtime.
+  process.env.PATH = `${dirname(process.execPath)}:${process.env.PATH ?? ''}`;
   if (run('git', ['branch', '--show-current']) !== 'dev')
     throw new Error('Remote testing is restricted to branch dev');
   if (existsSync(statePath))
@@ -256,7 +273,7 @@ async function start() {
     !source.GOOGLE_CALLBACK_URL
   )
     throw new Error(
-      'Configure all Google settings privately in apps/server/.env before starting; public application access is blocked',
+      'Configure GOOGLE_CLIENT_ID (Google web client ID), GOOGLE_CLIENT_SECRET and GOOGLE_CALLBACK_URL privately in apps/server/.env before starting; public application access is blocked',
     );
   if (source.ALLOW_GUESTS === 'true')
     throw new Error('Disable ALLOW_GUESTS before remote testing');
@@ -284,9 +301,14 @@ async function start() {
   mkdirSync(runtime, { mode: 0o700 });
   for (const directory of ['body', 'proxy'])
     mkdirSync(join(runtime, directory));
+  const processStamp = stamp(process.pid);
+  if (!processStamp)
+    throw new Error(
+      'Cannot verify supervisor process identity; no services were started',
+    );
   state = {
     pid: process.pid,
-    stamp: stamp(process.pid),
+    stamp: processStamp,
     runtime,
     proxyPort,
     backendPort,
@@ -311,9 +333,9 @@ async function start() {
   run(nginx, ['-t', '-p', runtime + '/', '-c', configPath], {
     stdio: 'inherit',
   });
-  launch(nginx, ['-p', runtime + '/', '-c', configPath]);
+  launch('nginx', nginx, ['-p', runtime + '/', '-c', configPath]);
   await waitHttp(`http://127.0.0.1:${proxyPort}/_omi/health`);
-  const connector = launch(cloudflared, [
+  const connector = launch('cloudflared', cloudflared, [
     'tunnel',
     '--no-autoupdate',
     '--url',
@@ -367,13 +389,10 @@ async function start() {
     env: serverEnv,
     stdio: 'inherit',
   });
-  const backend = launch(process.execPath, ['dist/index.js'], {
+  launch('backend', process.execPath, ['dist/index.js'], {
     cwd: serverDirectory,
     env: serverEnv,
   });
-  // Keep query-stripped structured logs private; never print raw provider errors.
-  backend.stdout.resume();
-  backend.stderr.resume();
   await waitHttp(`http://127.0.0.1:${backendPort}/health`);
   state.phase = 'awaiting-google-registration';
   save();

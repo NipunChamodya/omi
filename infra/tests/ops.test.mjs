@@ -91,7 +91,14 @@ test('compiled migration, backup, restore, readiness and production shutdown wor
     await new Promise((done) => probe.close(done));
     child = spawn(process.execPath, [join(dist, 'index.js')], {
       cwd: dir,
-      env: { ...env, PORT: String(port), DATABASE_PATH: restored },
+      env: {
+        ...env,
+        PORT: String(port),
+        DATABASE_PATH: restored,
+        GOOGLE_CLIENT_ID: 'fixture-client.apps.googleusercontent.com',
+        GOOGLE_CLIENT_SECRET: 'fixture-secret',
+        GOOGLE_CALLBACK_URL: 'https://omi.example/api/auth/google/callback',
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let logs = '';
