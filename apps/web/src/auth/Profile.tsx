@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AuthSession, PublicProfile } from '@omi/shared';
+import { FriendsPanel } from './FriendsPanel';
 import { authApi, avatarSource } from './api';
 import { ApiError } from '../game/api';
 import { Avatar } from '../components/Cards';
@@ -37,6 +38,7 @@ export default function Profile({
   onLogout: () => Promise<void>;
 }) {
   const user = session.user!;
+  const stats = session.statistics;
   const dialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(user.displayName);
@@ -96,6 +98,40 @@ export default function Profile({
         <div>
           <p className="eyebrow">YOUR PLACE AT THE TABLE</p>
           <h2 id="profile-title">Your profile</h2>
+          {stats && (
+            <section aria-label="Match statistics" className="quiet-note">
+              <p>
+                {stats.played} played · {stats.wins} won ·{' '}
+                {stats.played - stats.wins} lost
+                {stats.played > 0 &&
+                  ` · ${Math.round((stats.wins * 100) / stats.played)}% win rate`}
+              </p>
+              <p>
+                {stats.casualWins} casual wins · {stats.rankedWins} ranked wins
+                · {stats.loanLosses} loan losses · {stats.rankedForfeitLosses}{' '}
+                ranked forfeit losses
+              </p>
+              {!!stats.recent.length && (
+                <details>
+                  <summary>Recent matches</summary>
+                  <ul>
+                    {stats.recent.map((match, index) => (
+                      <li key={index}>
+                        {new Date(match.completedAt).toLocaleDateString()} ·{' '}
+                        {match.ranked ? 'Ranked' : 'Casual'} ·{' '}
+                        {match.won ? 'Won' : 'Lost'}
+                        {match.reason === 'loan_loss'
+                          ? ' · Loan loss'
+                          : match.reason === 'ranked_forfeit'
+                            ? ' · Forfeit'
+                            : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </section>
+          )}
         </div>
         <button
           type="button"
@@ -318,6 +354,9 @@ export default function Profile({
       >
         Sign out
       </button>
+      {session.csrfToken && (
+        <FriendsPanel actorId={user.id} csrf={session.csrfToken} />
+      )}
     </dialog>
   );
 }

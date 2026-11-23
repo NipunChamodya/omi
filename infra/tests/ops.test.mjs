@@ -53,7 +53,7 @@ test('compiled migration, backup, restore, readiness and production shutdown wor
     assert.deepEqual(JSON.parse(run('ops/backup-cli.js', ['create', backup])), {
       operation: 'create',
       integrity: 'ok',
-      migrations: 2,
+      migrations: 3,
     });
     assert.equal(statSync(backup).mode & 0o777, 0o600);
     run('ops/backup-cli.js', ['verify', backup]);

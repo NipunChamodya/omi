@@ -1,5 +1,7 @@
 # Owner-defined OMI rules
 
+For current gameplay and remaining owner decisions, see [OMI V2 development status](V2_DEVELOPMENT_STATUS.md). The original rules and historical gates are preserved below.
+
 Source: owner specification version 1.0, section 4. Authoritative requirements; not yet implemented in Stage A.
 
 ## Players

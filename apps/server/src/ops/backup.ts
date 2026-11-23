@@ -90,6 +90,14 @@ export async function restoreCopy(source: string, destination: string) {
     restored.transaction(() => {
       restored.prepare('DELETE FROM sessions').run();
       restored.prepare('DELETE FROM oauth_transactions').run();
+      if (
+        restored
+          .prepare(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'omi_guest_sessions'",
+          )
+          .get()
+      )
+        restored.prepare('DELETE FROM omi_guest_sessions').run();
     })();
   } finally {
     restored.close();

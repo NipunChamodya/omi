@@ -7,14 +7,14 @@ export const themes = [
   {
     id: 'classic',
     name: 'Classic OMI',
-    description: 'Ivory faces, emerald filigree and familiar red suits.',
+    description: 'White faces with the classic emerald filigree back.',
     css: classicCss,
     back: classicBack,
   },
   {
     id: 'royal',
     name: 'Royal Black & Gold',
-    description: 'Midnight faces, warm gold detailing and rose-red suits.',
+    description: 'White faces with a midnight and gold crown back.',
     css: royalCss,
     back: royalBack,
   },

@@ -17,6 +17,7 @@ export type {
   RoundHeader,
   PlayerGame,
   Snapshot,
+  CancellationVote,
   RoomDescriptor,
   GuestIdentity,
   ClientCommand,
@@ -27,7 +28,13 @@ export type {
   ServerMessage,
 } from './protocol.js';
 
-export type { PublicProfile, AuthSession } from './protocol.js';
+export type {
+  PublicProfile,
+  AuthSession,
+  MatchStatistics,
+  FriendAction,
+  FriendContact,
+} from './protocol.js';
 export type { MatchmakingMessage } from './matchmaking.js';
 export type {
   VoiceParticipant,

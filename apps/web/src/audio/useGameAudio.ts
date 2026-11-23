@@ -62,7 +62,8 @@ export function useGameAudio(client: GameClient) {
           case 'card-played':
             void gameAudio.play('land', id);
             if (event.completedTrick) later(360, 'gather', id + ':gather');
-            if (event.phase === 'complete') later(650, 'round', id + ':round');
+            if (event.phase === 'complete' && !event.score.final)
+              later(650, 'round', id + ':round');
             break;
           case 'member-joined':
             void gameAudio.play('joined', id);
@@ -73,6 +74,28 @@ export function useGameAudio(client: GameClient) {
               id,
             );
             break;
+        }
+        if (
+          event.kind === 'card-played' ||
+          event.kind === 'score-transferred' ||
+          event.kind === 'match-ended'
+        ) {
+          const final = event.score.final;
+          if (final) {
+            const cue =
+              final.reason === 'loan_loss'
+                ? 'loan'
+                : final.winner === state.snapshot?.you.team
+                  ? 'win'
+                  : 'lose';
+            later(650, cue, id + ':match');
+          } else if (
+            event.score.totals.some(
+              (value, team) => value !== previous.snapshot?.score.totals[team],
+            )
+          ) {
+            later(450, 'transfer', id + ':transfer');
+          }
         }
         if (
           state.snapshot?.game?.phase === 'playing' &&

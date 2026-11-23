@@ -20,10 +20,23 @@ export const commandSchema = z.discriminatedUnion('type', [
     payload: z.strictObject({ ready: z.boolean() }),
   }),
   ...(
-    ['start', 'sync', 'report-no-trump', 'restart', 'next-round'] as const
+    [
+      'start',
+      'leave-match',
+      'add-bot',
+      'sync',
+      'report-no-trump',
+      'restart',
+      'next-round',
+    ] as const
   ).map((type) =>
     z.strictObject({ ...envelope, type: z.literal(type), payload: empty }),
   ),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('vote-cancellation'),
+    payload: z.strictObject({ approve: z.boolean() }),
+  }),
   z.strictObject({
     ...envelope,
     type: z.literal('cut'),

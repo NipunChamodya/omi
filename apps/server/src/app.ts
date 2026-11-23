@@ -105,6 +105,7 @@ export function buildApp(options: AppOptions = {}) {
     await registerMultiplayer(api, {
       ...options.multiplayer,
       accounts,
+      matchStorage: repository.matchStorage,
       ice: config,
       allowGuests: config.ALLOW_GUESTS,
       origin: config.APP_ORIGIN,

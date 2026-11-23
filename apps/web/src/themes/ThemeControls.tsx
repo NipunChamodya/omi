@@ -8,7 +8,7 @@ const preview: readonly Card[] = [
   { rank: 'A', suit: 'spades' },
   { rank: 'K', suit: 'hearts' },
   { rank: 'Q', suit: 'diamonds' },
-  { rank: 'J', suit: 'clubs' },
+  { rank: '10', suit: 'clubs' },
 ];
 export function ThemeControls() {
   const state = useStore(themeStore);

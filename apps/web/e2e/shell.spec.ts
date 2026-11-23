@@ -28,3 +28,25 @@ test('supports keyboard focus and reduced motion', async ({ page }) => {
   ).toBeFocused();
   await expect(page.getByRole('main')).toBeVisible();
 });
+
+test('beginner practice gives feedback and switches to Sinhala', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Learn to play/ }).click();
+  const practice = page.getByRole('dialog', { name: 'Practice OMI' });
+  await practice.getByRole('button', { name: 'The player beside you' }).click();
+  await expect(practice.getByRole('status')).toHaveText('Try again.');
+  await practice
+    .getByRole('button', { name: 'The player opposite you' })
+    .click();
+  await practice.getByRole('button', { name: 'Next' }).click();
+  await practice.getByRole('button', { name: 'සිංහල' }).click();
+  const translated = page.getByRole('dialog', { name: 'ඕමි පුහුණුව' });
+  await expect(translated).toHaveAttribute('lang', 'si');
+  await expect(
+    translated.getByRole('button', { name: 'ආසියා (A)' }),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(translated).toHaveCount(0);
+});

@@ -412,8 +412,11 @@ describe('four-player real WebSocket integration', () => {
     expect(state.game!.handCounts).toEqual([0, 0, 0, 0]);
     expect(state.result!.status).toBe('settled');
     expect(
-      (await clients[0]!.send('next-round', {}, state.version)).reply,
-    ).toMatchObject({ type: 'error', code: 'UNRESOLVED_RULE' });
+      (await clients[0]!.send('next-round', {}, state.version)).reply.type,
+    ).toBe('ack');
+    const next = await snap(guests[0]!, room.roomId);
+    expect(next.game?.dealer).toBe(nextSeat(state.game!.dealer));
+    expect(next.score).toEqual(state.score);
   });
   it('serializes conflicting actions, prevents duplicate/reused IDs, and resynchronizes stale clients', async () => {
     const { guests, room, clients } = await playing();
@@ -642,10 +645,16 @@ describe('transport security regressions', () => {
     for (const playId of [0, 31])
       expect(
         (await client.send('accuse', { playId }, state.version)).reply,
-      ).toMatchObject({ type: 'error', code: 'UNRESOLVED_RULE' });
+      ).toMatchObject({ type: 'error', code: 'REPORT_REJECTED' });
     expect(
-      (await client.send('report-no-trump', {}, state.version)).reply,
-    ).toMatchObject({ type: 'error', code: 'UNRESOLVED_RULE' });
+      (
+        await clients[state.game!.selector]!.send(
+          'report-no-trump',
+          {},
+          state.version,
+        )
+      ).reply,
+    ).toMatchObject({ type: 'error', code: 'REPORT_REJECTED' });
     expect((await snap(guests[0]!, room.roomId)).version).toBe(state.version);
     const actor = state.game!.turn!;
     const own = await snap(guests[actor]!, room.roomId);
@@ -946,11 +955,9 @@ describe('private gameplay deception over the transport', () => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       return Math.floor((seed / 2 ** 32) * bound);
     };
-    // Hypothetical TEST policy; not an owner rule and never enabled by default.
     await reset({
       multiplayer: {
         entropy,
-        policies: { accusationWindow: () => 'eligible' },
       },
     });
     const { guests, room, clients } = await playing();
@@ -983,7 +990,7 @@ describe('private gameplay deception over the transport', () => {
     );
     expect(second.reply.type).toBe('ack');
     const beforeReport = await snap(guests[leader]!, room.roomId);
-    expect(beforeReport.score.totals).toEqual([0, 0]);
+    expect(beforeReport.score.totals).toEqual([10, 10]);
     expect(beforeReport.game!.trick).toHaveLength(2);
     for (const client of clients) {
       await client.wait(
@@ -999,15 +1006,35 @@ describe('private gameplay deception over the transport', () => {
         ),
       ).toBe(false);
     }
+    expect(
+      (
+        await clients[leader]!.send(
+          'accuse',
+          { playId: 1 },
+          beforeReport.version,
+        )
+      ).reply,
+    ).toMatchObject({ type: 'error', code: 'REPORT_REJECTED' });
+    let version = beforeReport.version;
+    for (const seat of [nextSeat(offender), nextSeat(nextSeat(offender))]) {
+      const played = await clients[seat]!.send(
+        'play',
+        { card: states[seat]!.game!.hand[0]! },
+        version,
+      );
+      expect(played.reply.type).toBe('ack');
+      version = played.reply.version!;
+    }
     const manual = await clients[leader]!.send(
       'accuse',
       { playId: 1 },
-      beforeReport.version,
+      version,
     );
     expect(manual.reply.type).toBe('ack');
     const reported = await snap(guests[leader]!, room.roomId);
-    expect(reported.score.totals[teamOf(offender)]).toBe(-3);
-    expect(reported.score.totals[teamOf(leader)]).toBe(3);
+    expect(reported.score.totals[teamOf(offender)]).toBe(7);
+    expect(reported.score.totals[teamOf(leader)]).toBe(13);
+    expect(reported.game!.phase).toBe('complete');
     const again = await clients[leader]!.send(
       'accuse',
       { playId: 1 },
@@ -1015,7 +1042,7 @@ describe('private gameplay deception over the transport', () => {
     );
     expect(again.reply).toMatchObject({
       type: 'error',
-      code: 'REPORT_ALREADY_APPLIED',
+      code: 'REPORT_REJECTED',
     });
     expect((await snap(guests[leader]!, room.roomId)).score).toEqual(
       reported.score,
@@ -1023,8 +1050,8 @@ describe('private gameplay deception over the transport', () => {
   });
 });
 
-describe('trusted policy extension integration', () => {
-  it('cancels and fully restarts a verified no-trump round only under explicit test policies', async () => {
+describe('approved rule integration', () => {
+  it('cancels and fully restarts a verified no-trump round after two eligible voters approve', async () => {
     const deck = createDeck();
     const hands = [
       deck.slice(0, 8),
@@ -1050,11 +1077,6 @@ describe('trusted policy extension integration', () => {
     await reset({
       multiplayer: {
         entropy: (bound) => entropyValues.shift() ?? bound - 1,
-        // Hypothetical TEST rules, never installed by default.
-        policies: {
-          noTrump: () => 'initial-deal',
-          replacementDealer: (round) => nextSeat(round.dealer),
-        },
       },
     });
     const { guests, clients, room } = await table();
@@ -1078,9 +1100,42 @@ describe('trusted policy extension integration', () => {
       trump.reply.version!,
     );
     expect(report.reply.type).toBe('ack');
+    expect(
+      (
+        await clients[1]!.send(
+          'vote-cancellation',
+          { approve: true },
+          report.reply.version!,
+        )
+      ).reply,
+    ).toMatchObject({ type: 'error', code: 'VOTE_NOT_ALLOWED' });
+    const firstVote = await clients[0]!.send(
+      'vote-cancellation',
+      { approve: true },
+      report.reply.version!,
+    );
+    expect(firstVote.reply.type).toBe('ack');
+    expect(
+      (
+        await clients[0]!.send(
+          'vote-cancellation',
+          { approve: true },
+          firstVote.reply.version!,
+        )
+      ).reply,
+    ).toMatchObject({ type: 'error', code: 'VOTE_NOT_ALLOWED' });
+    expect(
+      (
+        await clients[2]!.send(
+          'vote-cancellation',
+          { approve: true },
+          firstVote.reply.version!,
+        )
+      ).reply.type,
+    ).toBe('ack');
     const cancelled = await snap(guests[1]!, room.roomId);
     expect(cancelled.game!.phase).toBe('cancelled');
-    expect(cancelled.score.totals).toEqual([0, 0]);
+    expect(cancelled.score.totals).toEqual([10, 10]);
     expect(
       (
         await clients[0]!.send(
@@ -1095,22 +1150,20 @@ describe('trusted policy extension integration', () => {
     const restarted = await snap(guests[0]!, room.roomId);
     expect(restarted.game!.id).not.toBe(initial.game!.id);
     expect(restarted.game!.phase).toBe('awaiting-cut');
-    expect(restarted.game!.dealer).toBe(0);
-    expect(restarted.game!.selector).toBe(1);
+    expect(restarted.game!.dealer).toBe(3);
+    expect(restarted.game!.selector).toBe(0);
     expect(restarted.game!.handCounts).toEqual([0, 0, 0, 0]);
     expect(restarted.game!.tricks).toEqual([]);
     expect(restarted.score).toEqual(cancelled.score);
     noPrivateFields(restarted);
     expect(
-      (await clients[3]!.send('cut', { offset: 8 }, restarted.version)).reply
+      (await clients[2]!.send('cut', { offset: 8 }, restarted.version)).reply
         .type,
     ).toBe('ack');
   });
   it('preserves the score ledger into another round only with an explicit test dealer policy', async () => {
     await reset({
-      multiplayer: {
-        policies: { nextDealer: (round) => nextSeat(round.dealer) },
-      },
+      multiplayer: {},
     });
     const { guests, clients, room } = await playing();
     let state = await snap(guests[0]!, room.roomId);
@@ -1143,11 +1196,10 @@ describe('trusted policy extension integration', () => {
     expect(state.score).toEqual(completed.score);
     expect(state.result).toBeNull();
   });
-  it('completes three consecutive rounds under an explicit hypothetical dealer policy, preserving scores and rejecting duplicate/stale transitions', async () => {
+  it('completes three consecutive rounds with approved dealer rotation, preserving scores and rejecting duplicate/stale transitions', async () => {
     await reset({
       multiplayer: {
         entropy: () => 0,
-        policies: { nextDealer: (round) => nextSeat(round.dealer) },
         limits: { httpPerMinute: 1000 },
       },
     });
@@ -1168,9 +1220,7 @@ describe('trusted policy extension integration', () => {
       }
       expect(state.game!.tricks).toHaveLength(8);
       expect(state.result?.status).toBe('settled');
-      expect(state.score.totals[0] + state.score.totals[1]).toBe(
-        roundIndex + 1,
-      );
+      expect(state.score.totals[0] + state.score.totals[1]).toBe(20);
       for (const person of guests) {
         const own = await snap(person, room.roomId);
         expect(own.score).toEqual(state.score);
@@ -1281,4 +1331,111 @@ describe('trusted policy extension integration', () => {
       immediate.messages.every((message) => message.roomId === other.roomId),
     ).toBe(true);
   });
+});
+
+it('plays four settled hands through the real socket protocol and ends with a loan loss', async () => {
+  let seed = 10947;
+  await reset({
+    multiplayer: {
+      entropy: (bound) => {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        return seed % bound;
+      },
+      limits: { httpPerMinute: 1000 },
+    },
+  });
+  const { guests, clients, room } = await playing();
+  for (let handNumber = 0; handNumber < 4; handNumber += 1) {
+    const snapshots = await Promise.all(
+      guests.map((person) => snap(person, room.roomId)),
+    );
+    const game = snapshots[0]!.game!;
+    const leader = game.turn!;
+    const leadHand = snapshots[leader]!.game!.hand;
+    let offender: { seat: 1 | 3; lead: (typeof leadHand)[number] } | undefined;
+    for (const seat of [1, 3] as const) {
+      if (seat === leader) continue;
+      const hand = snapshots[seat]!.game!.hand;
+      const lead = leadHand.find(
+        (card) =>
+          hand.some((held) => held.suit === card.suit) &&
+          hand.some((held) => held.suit !== card.suit),
+      );
+      if (lead) {
+        offender = { seat, lead };
+        break;
+      }
+    }
+    if (!offender) throw new Error('Fixture needs a possible Baldu');
+    let next = snapshots[0]!.version;
+    let seat = leader;
+    let evidenceId = -1;
+    for (let play = 0; play < 4; play += 1) {
+      const hand = snapshots[seat]!.game!.hand;
+      const card =
+        seat === leader
+          ? offender.lead
+          : seat === offender.seat
+            ? hand.find((held) => held.suit !== offender.lead.suit)!
+            : (hand.find((held) => held.suit === offender.lead.suit) ??
+              hand[0]!);
+      if (seat === offender.seat) evidenceId = play;
+      const response = await clients[seat]!.send('play', { card }, next);
+      expect(response.reply.type).toBe('ack');
+      next = response.reply.version!;
+      seat = nextSeat(seat);
+    }
+    const accusation = await clients[0]!.send(
+      'accuse',
+      { playId: evidenceId },
+      next,
+    );
+    expect(accusation.reply.type).toBe('ack');
+    const result = await snap(guests[0]!, room.roomId);
+    const paid = Math.min(handNumber + 1, 3) * 3;
+    expect(result.score.totals).toEqual([10 + paid, 10 - paid]);
+    expect(result.result).toMatchObject({
+      status: 'settled',
+      outcome: 'baldu',
+    });
+    if (handNumber === 3) {
+      expect(result.score.final).toMatchObject({
+        reason: 'loan_loss',
+        winner: 0,
+        loser: 1,
+      });
+      expect(
+        (
+          await clients[0]!.send('accuse', { playId: evidenceId }, next, {
+            actionId: accusation.message.actionId,
+          })
+        ).reply,
+      ).toMatchObject({ type: 'ack', duplicate: true });
+      expect(
+        (await clients[0]!.send('next-round', {}, result.version)).reply,
+      ).toMatchObject({ code: 'MATCH_COMPLETE' });
+      break;
+    }
+    const advance = await clients[0]!.send('next-round', {}, result.version);
+    expect(advance.reply.type).toBe('ack');
+    const nextHand = await snap(guests[0]!, room.roomId);
+    expect(nextHand.game!.dealer).toBe(nextSeat(game.dealer));
+    const cut = await clients[leftOf(nextHand.game!.dealer)]!.send(
+      'cut',
+      { offset: 12 },
+      nextHand.version,
+    );
+    expect(cut.reply.type).toBe('ack');
+    const selector = nextHand.game!.selector;
+    const choice = await snap(guests[selector]!, room.roomId);
+    expect(
+      (
+        await clients[selector]!.send(
+          'trump',
+          { suit: choice.game!.hand[0]!.suit },
+          choice.version,
+        )
+      ).reply.type,
+    ).toBe('ack');
+  }
 });

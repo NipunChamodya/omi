@@ -77,7 +77,7 @@ export function MultiplayerMenu({
           <p>Four signed-in people. No bots and no simulated players.</p>
           {!session?.user ? (
             <>
-              <p>Sign in to join the real-player queue.</p>
+              <p>Sign in to join the ranked, human-only queue.</p>
               {session?.googleAvailable && (
                 <GoogleButton onClick={onSignIn} disabled={false} />
               )}
@@ -91,7 +91,7 @@ export function MultiplayerMenu({
                     ? 'Connecting to the waiting queue…'
                     : waiting.status === 'offline'
                       ? 'Disconnected. Waiting counts are unavailable. Reconnecting when online…'
-                      : 'Join the queue to find three other people.'}
+                      : 'Join the ranked queue to find three other people.'}
               </p>
               {waiting.error && <p role="alert">{waiting.error}</p>}
               {waiting.status === 'idle' || waiting.status === 'error' ? (

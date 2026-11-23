@@ -22,7 +22,8 @@ export {
   resolveTrick,
   playCard,
   countTricks,
-  reportNoTrump,
+  canRequestCancellation,
+  cancelRound,
   restartCancelledRound,
 } from './round.js';
 export type {
@@ -31,12 +32,13 @@ export type {
   PlayEvidence,
   RoundPhase,
   PrivateRound,
-  NoTrumpBasis,
-  NoTrumpPolicy,
-  NoTrumpReport,
-  RestartResult,
 } from './round.js';
 export { createLedger, settleRound } from './scoring.js';
-export type { ScoreLedger, LedgerEntry, Settlement } from './scoring.js';
+export type {
+  ScoreLedger,
+  LedgerEntry,
+  Settlement,
+  MatchResult,
+} from './scoring.js';
 export { accuse } from './accusations.js';
 export type { AccusationWindow, AccusationResult } from './accusations.js';

@@ -1,5 +1,7 @@
 # Rule clarifications
 
+For current gameplay and remaining owner decisions, see [OMI V2 development status](V2_DEVELOPMENT_STATUS.md). The original rules and historical gates are preserved below.
+
 Owner specification v1.0 remains authoritative. No owner clarification has yet been supplied for the entries below.
 
 | Unresolved detail                                                    | Engine / Stage C behavior                                                                                                                                                                                                                                                                |

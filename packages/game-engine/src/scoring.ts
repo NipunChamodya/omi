@@ -3,51 +3,106 @@ import type { Team } from './cards.js';
 import { countTricks } from './round.js';
 import type { PrivateRound } from './round.js';
 
+export type TransferReason =
+  'selector-win' | 'selector-loss' | 'kapothi' | 'manual-accusation';
+export type MatchResult = Readonly<{
+  reason: 'inventory_depleted' | 'loan_loss' | 'ranked_forfeit';
+  winner: Team;
+  loser: Team;
+  roundId: string;
+}>;
 export type LedgerEntry =
-  | Readonly<{
-      kind: 'award';
-      id: string;
-      roundId: string;
-      team: Team;
-      amount: number;
-      reason: 'selector-win' | 'selector-loss' | 'kapothi';
-    }>
-  | Readonly<{
-      kind: 'transfer';
-      id: string;
-      roundId: string;
-      from: Team;
-      to: Team;
-      amount: 3;
-      reason: 'manual-accusation';
-    }>
   | Readonly<{
       kind: 'carry';
       id: string;
       roundId: string;
       amount: 1;
       reason: 'seporu';
+    }>
+  | Readonly<{
+      kind: 'transfer' | 'unpaid';
+      id: string;
+      roundId: string;
+      from: Team;
+      to: Team;
+      amount: number;
+      reason: TransferReason;
     }>;
-/** Totals track awarded points plus net transfers, not an invented physical counter inventory. */
 export type ScoreLedger = Readonly<{
   totals: readonly [number, number];
   carry: 0 | 1;
   settledRounds: readonly string[];
   entries: readonly LedgerEntry[];
+  final: MatchResult | null;
+  continuationBlocked: boolean;
 }>;
 export function createLedger(): ScoreLedger {
-  return { totals: [0, 0], carry: 0, settledRounds: [], entries: [] };
+  return {
+    totals: [10, 10],
+    carry: 0,
+    settledRounds: [],
+    entries: [],
+    final: null,
+    continuationBlocked: false,
+  };
 }
+
+function settleTransfer(
+  ledger: ScoreLedger,
+  id: string,
+  roundId: string,
+  from: Team,
+  amount: number,
+  reason: TransferReason,
+): ScoreLedger {
+  requireRule(!ledger.final, 'MATCH_COMPLETE');
+  requireRule(
+    ledger.totals.every((value) => Number.isInteger(value) && value >= 0) &&
+      ledger.totals[0] + ledger.totals[1] === 20,
+    'INVALID_INVENTORY',
+  );
+  const to = otherTeam(from);
+  const unpaid = ledger.totals[from] < amount;
+  const totals: [number, number] = [...ledger.totals];
+  if (!unpaid) {
+    totals[from] -= amount;
+    totals[to] += amount;
+  }
+  return {
+    ...ledger,
+    totals,
+    settledRounds: [...ledger.settledRounds, roundId],
+    entries: [
+      ...ledger.entries,
+      {
+        kind: unpaid ? 'unpaid' : 'transfer',
+        id,
+        roundId,
+        from,
+        to,
+        amount,
+        reason,
+      },
+    ],
+    final:
+      unpaid || totals[from] === 0
+        ? {
+            reason: unpaid ? 'loan_loss' : 'inventory_depleted',
+            winner: to,
+            loser: from,
+            roundId,
+          }
+        : null,
+  };
+}
+
 export type Settlement =
-  | Readonly<{
-      status: 'unresolved';
-      reason: 'REPEATED_DRAW' | 'KAPOTHI_WITH_CARRY';
-    }>
+  | Readonly<{ status: 'unresolved'; reason: 'REPEATED_DRAW' }>
   | Readonly<{ status: 'already-settled'; ledger: ScoreLedger }>
   | Readonly<{
       status: 'settled';
       ledger: ScoreLedger;
-      result: 'seporu' | 'selector-win' | 'selector-loss' | 'kapothi';
+      result: 'seporu' | Exclude<TransferReason, 'manual-accusation'>;
     }>;
 
 export function settleRound(
@@ -61,27 +116,22 @@ export function settleRound(
   requireRule(ledger.carry === 0 || ledger.carry === 1, 'INVALID_CARRY');
   if (ledger.settledRounds.includes(round.id))
     return { status: 'already-settled', ledger };
+  requireRule(!ledger.final, 'MATCH_COMPLETE');
+  requireRule(!ledger.continuationBlocked, 'UNRESOLVED_RULE');
   const counts = countTricks(round);
-  const settledRounds = [...ledger.settledRounds, round.id];
+  const id = `round:${round.id}`;
   if (counts[0] === 4) {
-    if (ledger.carry === 1)
-      return { status: 'unresolved', reason: 'REPEATED_DRAW' };
+    if (ledger.carry) return { status: 'unresolved', reason: 'REPEATED_DRAW' };
     return {
       status: 'settled',
       result: 'seporu',
       ledger: {
         ...ledger,
         carry: 1,
-        settledRounds,
+        settledRounds: [...ledger.settledRounds, round.id],
         entries: [
           ...ledger.entries,
-          {
-            kind: 'carry',
-            id: `round:${round.id}`,
-            roundId: round.id,
-            amount: 1,
-            reason: 'seporu',
-          },
+          { kind: 'carry', id, roundId: round.id, amount: 1, reason: 'seporu' },
         ],
       },
     };
@@ -89,39 +139,32 @@ export function settleRound(
   const winner: Team = counts[0] > counts[1] ? 0 : 1;
   const kapothi = counts[winner] === 8;
   const selectorWon = winner === teamOf(round.selector);
-  // Carry one point into an ordinary result; Kapothi bonus combinations remain unresolved.
-  if (ledger.carry === 1 && kapothi)
-    return { status: 'unresolved', reason: 'KAPOTHI_WITH_CARRY' };
-  const amount = (kapothi ? 3 : selectorWon ? 1 : 2) + ledger.carry;
   const reason = kapothi
     ? 'kapothi'
     : selectorWon
       ? 'selector-win'
       : 'selector-loss';
-  const totals: [number, number] = [...ledger.totals];
-  totals[winner] += amount;
+  const amount = kapothi ? 3 : selectorWon ? 1 : 2 + ledger.carry;
+  const settled = settleTransfer(
+    ledger,
+    id,
+    round.id,
+    otherTeam(winner),
+    amount,
+    reason,
+  );
+  const kapothiAfterSepuru = kapothi && ledger.carry === 1;
   return {
     status: 'settled',
     result: reason,
     ledger: {
-      totals,
-      carry: 0,
-      settledRounds,
-      entries: [
-        ...ledger.entries,
-        {
-          kind: 'award',
-          id: `round:${round.id}`,
-          roundId: round.id,
-          team: winner,
-          amount,
-          reason,
-        },
-      ],
+      ...settled,
+      carry: kapothiAfterSepuru ? 1 : 0,
+      continuationBlocked: kapothiAfterSepuru && !settled.final,
     },
   };
 }
-/** Internal bookkeeping for a verified manual accusation; no automatic invocation. */
+
 export function recordAccusationTransfer(
   ledger: ScoreLedger,
   roundId: string,
@@ -132,26 +175,13 @@ export function recordAccusationTransfer(
     roundId.trim().length > 0 && Number.isInteger(playId) && playId >= 0,
     'INVALID_EVIDENCE_ID',
   );
-  const id = `accusation:${roundId.length}:${roundId}:${playId}`;
-  if (ledger.entries.some((entry) => entry.id === id)) return ledger;
-  const recipient = otherTeam(offender);
-  const totals: [number, number] = [...ledger.totals];
-  totals[offender] -= 3;
-  totals[recipient] += 3;
-  return {
-    ...ledger,
-    totals,
-    entries: [
-      ...ledger.entries,
-      {
-        kind: 'transfer',
-        id,
-        roundId,
-        from: offender,
-        to: recipient,
-        amount: 3,
-        reason: 'manual-accusation',
-      },
-    ],
-  };
+  if (ledger.settledRounds.includes(roundId)) return ledger;
+  return settleTransfer(
+    ledger,
+    `accusation:${roundId.length}:${roundId}:${playId}`,
+    roundId,
+    offender,
+    3,
+    'manual-accusation',
+  );
 }

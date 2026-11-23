@@ -44,6 +44,7 @@ export async function registerAccountRoutes(
     sameSite: 'lax' as const,
   };
   const rate = new RateLimiter(options.now, 120, 60_000);
+  const friendWrites = new RateLimiter(options.now, 10, 60_000);
   const uploads = new RateLimiter(options.now, 6, 60_000);
   let activeUploads = 0;
   const current = (request: FastifyRequest) =>
@@ -83,7 +84,9 @@ export async function registerAccountRoutes(
     api.post('/auth/session', async (request) => {
       parse(empty, request.body);
       const session = current(request);
+      const statistics = session && rooms.statistics(session.identity.actorId);
       return {
+        ...(statistics && { statistics }),
         user: session?.profile ?? null,
         csrfToken: session?.csrfToken ?? null,
         expiresAt: session?.identity.expiresAt ?? null,
@@ -160,6 +163,27 @@ export async function registerAccountRoutes(
         { path: '/', secure: options.secure },
       );
       return { ok: true };
+    });
+    api.post('/profile/friends', async (request) => {
+      const session = authorized(request);
+      const body = parse(
+        z.discriminatedUnion('action', [
+          z.strictObject({ action: z.literal('list') }),
+          ...(['request', 'accept', 'remove', 'block', 'unblock'] as const).map(
+            (action) =>
+              z.strictObject({ action: z.literal(action), target: z.uuid() }),
+          ),
+        ]),
+        request.body,
+      );
+      const store = accounts.repo.friends;
+      if (!store) throw new RoomError('FRIENDS_UNAVAILABLE', 503);
+      const actor = session.identity.actorId;
+      if (body.action !== 'list') {
+        if (!friendWrites.take(actor)) throw new RoomError('RATE_LIMITED', 429);
+        store.change(actor, body.target, body.action, options.now());
+      }
+      return { friends: store.list(actor) };
     });
     api.post('/profile', async (request) => {
       const session = authorized(request);

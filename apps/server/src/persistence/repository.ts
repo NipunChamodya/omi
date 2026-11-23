@@ -20,9 +20,16 @@ import type {
   SessionRecord,
   UserRecord,
 } from './schema.js';
+import { SqliteMatchStorage } from '../multiplayer/match-storage.js';
+import type { MatchStorage } from '../multiplayer/match-storage.js';
+import { Friends } from '../auth/friends.js';
 import { RoomError } from '../multiplayer/support.js';
+import type { GuestSessionStorage, Identity } from '../multiplayer/support.js';
 /** Application-facing persistence boundary. A PostgreSQL implementation can replace this adapter. */
 export interface AccountRepository {
+  readonly guests?: GuestSessionStorage;
+  readonly friends?: Friends;
+  readonly matchStorage?: MatchStorage;
   user(id: string): UserRecord | undefined;
   googleUser(
     sub: string,
@@ -58,11 +65,53 @@ export interface AccountRepository {
 }
 export class SqliteAccounts implements AccountRepository {
   private readonly sqlite;
+  readonly matchStorage: MatchStorage;
+  readonly friends: Friends;
+  readonly guests: GuestSessionStorage;
   private readonly db;
   constructor(path: string) {
     if (path !== ':memory:')
       mkdirSync(dirname(resolve(path)), { recursive: true, mode: 0o700 });
     this.sqlite = new Database(path);
+    this.matchStorage = new SqliteMatchStorage(this.sqlite);
+    this.friends = new Friends(this.sqlite);
+    this.guests = {
+      loadActive: (now, limit) => {
+        const rows = this.sqlite
+          .prepare(
+            `SELECT token_hash AS tokenHash, actor_id AS actorId,
+          display_name AS displayName, expires_at AS expiresAt FROM omi_guest_sessions
+          WHERE expires_at > ? LIMIT ?`,
+          )
+          .all(now, limit + 1) as Identity[];
+        if (rows.length > limit)
+          throw new Error('Saved guest sessions exceed capacity');
+        return rows;
+      },
+      save: (identity) => {
+        this.sqlite
+          .prepare(
+            `INSERT INTO omi_guest_sessions (token_hash, actor_id, display_name, expires_at)
+          VALUES (?, ?, ?, ?)`,
+          )
+          .run(
+            identity.tokenHash,
+            identity.actorId,
+            identity.displayName,
+            identity.expiresAt,
+          );
+      },
+      delete: (hash) => {
+        this.sqlite
+          .prepare('DELETE FROM omi_guest_sessions WHERE token_hash = ?')
+          .run(hash);
+      },
+      prune: (now) => {
+        this.sqlite
+          .prepare('DELETE FROM omi_guest_sessions WHERE expires_at <= ?')
+          .run(now);
+      },
+    };
     if (path !== ':memory:') chmodSync(path, 0o600);
     this.sqlite.pragma('foreign_keys = ON');
     this.sqlite.pragma('journal_mode = WAL');

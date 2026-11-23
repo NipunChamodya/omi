@@ -56,13 +56,17 @@ test('themes load on demand, persist privately, and respect reduced motion and D
       .locator('.card-face')
       .first()
       .evaluate((element) => getComputedStyle(element).color),
-  ).toBe('rgb(241, 213, 151)');
+  ).toBe('rgb(20, 20, 20)');
   expect(
     await preview
       .locator('.card-face.red')
       .first()
       .evaluate((element) => getComputedStyle(element).color),
-  ).toBe('rgb(255, 167, 172)');
+  ).toBe('rgb(163, 46, 54)');
+  for (const card of await preview.locator('.card-face').all()) {
+    await expect(card).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(card).toHaveCSS('background-image', 'none');
+  }
   await expect
     .poll(() => preview.locator('.card-back img').getAttribute('src'))
     .toContain('royal-back-');
@@ -175,5 +179,5 @@ test('unavailable theme CSS preserves readable cards and offers a retry', async 
       .locator('.theme-preview .card-face')
       .first()
       .evaluate((element) => getComputedStyle(element).color),
-  ).toBe('rgb(241, 213, 151)');
+  ).toBe('rgb(20, 20, 20)');
 });

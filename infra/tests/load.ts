@@ -1,5 +1,8 @@
 // Private loopback benchmark only. Never imports or starts a public identity provider.
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { performance, monitorEventLoopDelay } from 'node:perf_hooks';
 import { setTimeout as pause } from 'node:timers/promises';
 import { WebSocket } from 'ws';
@@ -25,13 +28,17 @@ if (
   seconds > 120
 )
   throw new Error('Usage: test:load -- rooms(1..8) idle-soak-seconds(1..120)');
+const disk = process.argv[4] === '--disk';
+if (process.argv[4] && !disk)
+  throw new Error('Optional storage argument: --disk');
+const directory = disk ? mkdtempSync(join(tmpdir(), 'omi-load-')) : null;
 const origin = 'http://127.0.0.1:5173';
 const app = buildApp({
   logger: false,
   config: parseConfig({
     NODE_ENV: 'test',
     ALLOW_GUESTS: 'true',
-    DATABASE_PATH: ':memory:',
+    DATABASE_PATH: directory ? join(directory, 'load.sqlite') : ':memory:',
     APP_ORIGIN: origin,
   }),
 });
@@ -335,6 +342,7 @@ try {
     JSON.stringify(
       {
         scope: 'loopback backend plus Node clients; no OIDC/browser/voice load',
+        sqlite: disk ? 'disposable WAL file' : 'memory',
         node: process.versions.node,
         platform: process.platform,
         arch: process.arch,
@@ -362,5 +370,9 @@ try {
   clearInterval(sample);
   loop.disable();
   for (const socket of sockets) socket.terminate();
-  await app.close();
+  try {
+    await app.close();
+  } finally {
+    if (directory) rmSync(directory, { recursive: true, force: true });
+  }
 }

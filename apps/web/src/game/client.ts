@@ -73,8 +73,16 @@ export function friendlyError(code: string, type?: string): string {
   switch (code) {
     case 'UNRESOLVED_RULE':
       return type === 'next-round' || type === 'restart'
-        ? 'The dealer rule for the next deal still needs confirmation. This table is paused.'
-        : 'Reporting is paused until the reporting rules are confirmed.';
+        ? 'This settlement needs clarification before another hand can start.'
+        : 'Another cancellation request in this hand needs a confirmed repeat-request rule.';
+    case 'MATCH_COMPLETE':
+      return 'This match has ended.';
+    case 'CANCELLATION_VOTE_ACTIVE':
+      return 'Finish the cancellation vote before playing.';
+    case 'VOTE_NOT_ALLOWED':
+      return 'Only the other players may vote, once each.';
+    case 'BOT_NOT_ALLOWED':
+      return 'Bots can only be added to a casual lobby with open seats.';
     case 'VERSION_CONFLICT':
       return 'The table changed. Please try again.';
     case 'INVALID_GAME_ACTION':
@@ -580,8 +588,13 @@ export class GameClient {
       else if (snapshot !== state.snapshot)
         this.store.setState({ snapshot, presentation: message });
     } else if (message.type === 'ack') {
-      if (message.actionId === this.pendingAction?.wire.actionId)
-        this.clearPending();
+      if (message.actionId === this.pendingAction?.wire.actionId) {
+        if (this.pendingAction.wire.type === 'leave-match') {
+          this.save(null);
+          this.store.setState({ snapshot: null });
+          this.changeView('home', true);
+        } else this.clearPending();
+      }
     } else if (message.type === 'error') {
       const type = this.pendingAction?.wire.type;
       if (message.actionId === this.pendingAction?.wire.actionId)

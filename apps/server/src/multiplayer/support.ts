@@ -31,13 +31,24 @@ export class SerialQueue {
 }
 export type Identity = GuestIdentity &
   Readonly<{ tokenHash: string; userId?: string; avatarUrl?: string | null }>;
+export interface GuestSessionStorage {
+  loadActive(now: number, max: number): Identity[];
+  save(identity: Identity): void;
+  delete(tokenHash: string): void;
+  prune(now: number): void;
+}
 export class GuestSessions {
   private readonly sessions = new Map<string, Identity>();
   constructor(
     private readonly now: () => number,
     private readonly ttl: number,
     private readonly max: number,
-  ) {}
+    private readonly storage?: GuestSessionStorage,
+  ) {
+    for (const identity of storage?.loadActive(now(), max) ?? []) {
+      this.sessions.set(identity.tokenHash, identity);
+    }
+  }
   create(displayName: string): { token: string; identity: Identity } {
     this.sweep();
     if (this.sessions.size >= this.max)
@@ -50,6 +61,7 @@ export class GuestSessions {
       expiresAt: this.now() + this.ttl,
       tokenHash,
     };
+    this.storage?.save(identity);
     this.sessions.set(tokenHash, identity);
     return { token, identity };
   }
@@ -65,11 +77,16 @@ export class GuestSessions {
     );
   }
   revoke(token: string | undefined): void {
-    if (token) this.sessions.delete(this.hash(token));
+    if (!token) return;
+    const hash = this.hash(token);
+    this.storage?.delete(hash);
+    this.sessions.delete(hash);
   }
   sweep(): void {
+    const now = this.now();
+    this.storage?.prune(now);
     for (const [hash, identity] of this.sessions)
-      if (identity.expiresAt <= this.now()) this.sessions.delete(hash);
+      if (identity.expiresAt <= now) this.sessions.delete(hash);
   }
   private hash(token: string): string {
     return createHash('sha256').update(token).digest('hex');

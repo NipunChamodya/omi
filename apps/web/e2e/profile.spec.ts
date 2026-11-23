@@ -164,3 +164,43 @@ test('profile changes reach a live lobby and the same account resumes its seat a
     await guestContext.close();
   }
 });
+
+test('two accounts can send, accept, and block friend-code requests', async ({
+  page,
+  browser,
+}, info) => {
+  const other = await browser.newContext({
+    baseURL: String(info.project.use.baseURL),
+  });
+  try {
+    const friend = await other.newPage();
+    for (const member of [page, friend]) {
+      await member.goto('/');
+      await member
+        .getByRole('button', { name: 'Continue with Google' })
+        .click();
+      await member.getByRole('button', { name: 'My profile' }).click();
+      await member.getByText('Friends', { exact: true }).click();
+      await expect(
+        member.getByText('No friends or requests yet.'),
+      ).toBeVisible();
+    }
+    const friendCode = await friend.locator('.friend-code').innerText();
+    await page.getByLabel('Their friend code').fill(friendCode);
+    await page.getByRole('button', { name: 'Send request' }).click();
+    await expect(page.getByText('Request sent')).toBeVisible();
+    await friend.getByRole('button', { name: 'Close profile' }).click();
+    await friend.getByRole('button', { name: 'My profile' }).click();
+    await friend.getByText('Friends', { exact: true }).click();
+    await friend.getByRole('button', { name: 'Accept', exact: true }).click();
+    await expect(
+      friend.getByRole('button', { name: 'Remove', exact: true }),
+    ).toBeVisible();
+    await friend.getByRole('button', { name: 'Block', exact: true }).click();
+    await expect(
+      friend.getByRole('button', { name: 'Unblock', exact: true }),
+    ).toBeVisible();
+  } finally {
+    await other.close();
+  }
+});

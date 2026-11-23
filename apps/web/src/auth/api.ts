@@ -1,5 +1,10 @@
 import { apiBase, ApiError } from '../game/api';
-import type { AuthSession, PublicProfile } from '@omi/shared';
+import type {
+  AuthSession,
+  FriendAction,
+  FriendContact,
+  PublicProfile,
+} from '@omi/shared';
 async function json<T>(
   path: string,
   payload: object,
@@ -39,6 +44,10 @@ async function json<T>(
   }
 }
 export const authApi = {
+  friends: (
+    payload: { action: 'list' } | { action: FriendAction; target: string },
+    csrf: string,
+  ) => json<{ friends: FriendContact[] }>('/profile/friends', payload, csrf),
   session: (signal?: AbortSignal) =>
     json<AuthSession>('/auth/session', {}, undefined, signal),
   start: (returnTo: string) =>

@@ -328,19 +328,7 @@ The temporary deployment was stopped after verification. These results describe 
 
 ## Current readiness
 
-| Area                                             | Status and remaining work                                                                |
-| :----------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| Local four-player round                          | Implemented and tested with isolated clients                                             |
-| Production startup and HTTPS maintenance gate    | Verified; runtime/security checks remain enforced                                        |
-| Real Google login and Internet multiplayer       | **Manual verification required** after registering the current callback                  |
-| Next round and complete match                    | **Blocked by rule decisions**; no approved ordinary next-dealer or terminal match policy |
-| Accusation/no-trump and unresolved scoring paths | Explicit rule gates; see owner decisions                                                 |
-| Internet voice                                   | Local peer audio tested; current deployment lacks STUN/TURN configuration                |
-| Custom avatar uploads                            | Implemented; disabled until private object storage is configured                         |
-| Offline behavior                                 | Static fallback only; no offline multiplayer or queued game actions                      |
-| Server restarts                                  | Persistent accounts remain; active in-memory games end                                   |
-
-Do not treat passing local fixtures as proof of remote login, physical-device audio, or a complete multi-round match. See the [remaining-work audit](docs/OMI_REMAINING_WORK_AUDIT.md) and [rule clarifications](docs/RULE_CLARIFICATIONS.md).
+OMI V2 adds physical kata kola settlement, terminal outcomes, manual Baldu and cancellation voting, connected-seat recovery, casual bots, and human-only ranked tables. Started matches are stored in the existing SQLite database. See the [current V2 development status](docs/V2_DEVELOPMENT_STATUS.md) for the implemented behaviors, rule gates, limitations, and deployment scope. The previous readiness reports are historical.
 
 ## Repository map
 

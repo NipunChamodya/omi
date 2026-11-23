@@ -10,6 +10,18 @@ import { Avatar, CardBack, CardFace, cardName, suits } from './Cards';
 const cardKey = (card: Card) => `${card.suit}:${card.rank}`;
 const relative = (seat: Seat, local: Seat) => (seat - local + 4) % 4;
 const positions = ['bottom', 'right', 'top', 'left'] as const;
+function ReconnectCountdown({ deadline }: { deadline: number }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <span title="Reconnection time remaining">
+      {Math.max(0, Math.ceil((deadline - now) / 1_000))}s
+    </span>
+  );
+}
 function Player({
   member,
   snapshot,
@@ -41,11 +53,17 @@ function Player({
         {local ? 'You' : member.displayName}
       </strong>
       <span className="player-detail">
-        {local
-          ? 'Your seat'
-          : member.team === snapshot.you.team
-            ? 'Teammate'
-            : 'Opponent'}
+        {member.disconnectDeadline !== undefined && !snapshot.score.final ? (
+          <ReconnectCountdown deadline={member.disconnectDeadline} />
+        ) : member.bot ? (
+          'AI bot'
+        ) : local ? (
+          'Your seat'
+        ) : member.team === snapshot.you.team ? (
+          'Teammate'
+        ) : (
+          'Opponent'
+        )}
       </span>
       {!local && (
         <span
@@ -98,7 +116,10 @@ export default function GameTable({
       setSelected(null);
   }, [game.hand, selected]);
   const yours = game.turn === snapshot.you.seat;
-  const playable = enabled && !pending && yours && game.phase === 'playing';
+  const vote = snapshot.cancellationVote;
+  const final = snapshot.score.final;
+  const playable =
+    enabled && !pending && !vote && !final && yours && game.phase === 'playing';
   const play = (card: Card) => {
     if (!playable || submitted.current || client.store.getState().pending)
       return;
@@ -160,7 +181,7 @@ export default function GameTable({
       </section>
       <div className="round-meta">
         <span>Round · {game.tricks.length} / 8 tricks</span>
-        <span lang="si">කැට කොල{snapshot.score.carry ? ' · 1 carry' : ''}</span>
+        <span lang="si">කැට කොල{snapshot.score.carry ? ' · Sepuru' : ''}</span>
       </div>
       <section
         className={`felt-table ${dragging ? 'drag-active' : ''}`}
@@ -222,21 +243,23 @@ export default function GameTable({
       >
         {!enabled
           ? 'Reconnecting to your table…'
-          : game.phase === 'awaiting-cut'
-            ? `${name(cutter)} is cutting the deck.`
-            : game.phase === 'awaiting-trump'
-              ? yours
-                ? 'Choose your trump suit.'
-                : `${name(game.selector)} is choosing trump.`
-              : game.phase === 'complete'
-                ? 'Eight tricks. One good game.'
-                : game.phase === 'cancelled'
-                  ? 'This round was cancelled.'
-                  : yours
-                    ? game.trick.length
-                      ? 'Your turn. Choose a card.'
-                      : 'Your lead. Choose a card.'
-                    : `Waiting for ${name(game.turn)}…`}
+          : vote
+            ? 'Play paused for a redeal vote.'
+            : game.phase === 'awaiting-cut'
+              ? `${name(cutter)} is cutting the deck.`
+              : game.phase === 'awaiting-trump'
+                ? yours
+                  ? 'Choose your trump suit.'
+                  : `${name(game.selector)} is choosing trump.`
+                : game.phase === 'complete'
+                  ? 'Eight tricks. One good game.'
+                  : game.phase === 'cancelled'
+                    ? 'This round was cancelled.'
+                    : yours
+                      ? game.trick.length
+                        ? 'Your turn. Choose a card.'
+                        : 'Your lead. Choose a card.'
+                      : `Waiting for ${name(game.turn)}…`}
       </p>
       {game.phase === 'awaiting-cut' && cutter === snapshot.you.seat && (
         <section className="action-panel" aria-labelledby="cut-title">
@@ -291,72 +314,135 @@ export default function GameTable({
             </div>
           </section>
         )}
-      {game.hand.length > 0 && (
-        <section className="hand-panel" aria-label="Your hand">
-          <div className="hand-heading">
-            <h2>Your hand</h2>
-            <span>
-              {game.hand.length} cards
-              {game.phase === 'playing' ? ' · Hold & drag, or select' : ''}
-            </span>
-          </div>
-          <div className={`hand-grid hand-${game.hand.length}`}>
-            {game.hand.map((card) => (
-              <InteractiveCard
-                key={cardKey(card)}
-                card={card}
-                selected={selected === cardKey(card)}
-                disabled={game.phase !== 'playing' || !enabled || pending}
-                playable={playable}
-                pending={pending}
-                zone={dropZone}
-                deal={live?.event.kind === 'cards-dealt'}
-                onDrag={(active, inside) => {
-                  setDragging(active);
-                  setOver(inside);
+      {game.hand.length > 0 &&
+        !vote &&
+        game.phase !== 'complete' &&
+        game.phase !== 'cancelled' && (
+          <section className="hand-panel" aria-label="Your hand">
+            <div className="hand-heading">
+              <h2>Your hand</h2>
+              <span>
+                {game.hand.length} cards
+                {game.phase === 'playing' ? ' · Hold & drag, or select' : ''}
+              </span>
+            </div>
+            <div className={`hand-grid hand-${game.hand.length}`}>
+              {game.hand.map((card) => (
+                <InteractiveCard
+                  key={cardKey(card)}
+                  card={card}
+                  selected={selected === cardKey(card)}
+                  disabled={game.phase !== 'playing' || !enabled || pending}
+                  playable={playable}
+                  pending={pending}
+                  zone={dropZone}
+                  deal={live?.event.kind === 'cards-dealt'}
+                  onDrag={(active, inside) => {
+                    setDragging(active);
+                    setOver(inside);
+                  }}
+                  onSelect={() =>
+                    setSelected(
+                      selected === cardKey(card) ? null : cardKey(card),
+                    )
+                  }
+                  onPlay={() => play(card)}
+                />
+              ))}
+            </div>
+            {game.phase === 'playing' && (
+              <button
+                className="button primary play-button"
+                aria-label="Play selected card"
+                disabled={!playable || !chosen}
+                onClick={() => {
+                  if (chosen) {
+                    void gameAudio.play('release');
+                    play(chosen);
+                  }
                 }}
-                onSelect={() =>
-                  setSelected(selected === cardKey(card) ? null : cardKey(card))
-                }
-                onPlay={() => play(card)}
-              />
-            ))}
-          </div>
-          {game.phase === 'playing' && (
-            <button
-              className="button primary play-button"
-              aria-label="Play selected card"
-              disabled={!yours || !chosen || !enabled || pending}
-              onClick={() => {
-                if (chosen) {
-                  void gameAudio.play('release');
-                  play(chosen);
-                }
-              }}
-            >
-              {pending
-                ? 'Playing…'
-                : chosen
-                  ? `Play ${chosen.rank} ${suits[chosen.suit].symbol}`
-                  : yours
-                    ? 'Select a card to play'
-                    : 'Waiting for your turn'}
-            </button>
-          )}
+              >
+                {pending
+                  ? 'Playing…'
+                  : chosen
+                    ? `Play ${chosen.rank} ${suits[chosen.suit].symbol}`
+                    : yours
+                      ? 'Select a card to play'
+                      : 'Waiting for your turn'}
+              </button>
+            )}
+          </section>
+        )}
+      {vote && (
+        <section className="result-panel" aria-labelledby="vote-title">
+          <h2 id="vote-title">Vote to redeal · අත පොලේ ගහන්න</h2>
+          <p role="status">
+            {name(vote.requester)} requested a redeal.{' '}
+            {vote.votes.filter((entry) => entry.approve).length} of 2 approvals.
+          </p>
+          {vote.requester !== snapshot.you.seat &&
+            !vote.votes.some((entry) => entry.seat === snapshot.you.seat) && (
+              <div className="result-scores">
+                <button
+                  className="button primary"
+                  disabled={!enabled || pending}
+                  onClick={() =>
+                    client.act({
+                      type: 'vote-cancellation',
+                      payload: { approve: true },
+                    })
+                  }
+                >
+                  Approve
+                </button>
+                <button
+                  className="button secondary"
+                  disabled={!enabled || pending}
+                  onClick={() =>
+                    client.act({
+                      type: 'vote-cancellation',
+                      payload: { approve: false },
+                    })
+                  }
+                >
+                  Keep playing
+                </button>
+              </div>
+            )}
         </section>
       )}
       {game.phase === 'complete' && (
-        <section className="result-panel" aria-labelledby="result-title">
+        <section
+          className={`result-panel ${final?.reason === 'loan_loss' && live ? 'loan-loss' : ''}`}
+          aria-labelledby="result-title"
+        >
           <p className="eyebrow">BACK AROUND THE TABLE</p>
-          <h2 id="result-title">Round complete.</h2>
+          <h2 id="result-title">
+            {final
+              ? final.winner === snapshot.you.team
+                ? 'Your team won!'
+                : 'The other team won!'
+              : 'Round complete.'}
+          </h2>
           <p>
-            {snapshot.result?.status === 'unresolved'
-              ? 'This scoring combination needs rule confirmation. Your score is unchanged.'
-              : snapshot.result?.outcome === 'seporu'
-                ? 'සෙපෝරු · Four tricks each. One point carries forward.'
-                : snapshot.result?.outcome === 'kapothi'
-                  ? 'කපෝති · All eight tricks. Three points awarded.'
-                  : `${snapshot.result?.tricks[snapshot.you.team] ?? 0} tricks for your team. The round score is settled.`}
+            {final?.reason === 'loan_loss' ? (
+              <>
+                <span lang="si">ණයටත් පැරදුණා!</span> · The losing team couldn’t
+                cover the kata kola transfer. 😂
+              </>
+            ) : final?.reason === 'ranked_forfeit' ? (
+              'A ranked player’s reconnection period expired.'
+            ) : snapshot.result?.status === 'unresolved' ? (
+              'This scoring combination needs rule confirmation. Your score is unchanged.'
+            ) : snapshot.result?.outcome === 'seporu' ? (
+              'සෙපෝරු · Four tricks each. Sepuru applies to the next settlement.'
+            ) : snapshot.result?.outcome === 'kapothi' ? (
+              'කපෝති · All eight tricks. Three kata kola owed.'
+            ) : snapshot.result?.outcome === 'baldu' ? (
+              'බාල්දුයි · Correct accusation. The hand ends with a three kata kola obligation.'
+            ) : (
+              `${snapshot.result?.tricks[snapshot.you.team] ?? 0} tricks for your team. The round score is settled.`
+            )}
           </p>
           <div className="result-scores">
             <span>
@@ -370,7 +456,7 @@ export default function GameTable({
               </strong>
             </span>
           </div>
-          {snapshot.hostId === snapshot.you.actorId && (
+          {!final && snapshot.hostId === snapshot.you.actorId && (
             <button
               className="button primary"
               onClick={() => client.act({ type: 'next-round', payload: {} })}
@@ -378,6 +464,7 @@ export default function GameTable({
                 !enabled ||
                 pending ||
                 snapshot.result?.status === 'unresolved' ||
+                snapshot.score.continuationBlocked ||
                 snapshot.capabilities?.nextRound === false ||
                 snapshot.members.some((member) => !member.connected)
               }
@@ -385,13 +472,26 @@ export default function GameTable({
               Next round <span aria-hidden="true">→</span>
             </button>
           )}
-          <p className="quiet-note">
-            {snapshot.capabilities?.nextRound === false
-              ? 'Next round is unavailable: the owner has not approved dealer rotation.'
-              : snapshot.members.some((member) => !member.connected)
-                ? 'All four players must reconnect before the next round.'
-                : 'The host can start the next round when all four players are connected.'}
-          </p>
+          {final && (
+            <button
+              className="button primary"
+              disabled={!enabled || pending}
+              onClick={() => client.act({ type: 'leave-match', payload: {} })}
+            >
+              Return home
+            </button>
+          )}
+          {!final && (
+            <p className="quiet-note">
+              {snapshot.score.continuationBlocked
+                ? 'Kapothi was settled. The next deal awaits clarification of the pending Sepuru.'
+                : snapshot.result?.status === 'unresolved'
+                  ? 'A second consecutive Sepuru awaits a ruling.'
+                  : snapshot.members.some((member) => !member.connected)
+                    ? 'All four players must reconnect before the next round.'
+                    : 'The host can start the next round when all four players are connected.'}
+            </p>
+          )}
         </section>
       )}
       {game.phase === 'cancelled' && (
@@ -415,10 +515,14 @@ export default function GameTable({
         <details className="table-details">
           <summary>Table history &amp; reports</summary>
           <p className="quiet-note">
-            Reports are manual. No report timing rule has been confirmed yet.
+            Report an opponent’s play after its trick finishes and before the
+            round ends.
           </p>
           {game.phase === 'playing' &&
-            game.selector % 2 !== snapshot.you.team && (
+            !vote &&
+            !snapshot.cancellationDecided &&
+            game.trump &&
+            game.hand.every((card) => card.suit !== game.trump) && (
               <button
                 className="button secondary"
                 disabled={!enabled || pending}
@@ -448,21 +552,24 @@ export default function GameTable({
                       {play.card.rank} {suits[play.card.suit].symbol}
                     </strong>
                   </span>
-                  {play.seat % 2 !== snapshot.you.team && (
-                    <button
-                      className="text-button"
-                      aria-label={`Report ${cardName(play.card)} played by ${name(play.seat)}`}
-                      disabled={!enabled || pending}
-                      onClick={() =>
-                        client.act({
-                          type: 'accuse',
-                          payload: { playId: index * 4 + order },
-                        })
-                      }
-                    >
-                      Report play
-                    </button>
-                  )}
+                  {game.phase === 'playing' &&
+                    !vote &&
+                    index < game.tricks.length &&
+                    play.seat % 2 !== snapshot.you.team && (
+                      <button
+                        className="text-button"
+                        aria-label={`Report ${cardName(play.card)} played by ${name(play.seat)}`}
+                        disabled={!enabled || pending}
+                        onClick={() =>
+                          client.act({
+                            type: 'accuse',
+                            payload: { playId: index * 4 + order },
+                          })
+                        }
+                      >
+                        Report play
+                      </button>
+                    )}
                 </div>
               ))}
             </div>

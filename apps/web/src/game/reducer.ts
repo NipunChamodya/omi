@@ -36,12 +36,26 @@ export function applyEvent(
             : member,
         ),
       };
+    case 'match-ended':
+      return state.game
+        ? {
+            ...next,
+            score: event.score,
+            cancellationVote: null,
+            game: { ...state.game, phase: 'complete', turn: null },
+          }
+        : null;
     case 'presence':
       return {
         ...next,
         members: state.members.map((member) =>
           member.seat === event.seat
-            ? { ...member, connected: event.connected }
+            ? {
+                ...member,
+                connected: event.connected,
+                ...(event.bot !== undefined && { bot: event.bot }),
+                disconnectDeadline: event.disconnectDeadline ?? undefined,
+              }
             : member,
         ),
       };
@@ -56,6 +70,8 @@ export function applyEvent(
           tricks: [],
         },
         result: null,
+        cancellationVote: null,
+        cancellationDecided: false,
       };
     case 'cards-dealt':
       if (!state.game) return null;
@@ -94,10 +110,28 @@ export function applyEvent(
       };
     }
     case 'score-transferred':
-      return { ...next, score: event.score };
+      return {
+        ...next,
+        score: event.score,
+        result: event.result ?? next.result,
+        game:
+          event.result && next.game
+            ? { ...next.game, phase: 'complete', turn: null }
+            : next.game,
+      };
+    case 'cancellation-vote':
+      return {
+        ...next,
+        cancellationVote: event.vote,
+        cancellationDecided: event.rejected ?? false,
+      };
     case 'round-cancelled':
       return state.game
-        ? { ...next, game: { ...state.game, phase: 'cancelled', turn: null } }
+        ? {
+            ...next,
+            cancellationVote: null,
+            game: { ...state.game, phase: 'cancelled', turn: null },
+          }
         : null;
   }
 }

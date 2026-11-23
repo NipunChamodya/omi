@@ -101,9 +101,15 @@ it('renders all 32 card identities independently of the two visual designs', () 
         expect(
           view.container.querySelector('.card-corner b')?.textContent,
         ).toBe(rank);
-        expect(view.container.querySelector('.card-pip')?.textContent).toBe(
-          { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' }[suit],
+        const pips = view.container.querySelectorAll(
+          '.card-pip, .card-pips text',
         );
+        expect(pips).toHaveLength(Number(rank) || 1);
+        for (const pip of pips) {
+          expect(pip.textContent).toBe(
+            { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' }[suit],
+          );
+        }
         expect(view.container.querySelector('.red') !== null).toBe(
           suit === 'hearts' || suit === 'diamonds',
         );

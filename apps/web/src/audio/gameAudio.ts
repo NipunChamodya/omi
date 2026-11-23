@@ -25,6 +25,8 @@ const cues = {
   disconnected: [tone, 'ui', 0.35, 0.8],
   turn: [tone, 'ui', 0.5, 1.1],
   round: [result, 'celebrations', 0.5, 1],
+  loan: [tone, 'celebrations', 0.55, 0.55],
+  transfer: [land, 'celebrations', 0.5, 1.4],
   win: [result, 'celebrations', 0.65, 1.25],
   lose: [result, 'celebrations', 0.4, 0.8],
   button: [paper, 'ui', 0.2, 1.5],

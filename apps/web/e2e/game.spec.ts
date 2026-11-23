@@ -410,14 +410,15 @@ test('four mobile friends create, join, deal, play a round and resume after relo
       path: testInfo.outputPath('results-320.png'),
       fullPage: true,
     });
-    await expect(
-      host.getByRole('button', { name: /Next round/ }),
-    ).toBeDisabled();
-    await expect(
-      host.getByText(
-        'Next round is unavailable: the owner has not approved dealer rotation.',
-      ),
-    ).toBeVisible();
+    const nextRound = host.getByRole('button', { name: /Next round/ });
+    await expect(nextRound).toBeEnabled();
+    await nextRound.click();
+    for (const page of pages) {
+      await expect(page.getByTestId('turn-status')).toContainText(
+        'cutting the deck',
+      );
+      await expect(page.getByTestId('hand-card')).toHaveCount(0);
+    }
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
   }

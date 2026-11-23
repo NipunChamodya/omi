@@ -537,3 +537,40 @@ it.each(['profile-conflict', 'logout'])(
     await expect.poll(() => storage.objects.size).toBe(0);
   },
 );
+
+it('keeps friend requests private and blocks repeat requests from the blocked account', async () => {
+  const a = await login();
+  const b = await login();
+  const c = await login();
+  const aId = a.session.user!.id;
+  const bId = b.session.user!.id;
+  const change = (sender: typeof a, action: string, target?: string) =>
+    post(
+      '/profile/friends',
+      { action, ...(target && { target }) },
+      sender.cookie,
+      sender.session.csrfToken!,
+    );
+  expect(
+    (await post('/profile/friends', { action: 'list' }, a.cookie)).statusCode,
+  ).toBe(403);
+  expect((await change(a, 'request', bId)).json().friends).toMatchObject([
+    { id: bId, status: 'sent' },
+  ]);
+  expect((await change(b, 'list')).json().friends).toMatchObject([
+    { id: aId, status: 'incoming' },
+  ]);
+  expect((await change(c, 'list')).json().friends).toEqual([]);
+  expect((await change(a, 'accept', bId)).statusCode).toBe(409);
+  expect((await change(b, 'accept', aId)).json().friends).toMatchObject([
+    { id: aId, status: 'accepted' },
+  ]);
+  expect((await change(b, 'block', aId)).json().friends).toMatchObject([
+    { id: aId, status: 'blocked' },
+  ]);
+  expect((await change(a, 'list')).json().friends).toEqual([]);
+  expect((await change(a, 'request', bId)).statusCode).toBe(409);
+  expect((await change(b, 'unblock', aId)).json().friends).toEqual([]);
+  expect((await change(a, 'request', bId)).statusCode).toBe(200);
+  expect((await change(b, 'remove', aId)).json().friends).toEqual([]);
+});

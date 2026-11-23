@@ -15,7 +15,8 @@ import {
   otherTeam,
   playCard,
   RANKS,
-  reportNoTrump,
+  canRequestCancellation,
+  cancelRound,
   resolveTrick,
   restartCancelledRound,
   sameCard,
@@ -360,7 +361,7 @@ describe('play and private evidence', () => {
         expect(after.evidence[1]!.leadSuit).toBe(lead);
         expect(after.trick).toHaveLength(2);
         expect(after.hands[actor]).toHaveLength(7);
-        expect(ledger.totals).toEqual([0, 0]);
+        expect(ledger.totals).toEqual([10, 10]);
         expect(Object.keys(after).sort()).toEqual(Object.keys(before).sort());
         violationFound = true;
       }
@@ -416,10 +417,10 @@ describe('confirmed scoring and unresolved combinations', () => {
       const result = settleRound(winner0, freeze(createLedger()));
       expect(result.status).toBe('settled');
       if (result.status !== 'settled') throw new Error('fixture');
-      expect(result.ledger.totals).toEqual(selector === 0 ? [1, 0] : [2, 0]);
+      expect(result.ledger.totals).toEqual(selector === 0 ? [11, 9] : [12, 8]);
       const winner1 = settleRound(withTricks(3, selector), createLedger());
       if (winner1.status !== 'settled') throw new Error('fixture');
-      expect(winner1.ledger.totals).toEqual(selector === 1 ? [0, 1] : [0, 2]);
+      expect(winner1.ledger.totals).toEqual(selector === 1 ? [9, 11] : [8, 12]);
       expect(result.ledger.carry).toBe(0);
       expect(settleRound(winner0, result.ledger)).toEqual({
         status: 'already-settled',
@@ -437,7 +438,7 @@ describe('confirmed scoring and unresolved combinations', () => {
         );
         if (result.status !== 'settled') throw new Error('fixture');
         expect(result.result).toBe('kapothi');
-        expect(result.ledger.totals).toEqual(counts === 8 ? [3, 0] : [0, 3]);
+        expect(result.ledger.totals).toEqual(counts === 8 ? [13, 7] : [7, 13]);
         expect(result.ledger.entries[0]).toMatchObject({
           amount: 3,
           reason: 'kapothi',
@@ -450,12 +451,12 @@ describe('confirmed scoring and unresolved combinations', () => {
     const first = settleRound(draw, createLedger());
     if (first.status !== 'settled') throw new Error('fixture');
     expect(first.result).toBe('seporu');
-    expect(first.ledger.totals).toEqual([0, 0]);
+    expect(first.ledger.totals).toEqual([10, 10]);
     expect(first.ledger.carry).toBe(1);
     const win = { ...withTricks(3, 0), id: 'after-draw' };
     const second = settleRound(win, freeze(first.ledger));
     if (second.status !== 'settled') throw new Error('fixture');
-    expect(second.ledger.totals).toEqual([0, 3]);
+    expect(second.ledger.totals).toEqual([7, 13]);
     expect(second.ledger.carry).toBe(0);
     expect(second.ledger.entries).toHaveLength(2);
     const ordinaryWin = settleRound(
@@ -463,24 +464,56 @@ describe('confirmed scoring and unresolved combinations', () => {
       first.ledger,
     );
     if (ordinaryWin.status !== 'settled') throw new Error('fixture');
-    expect(ordinaryWin.ledger.totals).toEqual([2, 0]);
+    expect(ordinaryWin.ledger.totals).toEqual([11, 9]);
   });
-  it('blocks repeated draws and Kapothi carry combinations without changing the ledger', () => {
+  it.each([
+    {
+      totals: [17, 3] as const,
+      reason: 'inventory_depleted',
+      remaining: [20, 0],
+      kind: 'transfer',
+    },
+    {
+      totals: [18, 2] as const,
+      reason: 'loan_loss',
+      remaining: [18, 2],
+      kind: 'unpaid',
+    },
+  ])(
+    'makes $reason terminal and records the obligation exactly once',
+    ({ totals, reason, remaining, kind }) => {
+      const round = withTricks(8);
+      const result = settleRound(round, {
+        ...createLedger(),
+        totals,
+        carry: 1,
+      });
+      if (result.status !== 'settled') throw new Error('fixture');
+      expect(result.ledger).toMatchObject({
+        totals: remaining,
+        final: { reason, winner: 0, loser: 1, roundId: round.id },
+        continuationBlocked: false,
+        entries: [{ kind, amount: 3 }],
+      });
+      expect(settleRound(round, result.ledger).status).toBe('already-settled');
+      expectCode(
+        () => settleRound({ ...round, id: 'post-match' }, result.ledger),
+        'MATCH_COMPLETE',
+      );
+    },
+  );
+  it('gates a repeated Sepuru and gates progression after settling Kapothi', () => {
     const ledger: ScoreLedger = freeze({ ...createLedger(), carry: 1 });
     expect(settleRound(withTricks(4), ledger)).toEqual({
       status: 'unresolved',
       reason: 'REPEATED_DRAW',
     });
-    expect(settleRound(withTricks(8), ledger)).toEqual({
-      status: 'unresolved',
-      reason: 'KAPOTHI_WITH_CARRY',
+    expect(settleRound(withTricks(8), ledger)).toMatchObject({
+      status: 'settled',
+      result: 'kapothi',
+      ledger: { totals: [13, 7], carry: 1, continuationBlocked: true },
     });
-    expect(ledger).toEqual({
-      totals: [0, 0],
-      carry: 1,
-      settledRounds: [],
-      entries: [],
-    });
+    expect(ledger).toEqual({ ...createLedger(), carry: 1 });
     expectCode(() => settleRound(ready(), ledger), 'ROUND_NOT_COMPLETE');
     expectCode(
       () => settleRound(withTricks(5), { ...ledger, carry: 2 as 1 }),
@@ -519,7 +552,7 @@ describe('manual accusations only', () => {
       status: 'invalid',
       reason: 'OUTSIDE_WINDOW',
     });
-    expect(ledger.totals).toEqual([0, 0]);
+    expect(ledger.totals).toEqual([10, 10]);
   });
   it('verifies saved evidence and transfers exactly 3 once after a manual report with explicit test eligibility', () => {
     const round = freeze(violationRound());
@@ -528,9 +561,9 @@ describe('manual accusations only', () => {
     const ledger = freeze(createLedger());
     const result = accuse(round, ledger, reporter, 1, () => 'eligible');
     if (result.status !== 'confirmed') throw new Error('fixture');
-    expect(result.ledger.totals[teamOf(offender)]).toBe(-3);
-    expect(result.ledger.totals[teamOf(reporter)]).toBe(3);
-    expect(result.ledger.totals[0] + result.ledger.totals[1]).toBe(0);
+    expect(result.ledger.totals[teamOf(offender)]).toBe(7);
+    expect(result.ledger.totals[teamOf(reporter)]).toBe(13);
+    expect(result.ledger.totals[0] + result.ledger.totals[1]).toBe(20);
     expect(result.ledger.entries).toHaveLength(1);
     const repeated = accuse(
       round,
@@ -579,96 +612,59 @@ describe('manual accusations only', () => {
     ).toEqual({ status: 'invalid', reason: 'NO_VIOLATION' });
     expectCode(() => accuse(round, ledger, 0, -1), 'INVALID_EVIDENCE_ID');
     expectCode(() => accuse(round, ledger, 4 as Seat, 1), 'INVALID_SEAT');
-    expect(ledger.totals).toEqual([0, 0]);
+    expect(ledger.totals).toEqual([10, 10]);
   });
 });
 
-describe('no-trump report and round restart infrastructure', () => {
-  it('requires an opposing reporter, explicit report basis, and no trump across both teammates', () => {
+describe('no-trump eligibility and same-dealer redeal', () => {
+  it('checks the requester’s hand after the second deal', () => {
     const round = freeze(noTrumpRound());
-    expect(reportNoTrump(round, 0)).toEqual({
-      status: 'invalid',
-      reason: 'NOT_OPPOSING_TEAM',
-    });
-    expect(reportNoTrump(round, 2)).toEqual({
-      status: 'invalid',
-      reason: 'NOT_OPPOSING_TEAM',
-    });
-    expect(reportNoTrump(round, 1)).toEqual({
-      status: 'unresolved',
-      reason: 'NO_TRUMP_REPORT_BASIS_OR_TIMING',
-    });
-    for (const reporter of [1, 3] as const) {
-      const result = reportNoTrump(round, reporter, () => 'initial-deal');
-      expect(result.status).toBe('confirmed');
-      const current = reportNoTrump(round, reporter, () => 'current-hand');
-      expect(current.status).toBe('confirmed');
-    }
-    let hasTrump = ready();
-    const reporter = nextSeat(hasTrump.selector);
-    // Find a deterministic actual deal where the opposite team holds trump.
-    for (let seed = 1; seed <= 20; seed++) {
-      hasTrump = ready(seed);
-      if (
-        hasTrump.hands.some(
-          (hand, seat) =>
-            teamOf(seat as Seat) === teamOf(reporter) &&
-            hand.some((held) => held.suit === hasTrump.trump),
-        )
-      )
-        break;
-    }
-    expect(reportNoTrump(hasTrump, reporter, () => 'initial-deal')).toEqual({
-      status: 'invalid',
-      reason: 'TEAM_HAS_TRUMP',
-    });
-    expectCode(
-      () => reportNoTrump(createRound('not-dealt', 0, createDeck()), 1),
-      'WRONG_PHASE',
-    );
+    expect(canRequestCancellation(round, 0)).toBe(false);
+    expect(canRequestCancellation(round, 1)).toBe(true);
+    expect(canRequestCancellation(round, 3)).toBe(true);
+    expect(
+      canRequestCancellation(createRound('not-dealt', 0, createDeck()), 1),
+    ).toBe(false);
   });
-  it('cancels only the round, blocks play, and requires an explicitly selected new dealer to restart', () => {
-    const round = noTrumpRound();
-    const ledger = freeze(createLedger());
-    const report = reportNoTrump(round, 1, () => 'initial-deal');
-    if (report.status !== 'confirmed') throw new Error('fixture');
-    const cancelled = freeze(report.round);
-    expect(cancelled.phase).toBe('cancelled');
-    expect(cancelled.cancellation).toEqual({ reason: 'no-trump', reporter: 1 });
-    expect(cancelled.turn).toBeNull();
-    expectCode(() => playCard(cancelled, 0, round.hands[0][0]!), 'WRONG_PHASE');
-    expectCode(() => settleRound(cancelled, ledger), 'ROUND_NOT_COMPLETE');
-    expect(restartCancelledRound(cancelled, 'new', createDeck())).toEqual({
-      status: 'unresolved',
-      reason: 'REPLACEMENT_DEALER_SELECTION',
+  it('applies an approved cancellation and restarts under the same dealer', () => {
+    const round = freeze(noTrumpRound());
+    expectCode(() => cancelRound(round, 0), 'CANCELLATION_INELIGIBLE');
+    const cancelled = freeze(cancelRound(round, 1));
+    expect(cancelled).toMatchObject({
+      phase: 'cancelled',
+      turn: null,
+      cancellation: { reason: 'no-trump', reporter: 1 },
     });
+    expectCode(() => playCard(cancelled, 0, round.hands[0][0]!), 'WRONG_PHASE');
     expectCode(
-      () =>
-        restartCancelledRound(cancelled, 'new', createDeck(), cancelled.dealer),
-      'DEALER_MUST_CHANGE',
+      () => settleRound(cancelled, createLedger()),
+      'ROUND_NOT_COMPLETE',
     );
     expectCode(
-      () => restartCancelledRound(cancelled, cancelled.id, createDeck(), 0),
+      () => restartCancelledRound(cancelled, cancelled.id, createDeck()),
       'ROUND_ID_MUST_CHANGE',
     );
     expectCode(
-      () => restartCancelledRound(round, 'new', createDeck(), 0),
+      () => restartCancelledRound(round, 'new', createDeck()),
       'ROUND_NOT_CANCELLED',
     );
     const shuffled = shuffleDeck(createDeck(), seeded(99));
-    const restarted = restartCancelledRound(cancelled, 'new', shuffled, 0);
-    if (restarted.status !== 'restarted') throw new Error('fixture');
-    expect(restarted.round.phase).toBe('awaiting-cut');
-    expect(restarted.round.dealer).toBe(0);
-    expect(restarted.round.selector).toBe(1);
-    expect(restarted.round.deck).toEqual(shuffled);
-    expect(restarted.round.hands.flat()).toHaveLength(0);
-    expect(restarted.round.trump).toBeNull();
-    expect(restarted.round.evidence).toEqual([]);
-    expect(restarted.round.tricks).toEqual([]);
-    expect(ledger).toEqual(createLedger());
-    const redealt = cutAndDeal(restarted.round, 3, 7);
-    expect(redealt.hands.map((hand) => hand.length)).toEqual([4, 4, 4, 4]);
+    const restarted = restartCancelledRound(cancelled, 'new', shuffled);
+    expect(restarted).toMatchObject({
+      phase: 'awaiting-cut',
+      dealer: round.dealer,
+      selector: round.selector,
+      deck: shuffled,
+      trump: null,
+      evidence: [],
+      tricks: [],
+    });
+    expect(restarted.hands.flat()).toHaveLength(0);
+    expect(
+      cutAndDeal(restarted, leftOf(round.dealer), 7).hands.map(
+        (hand) => hand.length,
+      ),
+    ).toEqual([4, 4, 4, 4]);
   });
 });
 
@@ -694,7 +690,7 @@ describe('engine boundary regressions', () => {
       first.ledger,
     );
     if (second.status !== 'settled') throw new Error('fixture');
-    expect(second.ledger.totals).toEqual([1, 2]);
+    expect(second.ledger.totals).toEqual([9, 11]);
     const thirdRound = { ...withTricks(4), id: 'third' };
     const draw = settleRound(thirdRound, second.ledger);
     if (draw.status !== 'settled') throw new Error('fixture');
@@ -702,7 +698,7 @@ describe('engine boundary regressions', () => {
       status: 'already-settled',
       ledger: draw.ledger,
     });
-    const round = violationRound();
+    const round = { ...violationRound(), id: 'baldu-round' };
     const offender = round.evidence[1]!.play.seat;
     const result = accuse(
       round,
@@ -713,7 +709,10 @@ describe('engine boundary regressions', () => {
     );
     if (result.status !== 'confirmed') throw new Error('fixture');
     expect(result.ledger.carry).toBe(1);
-    expect(result.ledger.settledRounds).toEqual(draw.ledger.settledRounds);
+    expect(result.ledger.settledRounds).toEqual([
+      ...draw.ledger.settledRounds,
+      round.id,
+    ]);
     expect(result.ledger.totals[teamOf(offender)]).toBe(
       draw.ledger.totals[teamOf(offender)] - 3,
     );
@@ -721,7 +720,7 @@ describe('engine boundary regressions', () => {
       draw.ledger.totals[otherTeam(teamOf(offender))] + 3,
     );
   });
-  it('denies no-trump reports when only the reporter is void and the teammate still has trump', () => {
+  it('allows a void requester even when their partner holds trump', () => {
     const original = noTrumpRound();
     const hands = original.hands.map((hand) => [...hand]);
     const spade = hands[0]!.shift()!;
@@ -736,14 +735,8 @@ describe('engine boundary regressions', () => {
     expect(round.hands[1].some((held) => held.suit === round.trump)).toBe(
       false,
     );
-    expect(reportNoTrump(round, 1, () => 'initial-deal')).toEqual({
-      status: 'invalid',
-      reason: 'TEAM_HAS_TRUMP',
-    });
-    expect(reportNoTrump(original, 1, () => 'ineligible')).toEqual({
-      status: 'invalid',
-      reason: 'OUTSIDE_REPORT_WINDOW',
-    });
+    expect(canRequestCancellation(round, 1)).toBe(true);
+    expect(canRequestCancellation(round, 3)).toBe(false);
   });
   it('supports distinct verified reports without conflating different round evidence', () => {
     const round = violationRound();
@@ -759,6 +752,6 @@ describe('engine boundary regressions', () => {
     );
     if (second.status !== 'confirmed') throw new Error('fixture');
     expect(second.ledger.entries).toHaveLength(2);
-    expect(second.ledger.totals[teamOf(actor)]).toBe(6);
+    expect(second.ledger.totals[teamOf(actor)]).toBe(16);
   });
 });

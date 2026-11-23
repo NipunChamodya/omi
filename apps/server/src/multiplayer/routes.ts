@@ -21,17 +21,19 @@ import {
   roomIdSchema,
 } from './validation.js';
 import { DEFAULT_LIMITS, RoomService } from './rooms.js';
-import type { Limits, Peer, Policies } from './rooms.js';
+import type { Limits, Peer } from './rooms.js';
 import { GuestSessions, RateLimiter, RoomError } from './support.js';
 import type { Identity } from './support.js';
 
+import type { MatchStorage } from './match-storage.js';
+
 export type MultiplayerOptions = {
   ice?: IceSettings;
+  matchStorage?: MatchStorage | undefined;
   origin: string;
   secureCookies: boolean;
   now?: () => number;
   limits?: Partial<Limits>;
-  policies?: Policies;
   entropy?: RandomInt;
   accounts: Accounts;
   allowGuests: boolean;
@@ -51,14 +53,15 @@ export async function registerMultiplayer(
     now,
     limits.sessionTtlMs,
     limits.maxSessions,
+    options.allowGuests ? options.accounts.repo.guests : undefined,
   );
   const rooms = new RoomService(
     now,
     (identity) =>
       sessions.active(identity) || options.accounts.active(identity),
     limits,
-    options.policies,
     options.entropy,
+    options.matchStorage,
   );
   const httpRate = new RateLimiter(now, limits.httpPerMinute, 60_000);
   const gameSockets = new Set<import('ws').WebSocket>();
@@ -93,8 +96,11 @@ export async function registerMultiplayer(
     messageRate.sweep();
   }, 30_000);
   maintenance.unref();
+  const gameClock = setInterval(() => rooms.tick(), 350);
+  gameClock.unref();
   app.addHook('preClose', async () => {
     clearInterval(maintenance);
+    clearInterval(gameClock);
     rooms.stop();
     // Includes upgraded peers still waiting to attach to the serialized room queue.
     for (const socket of gameSockets) socket.terminate();

@@ -22,7 +22,11 @@ export function publicMember(room: Room, member: RoomMember): Member {
     seat: member.seat,
     team: teamOf(member.seat),
     ready: member.ready,
-    connected: room.peers.has(member.actorId),
+    connected: room.peers.has(member.actorId) || !!member.bot,
+    ...(member.bot && { bot: true }),
+    ...(member.disconnectDeadline !== undefined && {
+      disconnectDeadline: member.disconnectDeadline,
+    }),
     avatarUrl: member.avatarUrl ?? null,
   };
 }
@@ -56,7 +60,12 @@ export function publicTrick(
   };
 }
 export function publicScore(ledger: ScoreLedger): Score {
-  return { totals: [ledger.totals[0], ledger.totals[1]], carry: ledger.carry };
+  return {
+    totals: [ledger.totals[0], ledger.totals[1]],
+    carry: ledger.carry,
+    final: ledger.final,
+    continuationBlocked: ledger.continuationBlocked,
+  };
 }
 /** Explicit whitelist. Never spread a private engine object or ledger onto the wire. */
 export function snapshot(
@@ -67,6 +76,9 @@ export function snapshot(
 ): Snapshot {
   const round = room.round;
   return {
+    ranked: room.ranked ?? false,
+    cancellationVote: room.cancellationVote ?? null,
+    cancellationDecided: room.cancellationDecided ?? false,
     capabilities: { nextRound: nextRoundConfigured },
     type: 'snapshot',
     roomId: room.id,

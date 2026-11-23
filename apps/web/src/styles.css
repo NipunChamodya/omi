@@ -913,14 +913,13 @@ input {
   display: block;
   border: 1px solid #d3cbb8;
   border-radius: 7px;
-  background: linear-gradient(125deg, #fffdf2, #eee9d9);
-  color: #193e34;
-  box-shadow: inset 0 0 0 3px #fffef6;
+  background: #fff;
+  color: #141414;
   overflow: hidden;
   font-family: Georgia, serif;
 }
 .card-face.red {
-  color: #ad3b38;
+  color: #a32e36;
 }
 .card-corner {
   position: absolute;
@@ -2757,6 +2756,18 @@ input {
     grid-column: 2;
     grid-row: 2;
   }
+  .playing-room .result-panel {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+  .playing-room .result-panel .button,
+  .playing-room .result-scores {
+    margin-block: 6px;
+  }
+  .playing-room .phase-complete .table-details:not([open]) {
+    grid-column: 1;
+  }
   .playing-room .phase-awaiting-trump {
     grid-template-rows: auto auto minmax(0, 1fr);
   }
@@ -2769,4 +2780,48 @@ input {
   .playing-room .trick-winner {
     display: none;
   }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .loan-loss h2 {
+    animation: loan-loss-wobble 480ms ease-out;
+  }
+}
+.data-saver .loan-loss h2 {
+  animation: none;
+}
+@keyframes loan-loss-wobble {
+  20%,
+  60% {
+    transform: rotate(-3deg);
+  }
+  40%,
+  80% {
+    transform: rotate(3deg);
+  }
+}
+
+.card-pips {
+  position: absolute;
+  width: 64%;
+  height: 72%;
+  inset: 14% 18%;
+  fill: currentColor;
+  font-size: 13px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.friend-code {
+  display: block;
+  margin-bottom: 8px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+.friend-list {
+  padding-inline-start: 16px;
+}
+.friend-list button {
+  margin-inline-start: 8px;
 }

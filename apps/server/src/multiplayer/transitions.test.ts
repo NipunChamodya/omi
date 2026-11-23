@@ -11,7 +11,6 @@ import {
   selectTrump,
   playCard,
   leftOf,
-  nextSeat,
   settleRound,
   createLedger,
   countTricks,
@@ -27,15 +26,10 @@ it.each(['closing', 'revoked'] as const)(
       expiresAt: 1000,
     }));
     const active = new Set(identities.map((identity) => identity.tokenHash));
-    // Hypothetical fixture policies exercise machinery; these are not approved production rules.
     const service = new RoomService(
       () => 0,
       (identity) => active.has(identity.tokenHash),
       DEFAULT_LIMITS,
-      {
-        nextDealer: (round) => nextSeat(round.dealer),
-        replacementDealer: (round) => nextSeat(round.dealer),
-      },
       () => 0,
     );
     const descriptor = service.match(identities);

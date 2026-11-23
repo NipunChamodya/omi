@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { SponsorPlacement } from './SponsorPlacement';
+import { lazy, Suspense, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { AuthSession } from '@omi/shared';
 import { GoogleButton } from '../auth/GoogleButton';
 import type { ClientState, GameClient } from '../game/client';
 import { CardFace } from './Cards';
+const Tutorial = lazy(() => import('./Tutorial'));
 export function Home({
   client,
   state,
@@ -17,6 +19,7 @@ export function Home({
   authLoading: boolean;
   onSignIn: () => void;
 }) {
+  const [tutorial, setTutorial] = useState(false);
   const joining = state.view === 'join';
   const [name, setName] = useState(
     state.identity?.displayName ?? state.saved?.displayName ?? '',
@@ -56,6 +59,14 @@ export function Home({
             <CardFace card={{ rank: 'Q', suit: 'clubs' }} />
           </div>
         </div>
+        <button className="text-button" onClick={() => setTutorial(true)}>
+          Learn to play <span lang="si">· ඕමි ඉගෙන ගන්න</span>
+        </button>
+        {tutorial && (
+          <Suspense fallback={<p role="status">Loading practice…</p>}>
+            <Tutorial onClose={() => setTutorial(false)} />
+          </Suspense>
+        )}
         <p className="table-promise">
           4 players <span>·</span> 2 teams <span>·</span> Your kind of company
         </p>
@@ -220,6 +231,7 @@ export function Home({
             </p>
           </>
         )}
+        <SponsorPlacement />
       </section>
     </div>
   );

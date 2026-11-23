@@ -21,22 +21,32 @@ export type Member = Readonly<{
   team: Team;
   ready: boolean;
   connected: boolean;
+  bot?: boolean;
+  disconnectDeadline?: number | undefined;
   avatarUrl?: string | null;
 }>;
 export type Score = Readonly<{
   totals: readonly [number, number];
   carry: 0 | 1;
+  continuationBlocked?: boolean;
+  final?: Readonly<{
+    reason: 'inventory_depleted' | 'loan_loss' | 'ranked_forfeit';
+    winner: Team;
+    loser: Team;
+    roundId: string;
+  }> | null;
 }>;
 export type RoundResult =
   | null
   | Readonly<{
       status: 'settled';
-      outcome: 'seporu' | 'selector-win' | 'selector-loss' | 'kapothi';
+      outcome:
+        'seporu' | 'selector-win' | 'selector-loss' | 'kapothi' | 'baldu';
       tricks: readonly [number, number];
     }>
   | Readonly<{
       status: 'unresolved';
-      reason: 'REPEATED_DRAW' | 'KAPOTHI_WITH_CARRY';
+      reason: 'REPEATED_DRAW';
     }>;
 export type RoundHeader = Readonly<{
   id: string;
@@ -53,7 +63,14 @@ export type PlayerGame = RoundHeader &
     trick: readonly PublicPlay[];
     tricks: readonly PublicTrick[];
   }>;
+export type CancellationVote = Readonly<{
+  requester: Seat;
+  votes: readonly Readonly<{ seat: Seat; approve: boolean }>[];
+}>;
 export type Snapshot = Readonly<{
+  ranked?: boolean;
+  cancellationVote?: CancellationVote | null;
+  cancellationDecided?: boolean;
   capabilities?: Readonly<{ nextRound: boolean }>;
   type: 'snapshot';
   roomId: string;
@@ -90,8 +107,19 @@ export type ClientCommand = Envelope &
   (
     | Readonly<{ type: 'ready'; payload: Readonly<{ ready: boolean }> }>
     | Readonly<{
-        type: 'start' | 'sync' | 'report-no-trump' | 'restart' | 'next-round';
+        type:
+          | 'start'
+          | 'leave-match'
+          | 'add-bot'
+          | 'sync'
+          | 'report-no-trump'
+          | 'restart'
+          | 'next-round';
         payload: Record<string, never>;
+      }>
+    | Readonly<{
+        type: 'vote-cancellation';
+        payload: Readonly<{ approve: boolean }>;
       }>
     | Readonly<{ type: 'cut'; payload: Readonly<{ offset: number }> }>
     | Readonly<{ type: 'trump'; payload: Readonly<{ suit: Suit }> }>
@@ -101,7 +129,14 @@ export type ClientCommand = Envelope &
 export type RoomEvent =
   | Readonly<{ kind: 'member-joined'; member: Member }>
   | Readonly<{ kind: 'member-updated'; member: Member }>
-  | Readonly<{ kind: 'presence'; seat: Seat; connected: boolean }>
+  | Readonly<{
+      kind: 'presence';
+      seat: Seat;
+      connected: boolean;
+      bot?: boolean;
+      disconnectDeadline?: number | null;
+    }>
+  | Readonly<{ kind: 'match-ended'; score: Score }>
   | Readonly<{ kind: 'ready'; seat: Seat; ready: boolean }>
   | Readonly<{
       kind: 'round-started';
@@ -132,6 +167,12 @@ export type RoomEvent =
       to: Team;
       amount: 3;
       score: Score;
+      result?: RoundResult;
+    }>
+  | Readonly<{
+      kind: 'cancellation-vote';
+      vote: CancellationVote | null;
+      rejected?: boolean;
     }>
   | Readonly<{ kind: 'round-cancelled'; reporter: Seat }>;
 export type Ack = Readonly<{
@@ -165,8 +206,30 @@ export type PublicProfile = Readonly<{
   thumbnailUrl: string | null;
   version: number;
 }>;
+export type FriendAction =
+  'request' | 'accept' | 'remove' | 'block' | 'unblock';
+export type FriendContact = Readonly<{
+  id: string;
+  displayName: string;
+  status: 'incoming' | 'sent' | 'accepted' | 'blocked';
+}>;
+export type MatchStatistics = Readonly<{
+  played: number;
+  wins: number;
+  rankedWins: number;
+  casualWins: number;
+  loanLosses: number;
+  rankedForfeitLosses: number;
+  recent: readonly Readonly<{
+    completedAt: number;
+    won: boolean;
+    ranked: boolean;
+    reason: NonNullable<Score['final']>['reason'];
+  }>[];
+}>;
 export type AuthSession = Readonly<{
   user: PublicProfile | null;
+  statistics?: MatchStatistics;
   csrfToken: string | null;
   expiresAt: number | null;
   googleAvailable: boolean;

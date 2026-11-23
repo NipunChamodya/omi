@@ -1,3 +1,4 @@
+import { SponsorPlacement } from './SponsorPlacement';
 import type { Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
 import { avatarSource } from '../auth/api';
@@ -30,7 +31,9 @@ export function Lobby({
     snapshot.members.every((member) => member.ready && member.connected);
   return (
     <section className="lobby" aria-labelledby="lobby-title">
-      <p className="eyebrow">A PLACE FOR YOUR PEOPLE</p>
+      <p className="eyebrow">
+        {snapshot.ranked ? 'RANKED TABLE' : 'CASUAL TABLE'}
+      </p>
       <h1 id="lobby-title">Your table is ready.</h1>
       <p className="subtitle">
         {snapshot.members.length < 4
@@ -107,6 +110,15 @@ export function Lobby({
         You and your teammate will sit opposite each other.
       </p>
       <div className="lobby-actions">
+        {host && !snapshot.ranked && snapshot.members.length < 4 && (
+          <button
+            className="button secondary"
+            disabled={!enabled || pending}
+            onClick={() => client.act({ type: 'add-bot', payload: {} })}
+          >
+            Add a bot
+          </button>
+        )}
         <button
           className={`button ${own.ready ? 'secondary' : 'primary'}`}
           disabled={!enabled || pending}
@@ -133,6 +145,7 @@ export function Lobby({
           </p>
         )}
       </div>
+      <SponsorPlacement />
     </section>
   );
 }

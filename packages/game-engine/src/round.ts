@@ -12,7 +12,7 @@ import {
   sameCard,
   teamOf,
 } from './cards.js';
-import type { Card, Four, Seat, Suit, Team } from './cards.js';
+import type { Card, Four, Seat, Suit } from './cards.js';
 
 export type Play = Readonly<{ seat: Seat; card: Card }>;
 export type Trick = Readonly<{ plays: readonly Play[]; winner: Seat }>;
@@ -211,82 +211,44 @@ export function countTricks(round: PrivateRound): readonly [number, number] {
     [0, 0],
   );
 }
-export type NoTrumpBasis = 'initial-deal' | 'current-hand' | 'unresolved';
-/** Basis/timing have no default rule: caller must obtain owner clarification first. */
-export type NoTrumpPolicy = (
+export function canRequestCancellation(
   round: PrivateRound,
-  reporter: Seat,
-) => NoTrumpBasis | 'ineligible';
-export type NoTrumpReport =
-  | Readonly<{
-      status: 'unresolved';
-      reason: 'NO_TRUMP_REPORT_BASIS_OR_TIMING';
-    }>
-  | Readonly<{
-      status: 'invalid';
-      reason: 'NOT_OPPOSING_TEAM' | 'TEAM_HAS_TRUMP' | 'OUTSIDE_REPORT_WINDOW';
-    }>
-  | Readonly<{ status: 'confirmed'; round: PrivateRound }>;
-export function reportNoTrump(
-  round: PrivateRound,
-  reporter: Seat,
-  policy?: NoTrumpPolicy,
-): NoTrumpReport {
-  requireRule(round.phase === 'playing', 'WRONG_PHASE');
-  assertSeat(reporter);
-  if (teamOf(reporter) === teamOf(round.selector))
-    return { status: 'invalid', reason: 'NOT_OPPOSING_TEAM' };
-  const basis = policy?.(round, reporter) ?? 'unresolved';
-  if (basis === 'unresolved')
-    return { status: 'unresolved', reason: 'NO_TRUMP_REPORT_BASIS_OR_TIMING' };
-  if (basis === 'ineligible')
-    return { status: 'invalid', reason: 'OUTSIDE_REPORT_WINDOW' };
-  requireRule(
-    basis === 'initial-deal' || basis === 'current-hand',
-    'INVALID_REPORT_POLICY',
+  requester: Seat,
+): boolean {
+  assertSeat(requester);
+  return (
+    round.phase === 'playing' &&
+    round.trump !== null &&
+    !round.hands[requester].some((card) => card.suit === round.trump)
   );
-  const hands = basis === 'initial-deal' ? round.dealtHands : round.hands;
-  const team: Team = teamOf(reporter);
-  if (
-    hands.some(
-      (hand, seat) =>
-        teamOf(seat as Seat) === team &&
-        hand.some((card) => card.suit === round.trump),
-    )
-  ) {
-    return { status: 'invalid', reason: 'TEAM_HAS_TRUMP' };
-  }
+}
+
+/** Applies an approved vote. The room service authenticates voters and verifies the tally. */
+export function cancelRound(
+  round: PrivateRound,
+  requester: Seat,
+): PrivateRound {
+  requireRule(
+    canRequestCancellation(round, requester),
+    'CANCELLATION_INELIGIBLE',
+  );
   return {
-    status: 'confirmed',
-    round: {
-      ...round,
-      phase: 'cancelled',
-      turn: null,
-      cancellation: { reason: 'no-trump', reporter },
-    },
+    ...round,
+    phase: 'cancelled',
+    turn: null,
+    cancellation: { reason: 'no-trump', reporter: requester },
   };
 }
-export type RestartResult =
-  | Readonly<{ status: 'unresolved'; reason: 'REPLACEMENT_DEALER_SELECTION' }>
-  | Readonly<{ status: 'restarted'; round: PrivateRound }>;
-/** Caller reshuffles and supplies an explicitly selected new dealer. No selection algorithm is invented. */
+
 export function restartCancelledRound(
   round: PrivateRound,
   id: string,
   reshuffledDeck: readonly Card[],
-  replacementDealer?: Seat,
-): RestartResult {
+): PrivateRound {
   requireRule(
     round.phase === 'cancelled' && round.cancellation?.reason === 'no-trump',
     'ROUND_NOT_CANCELLED',
   );
-  if (replacementDealer === undefined)
-    return { status: 'unresolved', reason: 'REPLACEMENT_DEALER_SELECTION' };
-  assertSeat(replacementDealer);
-  requireRule(replacementDealer !== round.dealer, 'DEALER_MUST_CHANGE');
   requireRule(id !== round.id, 'ROUND_ID_MUST_CHANGE');
-  return {
-    status: 'restarted',
-    round: createRound(id, replacementDealer, reshuffledDeck),
-  };
+  return createRound(id, round.dealer, reshuffledDeck);
 }

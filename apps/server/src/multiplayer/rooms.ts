@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
 import type {
   Ack,
+  CancellationVote,
   ClientCommand,
   Failure,
   RoomDescriptor,
@@ -13,6 +14,9 @@ import type {
 } from '@omi/shared';
 import {
   accuse,
+  canRequestCancellation,
+  cancelRound,
+  restartCancelledRound,
   chooseInitialDealer,
   countTricks,
   createDeck,
@@ -21,17 +25,16 @@ import {
   cutAndDeal,
   EngineError,
   otherTeam,
+  RANKS,
+  leftOf,
+  nextSeat,
   playCard,
-  reportNoTrump,
-  restartCancelledRound,
   selectTrump,
   settleRound,
   shuffleDeck,
   teamOf,
 } from '@omi/game-engine';
 import type {
-  AccusationWindow,
-  NoTrumpPolicy,
   PrivateRound,
   RandomInt,
   ScoreLedger,
@@ -46,6 +49,8 @@ import {
   roundHeader,
   snapshot,
 } from './projection.js';
+import { storedMatch } from './match-storage.js';
+import type { MatchStorage } from './match-storage.js';
 import { RoomError, SerialQueue } from './support.js';
 import type { Identity } from './support.js';
 
@@ -54,10 +59,13 @@ export type RoomMember = {
   displayName: string;
   seat: Seat;
   ready: boolean;
+  bot?: boolean;
+  departed?: boolean;
+  disconnectDeadline?: number;
   avatarUrl?: string | null;
 };
 export type Peer = { socket: WebSocket; identity: Identity; alive: boolean };
-type Receipt = { fingerprint: string; reply: Ack | Failure };
+export type Receipt = { fingerprint: string; reply: Ack | Failure };
 export type Room = {
   id: string;
   code: string;
@@ -68,6 +76,9 @@ export type Room = {
   round: PrivateRound | null;
   ledger: ScoreLedger;
   result: RoundResult;
+  ranked?: boolean;
+  cancellationVote?: CancellationVote | null;
+  cancellationDecided?: boolean;
   queue: SerialQueue;
   receipts: Map<string, Receipt>;
   lastActive: number;
@@ -94,13 +105,6 @@ export const DEFAULT_LIMITS: Readonly<Limits> = {
   messagesPerTenSeconds: 60,
   maxBufferedBytes: 65_536,
 };
-/** Policies are trusted server extensions only; no production defaults until owner confirmation. */
-export type Policies = {
-  accusationWindow?: AccusationWindow;
-  noTrump?: NoTrumpPolicy;
-  replacementDealer?: (round: PrivateRound) => Seat | 'unresolved';
-  nextDealer?: (round: PrivateRound) => Seat | 'unresolved';
-};
 export type CreateRequest = {
   actorId: string;
   actionId: string;
@@ -113,6 +117,7 @@ export type JoinRequest = {
   code: string;
   expectedVersion: number;
 };
+const reconnectGraceMs = 40_000;
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export class RoomService {
@@ -133,9 +138,42 @@ export class RoomService {
     private readonly now: () => number,
     private readonly active: (identity: Identity) => boolean,
     private readonly limits: Limits,
-    private readonly policies: Policies = {},
     private readonly entropy: RandomInt = randomInt,
-  ) {}
+    private readonly storage?: MatchStorage,
+  ) {
+    for (const state of storage?.loadActive(limits.maxRooms) ?? []) {
+      if (
+        new Set(state.members.map((member) => member.actorId)).size !== 4 ||
+        this.codes.has(state.code) ||
+        state.members.some(
+          (member) => !member.departed && this.memberships.has(member.actorId),
+        )
+      )
+        throw new Error('Conflicting saved OMI match memberships');
+      const room: Room = {
+        ...state,
+        members: state.members.map((member) =>
+          member.bot || state.ledger.final
+            ? member
+            : {
+                ...member,
+                disconnectDeadline:
+                  member.disconnectDeadline ?? this.now() + reconnectGraceMs,
+              },
+        ),
+        peers: new Map(),
+        queue: new SerialQueue(limits.queueDepth),
+        receipts: new Map(state.receipts),
+      };
+      this.rooms.set(room.id, room);
+      this.codes.set(room.code, room.id);
+      for (const member of room.members)
+        if (!member.departed) this.memberships.set(member.actorId, room.id);
+    }
+  }
+  statistics(actorId: string) {
+    return this.storage?.statistics(actorId);
+  }
   forActor(actorId: string): RoomDescriptor | null {
     const room = this.rooms.get(this.memberships.get(actorId) ?? '');
     return room ? this.descriptor(room) : null;
@@ -281,6 +319,7 @@ export class RoomService {
       expectedVersion: 0,
     });
     const room = this.rooms.get(created.roomId)!;
+    room.ranked = true;
     // No awaits between validation and membership installation: competing entries cannot interleave.
     room.members = identities.map((identity, seat) => ({
       actorId: identity.actorId,
@@ -297,6 +336,7 @@ export class RoomService {
     return (
       room.members.length === 4 &&
       room.members.every((member) => {
+        if (member.bot) return !room.ranked;
         const peer = room.peers.get(member.actorId);
         return (
           peer &&
@@ -357,7 +397,7 @@ export class RoomService {
     this.checkIdentity(identity, identity.actorId);
     const room = this.rooms.get(roomId);
     const member = room?.members.find(
-      (item) => item.actorId === identity.actorId,
+      (item) => item.actorId === identity.actorId && !item.departed,
     );
     if (!room || !member) throw new RoomError('ROOM_NOT_FOUND', 404);
     return { room, member };
@@ -366,7 +406,7 @@ export class RoomService {
     const { room } = this.authorize(roomId, identity);
     return room.queue.run(() => {
       const { member } = this.authorize(roomId, identity);
-      return snapshot(room, member, null, !!this.policies.nextDealer);
+      return snapshot(room, member, null, true);
     });
   }
   attach(roomId: string, peer: Peer): Promise<void> {
@@ -375,6 +415,7 @@ export class RoomService {
       this.authorize(roomId, peer.identity);
       if (peer.socket.readyState !== WebSocket.OPEN) return;
       const old = room.peers.get(peer.identity.actorId);
+      this.expireDisconnects(room);
       room.peers.set(peer.identity.actorId, peer);
       if (old) {
         this.onPeerDisconnect(roomId, peer.identity.actorId);
@@ -383,9 +424,17 @@ export class RoomService {
         const member = room.members.find(
           (item) => item.actorId === peer.identity.actorId,
         )!;
+        delete member.disconnectDeadline;
+        member.bot = false;
         this.advance(
           room,
-          () => ({ kind: 'presence', seat: member.seat, connected: true }),
+          () => ({
+            kind: 'presence',
+            seat: member.seat,
+            connected: true,
+            bot: false,
+            disconnectDeadline: null,
+          }),
           peer,
         );
       }
@@ -393,7 +442,7 @@ export class RoomService {
       const member = room.members.find(
         (item) => item.actorId === peer.identity.actorId,
       )!;
-      this.send(peer, snapshot(room, member, null, !!this.policies.nextDealer));
+      this.send(peer, snapshot(room, member, null, true));
     });
   }
   detach(roomId: string, peer: Peer): Promise<void> {
@@ -407,10 +456,13 @@ export class RoomService {
       const member = room.members.find(
         (item) => item.actorId === peer.identity.actorId,
       )!;
+      if (room.round && !room.ledger.final)
+        member.disconnectDeadline = this.now() + reconnectGraceMs;
       this.advance(room, () => ({
         kind: 'presence',
         seat: member.seat,
         connected: false,
+        disconnectDeadline: member.disconnectDeadline ?? null,
       }));
     }, true);
   }
@@ -424,10 +476,7 @@ export class RoomService {
         throw new RoomError('STALE_CONNECTION', 403);
       if (command.roomId !== roomId) throw new RoomError('ROOM_MISMATCH', 403);
       if (command.type === 'sync') {
-        this.send(
-          peer,
-          snapshot(room, member, command.actionId, !!this.policies.nextDealer),
-        );
+        this.send(peer, snapshot(room, member, command.actionId, true));
         return;
       }
       const key = `${member.actorId}:${command.actionId}`;
@@ -447,21 +496,37 @@ export class RoomService {
       let used = 0;
       for (const id of room.receipts.keys())
         if (id.startsWith(`${member.actorId}:`)) used++;
-      if (used >= this.limits.actionsPerMember)
+      if (
+        used >= this.limits.actionsPerMember &&
+        command.type !== 'leave-match'
+      )
         throw new RoomError('ACTION_BUDGET_EXHAUSTED', 429);
       let reply: Ack | Failure;
       try {
+        this.expireDisconnects(room);
         if (command.expectedVersion !== room.version)
           throw new RoomError('VERSION_CONFLICT', 409, room.version);
-        const event = this.apply(room, member, command);
-        this.advance(room, event);
+        const draft: Room = {
+          ...room,
+          members: room.members.map((member) => ({ ...member })),
+          receipts: new Map(room.receipts),
+        };
+        const actor = draft.members[member.seat]!;
+        const event = this.apply(draft, actor, command);
         reply = {
           type: 'ack',
           roomId,
           actionId: command.actionId,
-          version: room.version,
+          version: room.version + 1,
           duplicate: false,
         };
+        draft.receipts.set(key, { fingerprint, reply });
+        this.advance(draft, event, undefined, room);
+        if (command.type === 'leave-match') {
+          this.memberships.delete(member.actorId);
+          room.peers.delete(member.actorId);
+          this.onPeerDisconnect(room.id, member.actorId);
+        }
       } catch (error) {
         reply = {
           type: 'error',
@@ -478,6 +543,8 @@ export class RoomService {
       }
       room.receipts.set(key, { fingerprint, reply });
       this.send(peer, reply);
+      if (reply.type === 'ack' && command.type === 'leave-match')
+        peer.socket.close(1000, 'Match left');
     });
   }
   private apply(
@@ -485,6 +552,28 @@ export class RoomService {
     member: RoomMember,
     command: Exclude<ClientCommand, { type: 'sync' }>,
   ): (recipient: RoomMember) => RoomEvent {
+    if (command.type === 'leave-match') {
+      if (!room.ledger.final) throw new RoomError('MATCH_IN_PROGRESS');
+      member.departed = true;
+      return () => ({ kind: 'presence', seat: member.seat, connected: false });
+    }
+    if (room.ledger.final) throw new RoomError('MATCH_COMPLETE');
+    if (command.type === 'add-bot') {
+      if (member.actorId !== room.hostId)
+        throw new RoomError('HOST_REQUIRED', 403);
+      if (room.ranked || room.round || room.members.length >= 4)
+        throw new RoomError('BOT_NOT_ALLOWED');
+      const seat = room.members.length as Seat;
+      const bot = {
+        actorId: randomUUID(),
+        displayName: `Bot ${seat + 1}`,
+        seat,
+        ready: true,
+        bot: true,
+      };
+      room.members.push(bot);
+      return () => ({ kind: 'member-joined', member: publicMember(room, bot) });
+    }
     if (command.type === 'ready') {
       if (room.round) throw new RoomError('ROUND_ALREADY_STARTED');
       member.ready = command.payload.ready;
@@ -510,6 +599,8 @@ export class RoomService {
     }
     const previous = room.round;
     if (!previous) throw new RoomError('ROUND_NOT_STARTED');
+    if (room.cancellationVote && command.type !== 'vote-cancellation')
+      throw new RoomError('CANCELLATION_VOTE_ACTIVE');
     if (command.type === 'cut' || command.type === 'trump') {
       const round =
         command.type === 'cut'
@@ -560,15 +651,17 @@ export class RoomService {
       });
     }
     if (command.type === 'accuse') {
-      // Do not reveal which private evidence exists while the accusation window is unknown.
-      if (!this.policies.accusationWindow)
-        throw new RoomError('UNRESOLVED_RULE');
+      if (
+        previous.phase !== 'playing' ||
+        command.payload.playId >= previous.tricks.length * 4
+      )
+        throw new RoomError('REPORT_REJECTED');
       const result = accuse(
         previous,
         room.ledger,
         member.seat,
         command.payload.playId,
-        this.policies.accusationWindow,
+        () => 'eligible',
       );
       if (result.status === 'unresolved')
         throw new RoomError('UNRESOLVED_RULE');
@@ -576,6 +669,12 @@ export class RoomService {
       if (result.status === 'already-applied')
         throw new RoomError('REPORT_ALREADY_APPLIED');
       room.ledger = result.ledger;
+      room.round = { ...previous, phase: 'complete', turn: null };
+      room.result = {
+        status: 'settled',
+        outcome: 'baldu',
+        tricks: countTricks(previous),
+      };
       const to = teamOf(member.seat);
       return () => ({
         kind: 'score-transferred',
@@ -583,47 +682,69 @@ export class RoomService {
         to,
         amount: 3,
         score: publicScore(result.ledger),
+        result: room.result,
       });
     }
     if (command.type === 'report-no-trump') {
-      if (!this.policies.noTrump) throw new RoomError('UNRESOLVED_RULE');
-      const result = reportNoTrump(
-        previous,
-        member.seat,
-        this.policies.noTrump,
-      );
-      if (result.status === 'unresolved')
-        throw new RoomError('UNRESOLVED_RULE');
-      if (result.status === 'invalid') throw new RoomError('REPORT_REJECTED');
-      room.round = result.round;
-      return () => ({ kind: 'round-cancelled', reporter: member.seat });
+      if (room.cancellationDecided) throw new RoomError('UNRESOLVED_RULE');
+      if (!canRequestCancellation(previous, member.seat))
+        throw new RoomError('REPORT_REJECTED');
+      const vote = { requester: member.seat, votes: [] };
+      room.cancellationVote = vote;
+      return () => ({ kind: 'cancellation-vote', vote });
+    }
+    if (command.type === 'vote-cancellation') {
+      const current = room.cancellationVote;
+      if (
+        !current ||
+        current.requester === member.seat ||
+        current.votes.some((vote) => vote.seat === member.seat)
+      )
+        throw new RoomError('VOTE_NOT_ALLOWED');
+      const votes = [
+        ...current.votes,
+        { seat: member.seat, approve: command.payload.approve },
+      ];
+      const approvals = votes.filter((vote) => vote.approve).length;
+      if (approvals >= 2) {
+        room.cancellationVote = null;
+        room.round = cancelRound(previous, current.requester);
+        return () => ({ kind: 'round-cancelled', reporter: current.requester });
+      }
+      if (votes.length - approvals >= 2) {
+        room.cancellationVote = null;
+        room.cancellationDecided = true;
+        return () => ({
+          kind: 'cancellation-vote',
+          vote: null,
+          rejected: true,
+        });
+      }
+      const vote = { ...current, votes };
+      room.cancellationVote = vote;
+      return () => ({ kind: 'cancellation-vote', vote });
     }
     if (command.type === 'restart') {
       if (member.actorId !== room.hostId)
         throw new RoomError('HOST_REQUIRED', 403);
       if (previous.phase !== 'cancelled')
         throw new RoomError('ROUND_NOT_CANCELLED');
-      const dealer =
-        this.policies.replacementDealer?.(previous) ?? 'unresolved';
-      if (dealer === 'unresolved') throw new RoomError('UNRESOLVED_RULE');
       if (!this.connected(room))
         throw new RoomError('FOUR_READY_PLAYERS_REQUIRED');
-      const result = restartCancelledRound(
+      const round = restartCancelledRound(
         previous,
         randomUUID(),
         shuffleDeck(createDeck(), this.entropy),
-        dealer,
       );
-      if (result.status !== 'restarted') throw new RoomError('UNRESOLVED_RULE');
-      room.round = result.round;
+      room.round = round;
       room.result = null;
+      room.cancellationDecided = false;
       return () => ({
         kind: 'round-started',
-        round: roundHeader(result.round),
-        handCounts: handCounts(result.round),
+        round: roundHeader(round),
+        handCounts: handCounts(round),
       });
     }
-    // Normal dealer rotation is unspecified. Only a trusted owner-confirmed policy can advance it.
     if (command.type === 'next-round') {
       if (member.actorId !== room.hostId)
         throw new RoomError('HOST_REQUIRED', 403);
@@ -631,8 +752,9 @@ export class RoomService {
         throw new RoomError('ROUND_NOT_COMPLETE');
       if (room.result?.status !== 'settled')
         throw new RoomError('UNRESOLVED_RULE');
-      const dealer = this.policies.nextDealer?.(previous) ?? 'unresolved';
-      if (dealer === 'unresolved') throw new RoomError('UNRESOLVED_RULE');
+      if (room.ledger.continuationBlocked)
+        throw new RoomError('UNRESOLVED_RULE');
+      const dealer = nextSeat(previous.dealer);
       if (!this.connected(room))
         throw new RoomError('FOUR_READY_PLAYERS_REQUIRED');
       const round = createRound(
@@ -642,6 +764,7 @@ export class RoomService {
       );
       room.round = round;
       room.result = null;
+      room.cancellationDecided = false;
       return () => ({
         kind: 'round-started',
         round: roundHeader(round),
@@ -654,9 +777,14 @@ export class RoomService {
     room: Room,
     event: (recipient: RoomMember) => RoomEvent,
     exclude?: Peer,
+    commitTo: Room = room,
   ): void {
-    const fromVersion = room.version++;
-    room.lastActive = this.now();
+    const fromVersion = room.version;
+    const lastActive = this.now();
+    const committed = { ...room, version: fromVersion + 1, lastActive };
+    if (committed.round) this.storage?.save(storedMatch(committed));
+    Object.assign(commitTo, committed);
+    room = commitTo;
     for (const member of room.members) {
       const peer = room.peers.get(member.actorId);
       if (peer && peer !== exclude)
@@ -697,6 +825,139 @@ export class RoomService {
   ): void {
     this.send(peer, { type: 'error', roomId, actionId, code, version: null });
   }
+  private expireDisconnects(room: Room): void {
+    if (!room.round || room.ledger.final) return;
+    const expired = room.members
+      .filter(
+        (member) =>
+          !room.peers.has(member.actorId) &&
+          member.disconnectDeadline !== undefined &&
+          member.disconnectDeadline <= this.now(),
+      )
+      .sort((a, b) => a.disconnectDeadline! - b.disconnectDeadline!);
+    if (room.ranked && expired[0]) {
+      const loser = teamOf(expired[0].seat);
+      if (
+        expired.some(
+          (member) =>
+            member.disconnectDeadline === expired[0]!.disconnectDeadline &&
+            teamOf(member.seat) !== loser,
+        )
+      )
+        return;
+      const ledger: ScoreLedger = {
+        ...room.ledger,
+        final: {
+          reason: 'ranked_forfeit',
+          winner: otherTeam(loser),
+          loser,
+          roundId: room.round.id,
+        },
+      };
+      const draft = {
+        ...room,
+        ledger,
+        round: { ...room.round, phase: 'complete' as const, turn: null },
+        cancellationVote: null,
+      };
+      this.advance(
+        draft,
+        () => ({ kind: 'match-ended', score: publicScore(ledger) }),
+        undefined,
+        room,
+      );
+      return;
+    }
+    for (const member of expired) {
+      const updated = { ...member, bot: true };
+      delete updated.disconnectDeadline;
+      const draft = {
+        ...room,
+        members: room.members.map((item) =>
+          item.seat === member.seat ? updated : item,
+        ),
+      };
+      this.advance(
+        draft,
+        () => ({
+          kind: 'presence',
+          seat: member.seat,
+          connected: true,
+          bot: true,
+          disconnectDeadline: null,
+        }),
+        undefined,
+        room,
+      );
+    }
+  }
+  tick(): void {
+    for (const room of this.rooms.values()) {
+      if (
+        !room.round ||
+        room.ledger.final ||
+        this.stopped ||
+        !room.members.some(
+          (member) => member.bot || member.disconnectDeadline !== undefined,
+        )
+      )
+        continue;
+      void room.queue
+        .run(() => {
+          this.expireDisconnects(room);
+          const round = room.round;
+          if (
+            !round ||
+            room.ledger.final ||
+            room.ranked ||
+            room.cancellationVote ||
+            room.peers.size === 0
+          )
+            return;
+          const seat =
+            round.phase === 'awaiting-cut'
+              ? leftOf(round.dealer)
+              : round.phase === 'awaiting-trump'
+                ? round.selector
+                : round.turn;
+          const member = seat === null ? undefined : room.members[seat];
+          if (!member?.bot || room.peers.has(member.actorId)) return;
+          const envelope = {
+            roomId: room.id,
+            actorId: member.actorId,
+            actionId: randomUUID(),
+            expectedVersion: room.version,
+          };
+          let command: ClientCommand;
+          if (round.phase === 'awaiting-cut') {
+            command = { ...envelope, type: 'cut', payload: { offset: 16 } };
+          } else if (round.phase === 'awaiting-trump') {
+            const hand = round.hands[member.seat];
+            const suit = [...hand].sort(
+              (a, b) =>
+                hand.filter((card) => card.suit === b.suit).length -
+                hand.filter((card) => card.suit === a.suit).length,
+            )[0]!.suit;
+            command = { ...envelope, type: 'trump', payload: { suit } };
+          } else {
+            const hand = round.hands[member.seat];
+            const lead = round.trick[0]?.card.suit;
+            const following = hand.filter((card) => card.suit === lead);
+            const legal = following.length ? following : hand;
+            const card = [...legal].sort(
+              (a, b) => RANKS.indexOf(b.rank) - RANKS.indexOf(a.rank),
+            )[0]!;
+            command = { ...envelope, type: 'play', payload: { card } };
+          }
+          const draft = { ...room };
+          const event = this.apply(draft, member, command);
+          this.advance(draft, event, undefined, room);
+        })
+        .catch(() => {
+          // Leave committed state intact. A later tick can retry without double-settling.
+        });
+    }
+  }
   heartbeat(): void {
     for (const room of this.rooms.values())
       for (const peer of room.peers.values()) {
@@ -712,13 +973,16 @@ export class RoomService {
     for (const [id, room] of this.rooms) {
       if (
         room.peers.size === 0 &&
+        (!room.round || room.ledger.final) &&
         room.queue.pending === 0 &&
         this.now() - room.lastActive >= this.limits.idleRoomTtlMs
       ) {
+        if (room.round) this.storage?.archive(id);
         this.rooms.delete(id);
         this.codes.delete(room.code);
         for (const member of room.members)
-          this.memberships.delete(member.actorId);
+          if (this.memberships.get(member.actorId) === id)
+            this.memberships.delete(member.actorId);
       }
     }
     for (const [actorId, bucket] of this.httpReceipts)

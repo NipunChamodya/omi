@@ -35,7 +35,7 @@ test('menu and browser back navigate without refreshes or accidental room creati
   ).toBeVisible();
   await page.getByRole('button', { name: 'Play Online', exact: true }).click();
   await expect(
-    page.getByText('Sign in to join the real-player queue.'),
+    page.getByText('Sign in to join the ranked, human-only queue.'),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Find players' })).toHaveCount(
     0,
@@ -108,6 +108,9 @@ test('four distinct OIDC accounts queue, cancel, reconnect and enter one real-pl
     for (const page of pages) {
       await expect(
         page.getByRole('heading', { name: 'Your table is ready.' }),
+      ).toBeVisible();
+      await expect(
+        page.getByText('RANKED TABLE', { exact: true }),
       ).toBeVisible();
       const session = await (
         await page.request.post('/api/auth/session', {

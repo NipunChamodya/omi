@@ -177,7 +177,10 @@ export function App({ client: supplied }: { client?: GameClient }) {
             <button
               className="profile-button"
               aria-label="My profile"
-              onClick={() => setProfileOpen(true)}
+              onClick={() => {
+                setProfileOpen(true);
+                void refreshAuth().catch(() => undefined);
+              }}
             >
               <Avatar
                 name={auth.user.displayName}
