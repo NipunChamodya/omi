@@ -29,8 +29,9 @@ export function deploymentChecks(config: ReturnType<typeof parseConfig>) {
     config.HOST === '127.0.0.1' && config.TRUST_LOCAL_PROXY,
   );
   add(
-    'secure-origin-and-guests-disabled',
-    config.APP_ORIGIN.startsWith('https://') && !config.ALLOW_GUESTS,
+    'secure-origin-and-guest-policy',
+    config.APP_ORIGIN.startsWith('https://') &&
+      (!config.ALLOW_GUESTS || config.PRODUCTION_CASUAL_GUESTS),
   );
   add(
     'google-configured',
@@ -77,7 +78,7 @@ export function deploymentChecks(config: ReturnType<typeof parseConfig>) {
     );
     add(
       'database-integrity-and-migrations',
-      verifyBackup(config.DATABASE_PATH).migrations >= 4,
+      verifyBackup(config.DATABASE_PATH).migrations >= 5,
     );
   } catch {
     add('database-integrity-and-migrations', false);

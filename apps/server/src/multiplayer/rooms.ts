@@ -5,6 +5,7 @@ import type {
   ClientCommand,
   Failure,
   RoomDescriptor,
+  RoomInvitation,
   RoomEvent,
   RoundResult,
   ServerMessage,
@@ -60,6 +61,7 @@ export type RoomMember = {
   ready: boolean;
   bot?: boolean;
   departed?: boolean;
+  permanentBot?: boolean;
   disconnectDeadline?: number;
   avatarUrl?: string | null;
 };
@@ -76,6 +78,11 @@ export type Room = {
   ledger: ScoreLedger;
   result: RoundResult;
   ranked?: boolean;
+  matchId?: string;
+  partnerId?: string;
+  rematchVotes?: readonly Seat[];
+  hands?: Exclude<RoundResult, null>[];
+
   queue: SerialQueue;
   receipts: Map<string, Receipt>;
   lastActive: number;
@@ -124,6 +131,14 @@ export class RoomService {
   private readonly rooms = new Map<string, Room>();
   private readonly codes = new Map<string, string>();
   private readonly memberships = new Map<string, string>();
+  private readonly invitations = new Map<
+    string,
+    RoomInvitation & {
+      roomId: string;
+      sender: string;
+      recipient: string;
+    }
+  >();
   private readonly httpReceipts = new Map<
     string,
     {
@@ -350,7 +365,156 @@ export class RoomService {
     if (!room) throw new RoomError('ROOM_NOT_FOUND', 404);
     return this.descriptor(room);
   }
-  join(identity: Identity, request: JoinRequest): Promise<RoomDescriptor> {
+  revokeInvitations(actor: string, target: string): void {
+    for (const [id, invite] of this.invitations) {
+      if (
+        (invite.sender === actor && invite.recipient === target) ||
+        (invite.sender === target && invite.recipient === actor)
+      )
+        this.invitations.delete(id);
+    }
+  }
+
+  private pruneInvitations() {
+    const now = this.now();
+    for (const [id, invite] of this.invitations) {
+      const room = this.rooms.get(invite.roomId);
+      if (
+        invite.expiresAt <= now ||
+        !room ||
+        room.round ||
+        room.members.length >= 4
+      )
+        this.invitations.delete(id);
+    }
+  }
+
+  listInvitations(
+    actor: string,
+    isFriend: (sender: string) => boolean,
+  ): RoomInvitation[] {
+    this.pruneInvitations();
+    return [...this.invitations.values()]
+      .filter((invite) => invite.recipient === actor && isFriend(invite.sender))
+      .map(({ id, senderName, partnership, expiresAt }) => ({
+        id,
+        senderName,
+        partnership,
+        expiresAt,
+      }));
+  }
+
+  createInvitation(
+    identity: Identity,
+    recipient: string,
+    partnership: boolean,
+  ): void {
+    this.checkIdentity(identity, identity.actorId);
+    this.pruneInvitations();
+    const roomId = this.memberships.get(identity.actorId);
+    const room = roomId && this.rooms.get(roomId);
+    if (
+      !identity.userId ||
+      !room ||
+      room.hostId !== identity.actorId ||
+      room.round ||
+      room.ranked ||
+      room.members.length >= 4 ||
+      this.memberships.has(recipient) ||
+      (partnership && room.partnerId)
+    ) {
+      throw new RoomError('INVITATION_UNAVAILABLE', 409);
+    }
+    const existing = [...this.invitations.values()];
+    if (
+      existing.some(
+        (invite) => invite.roomId === room.id && invite.recipient === recipient,
+      )
+    )
+      throw new RoomError('INVITATION_ALREADY_SENT', 409);
+    if (
+      existing.length >= this.limits.maxRooms * 8 ||
+      existing.filter((invite) => invite.recipient === recipient).length >= 8 ||
+      existing.filter((invite) => invite.roomId === room.id).length >= 8
+    )
+      throw new RoomError('INVITATION_CAPACITY', 429);
+    const id = randomUUID();
+    this.invitations.set(id, {
+      id,
+      roomId: room.id,
+      sender: identity.actorId,
+      recipient,
+      senderName: identity.displayName,
+      partnership,
+      expiresAt: this.now() + 10 * 60_000,
+    });
+  }
+
+  async respondToInvitation(
+    identity: Identity,
+    id: string,
+    accept: boolean,
+    isFriend: (sender: string) => boolean,
+  ) {
+    this.pruneInvitations();
+    const invite = this.invitations.get(id);
+    const room = invite && this.rooms.get(invite.roomId);
+    if (
+      !identity.userId ||
+      !invite ||
+      !room ||
+      invite.recipient !== identity.actorId
+    )
+      throw new RoomError('INVITATION_UNAVAILABLE', 404);
+    if (!accept) {
+      this.invitations.delete(id);
+      return null;
+    }
+    return this.join(
+      identity,
+      {
+        actorId: identity.actorId,
+        actionId: id,
+        roomId: room.id,
+        code: room.code,
+        expectedVersion: room.version,
+      },
+      (current) => {
+        if (
+          this.invitations.get(id) !== invite ||
+          invite.expiresAt <= this.now() ||
+          !isFriend(invite.sender) ||
+          current.hostId !== invite.sender ||
+          (invite.partnership &&
+            current.partnerId &&
+            current.partnerId !== identity.actorId)
+        )
+          throw new RoomError('INVITATION_UNAVAILABLE', 409);
+        if (invite.partnership) current.partnerId = identity.actorId;
+        this.invitations.delete(id);
+      },
+    );
+  }
+
+  private seatPartnership(room: Room): boolean {
+    if (!room.partnerId || room.members.length < 3) return false;
+    const partner = room.members.find(
+      (member) => member.actorId === room.partnerId,
+    );
+    if (!partner || partner.seat === 2) return false;
+    const displaced = room.members[2]!;
+    room.members[partner.seat] = displaced;
+    room.members[2] = partner;
+    displaced.seat = partner.seat;
+    partner.seat = 2;
+    return true;
+  }
+
+  join(
+    identity: Identity,
+    request: JoinRequest,
+    admit?: (room: Room) => void,
+  ): Promise<RoomDescriptor> {
     this.checkIdentity(identity, request.actorId);
     const room = this.rooms.get(request.roomId);
     if (!room || room.code !== request.code)
@@ -367,6 +531,7 @@ export class RoomService {
         throw new RoomError('VERSION_CONFLICT', 409, room.version);
       if (room.members.length === 4 || room.round)
         throw new RoomError('ROOM_FULL');
+      admit?.(room);
       const member: RoomMember = {
         actorId: identity.actorId,
         displayName: identity.displayName,
@@ -376,10 +541,16 @@ export class RoomService {
       };
       room.members.push(member);
       this.memberships.set(identity.actorId, room.id);
-      this.advance(room, () => ({
-        kind: 'member-joined',
-        member: publicMember(room, member),
-      }));
+      const reseated = this.seatPartnership(room);
+      this.advance(room, () =>
+        reseated
+          ? {
+              kind: 'seats-assigned',
+              members: room.members.map((item) => publicMember(room, item)),
+            }
+          : { kind: 'member-joined', member: publicMember(room, member) },
+      );
+
       return this.rememberHttp(
         identity,
         request.actionId,
@@ -498,10 +669,11 @@ export class RoomService {
       let used = 0;
       for (const id of room.receipts.keys())
         if (id.startsWith(`${member.actorId}:`)) used++;
-      if (
-        used >= this.limits.actionsPerMember &&
-        command.type !== 'leave-match'
-      )
+      const atCapacity = used >= this.limits.actionsPerMember;
+      const terminalAction =
+        room.ledger.final &&
+        (command.type === 'leave-match' || command.type === 'rematch');
+      if (atCapacity && !terminalAction)
         throw new RoomError('ACTION_BUDGET_EXHAUSTED', 429);
       let reply: Ack | Failure;
       try {
@@ -543,7 +715,8 @@ export class RoomService {
           version: room.version,
         };
       }
-      room.receipts.set(key, { fingerprint, reply });
+      if (!atCapacity || reply.type === 'ack')
+        room.receipts.set(key, { fingerprint, reply });
       this.send(peer, reply);
       if (reply.type === 'ack' && command.type === 'leave-match')
         peer.socket.close(1000, 'Match left');
@@ -557,7 +730,48 @@ export class RoomService {
     if (command.type === 'leave-match') {
       if (!room.ledger.final) throw new RoomError('MATCH_IN_PROGRESS');
       member.departed = true;
-      return () => ({ kind: 'presence', seat: member.seat, connected: false });
+      room.rematchVotes = [];
+      return () => ({
+        kind: 'presence',
+        seat: member.seat,
+        connected: false,
+        rematchClosed: true,
+      });
+    }
+    if (command.type === 'rematch') {
+      if (!room.ledger.final || room.members.some((item) => item.departed))
+        throw new RoomError('REMATCH_UNAVAILABLE');
+      const votes = [...new Set([...(room.rematchVotes ?? []), member.seat])];
+      if (
+        !room.members.every(
+          (item) => item.permanentBot || votes.includes(item.seat),
+        ) ||
+        !this.connected(room) ||
+        room.members.some((item) => item.bot && !item.permanentBot)
+      ) {
+        const changed = votes.length !== (room.rematchVotes?.length ?? 0);
+        if (!changed) throw new RoomError('REMATCH_WAITING');
+        room.rematchVotes = votes;
+        return () => ({ kind: 'rematch-votes', seats: votes });
+      }
+      room.matchId = randomUUID();
+      room.ledger = createLedger();
+      room.result = null;
+      room.hands = [];
+      room.rematchVotes = [];
+      room.receipts.clear();
+      const round = createRound(
+        randomUUID(),
+        chooseInitialDealer(this.entropy),
+        shuffleDeck(createDeck(), this.entropy),
+      );
+      room.round = round;
+      return () => ({
+        kind: 'round-started',
+        round: roundHeader(round),
+        handCounts: handCounts(round),
+        matchScore: publicScore(room.ledger),
+      });
     }
     if (room.ledger.final) throw new RoomError('MATCH_COMPLETE');
     if (command.type === 'add-bot') {
@@ -572,9 +786,17 @@ export class RoomService {
         seat,
         ready: true,
         bot: true,
+        permanentBot: true,
       };
       room.members.push(bot);
-      return () => ({ kind: 'member-joined', member: publicMember(room, bot) });
+      const reseated = this.seatPartnership(room);
+      return () =>
+        reseated
+          ? {
+              kind: 'seats-assigned',
+              members: room.members.map((item) => publicMember(room, item)),
+            }
+          : { kind: 'member-joined', member: publicMember(room, bot) };
     }
     if (command.type === 'ready') {
       if (room.round) throw new RoomError('ROUND_ALREADY_STARTED');
@@ -630,6 +852,8 @@ export class RoomService {
           };
         }
       }
+      if (round.phase === 'complete' && result)
+        room.hands = [...(room.hands ?? []), result];
       room.round = round;
       room.ledger = ledger;
       room.result = result;
@@ -674,6 +898,7 @@ export class RoomService {
         outcome: 'baldu',
         tricks: countTricks(previous),
       };
+      room.hands = [...(room.hands ?? []), room.result];
       const to = teamOf(member.seat);
       return () => ({
         kind: 'score-transferred',
@@ -753,7 +978,14 @@ export class RoomService {
     const fromVersion = room.version;
     const lastActive = this.now();
     const committed = { ...room, version: fromVersion + 1, lastActive };
-    if (committed.round) this.storage?.save(storedMatch(committed));
+    if (committed.round) {
+      const previous = commitTo.matchId ?? commitTo.id;
+      const current = committed.matchId ?? committed.id;
+      this.storage?.save(
+        storedMatch(committed),
+        previous === current ? undefined : previous,
+      );
+    }
     Object.assign(commitTo, committed);
     room = commitTo;
     for (const member of room.members) {
@@ -947,7 +1179,7 @@ export class RoomService {
         room.queue.pending === 0 &&
         this.now() - room.lastActive >= this.limits.idleRoomTtlMs
       ) {
-        if (room.round) this.storage?.archive(id);
+        if (room.round) this.storage?.archive(room.matchId ?? id);
         this.rooms.delete(id);
         this.codes.delete(room.code);
         for (const member of room.members)

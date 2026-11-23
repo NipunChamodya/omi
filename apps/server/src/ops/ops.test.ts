@@ -71,13 +71,13 @@ it('backs up committed WAL data, verifies restore integrity and refuses overwrit
     expect(statSync(source + '-wal').size).toBeGreaterThan(0);
     expect(await backupDatabase(source, backup)).toEqual({
       integrity: 'ok',
-      migrations: 4,
+      migrations: 5,
     });
     expect(statSync(backup).mode & 0o777).toBe(0o600);
     const copy = join(dir, 'restore.sqlite');
     expect(await restoreCopy(backup, copy)).toMatchObject({
       integrity: 'ok',
-      migrations: 4,
+      migrations: 5,
       sessionsInvalidated: true,
     });
     const restoredDb = new Database(copy, { readonly: true });

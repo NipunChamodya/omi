@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { AuthSession } from '@omi/shared';
@@ -14,6 +15,7 @@ export function MultiplayerMenu({
   onSignIn: () => void;
 }) {
   const view = useStore(client.store, (state) => state.view);
+  const text = useCopy();
   const [queue] = useState(() => new MatchmakingClient(client.acceptMatch));
   const waiting = useStore(queue.store);
   useEffect(() => {
@@ -31,14 +33,14 @@ export function MultiplayerMenu({
   return (
     <section className="entry-panel multiplayer-menu">
       <button className="text-button" onClick={client.back}>
-        ← Back
+        ← {text('Back')}
       </button>
       <h1>
         {view === 'multiplayer'
           ? 'Multiplayer'
           : view === 'friends'
-            ? 'Play with Friends'
-            : 'Play Online'}
+            ? text('Play with Friends')
+            : text('Play Online')}
       </h1>
       {view === 'multiplayer' && (
         <>
@@ -46,13 +48,13 @@ export function MultiplayerMenu({
             className="button primary"
             onClick={() => client.navigate('online')}
           >
-            Play Online
+            {text('Play Online')}
           </button>
           <button
             className="button secondary"
             onClick={() => client.navigate('friends')}
           >
-            Play with Friends
+            {text('Play with Friends')}
           </button>
         </>
       )}
@@ -96,7 +98,7 @@ export function MultiplayerMenu({
               {waiting.error && <p role="alert">{waiting.error}</p>}
               {waiting.status === 'idle' || waiting.status === 'error' ? (
                 <button className="button primary" onClick={queue.start}>
-                  Find players
+                  {text('Find players')}
                 </button>
               ) : (
                 <button className="button secondary" onClick={queue.stop}>

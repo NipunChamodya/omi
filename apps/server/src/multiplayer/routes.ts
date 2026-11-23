@@ -37,6 +37,8 @@ export type MultiplayerOptions = {
   entropy?: RandomInt;
   accounts: Accounts;
   allowGuests: boolean;
+  moderators?: ReadonlySet<string>;
+  allowPrivateCommunications?: boolean;
 };
 function parse<T>(schema: ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -137,7 +139,14 @@ export async function registerMultiplayer(
     origin: options.origin,
     secure: options.secureCookies,
     guestAllowed: options.allowGuests,
+    allowPrivateCommunications:
+      options.allowPrivateCommunications ?? !options.secureCookies,
+    moderators: options.moderators ?? new Set(),
     now,
+    guestFor: (request) =>
+      options.allowGuests
+        ? sessions.get(request.cookies[cookieName])
+        : undefined,
     revokeGuest: (token) => {
       sessions.revoke(token);
       if (token) rooms.disconnectSession(digest(token));
@@ -165,6 +174,8 @@ export async function registerMultiplayer(
       },
       now,
       limits.maxRooms,
+      options.secureCookies,
+      options.allowPrivateCommunications ?? !options.secureCookies,
     );
     registerMatchmaking(
       api,
@@ -180,6 +191,8 @@ export async function registerMultiplayer(
       options.accounts.repo,
       now,
       limits.maxRooms,
+      options.secureCookies,
+      options.allowPrivateCommunications ?? !options.secureCookies,
     );
     api.options('/*', async (_request, reply) =>
       reply

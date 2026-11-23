@@ -18,3 +18,7 @@ Quote one small burstable Linux VM for 730 hours, managed OS and data disks, a p
 Before adding instances, move authoritative data to a transactional shared store, fence room ownership with renewable leases, coordinate the matchmaking queue, route connections to the active room owner, and use cross-instance events. Persist terminal results and rating writes with idempotency keys in the same transaction. Affinity alone cannot recover ownership or serialize commands. Validate failover and sequential state recovery under load before enabling multiple authoritative instances.
 
 The checked-in configuration is a local deployment template. No Azure resources were provisioned and no public release was performed.
+
+## V2.3 release checks
+
+Verify a backup before applying the additive match-detail and moderation migration. Keep one process writing the mounted SQLite database. In the release environment, check `MODERATOR_IDS` against the intended administrator account UUIDs and keep experimental Elo off. `ALLOW_GUESTS=true` in production requires the explicit `PRODUCTION_CASUAL_GUESTS=true` setting. Guests have no voice or chat. Signed-in private room communication is off unless `PRODUCTION_PRIVATE_COMMUNICATIONS=true`; keep it off until the audience and guardian policy is accepted. Ranked communication remains off. Exercise admin authorization, match recovery and authenticated WSS in staging before making the endpoint public.

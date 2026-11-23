@@ -34,6 +34,9 @@ export type {
   RatingOverview,
   FriendAction,
   FriendContact,
+  RoomInvitation,
+  ModerationReport,
+  ReviewStatus,
 } from './protocol.js';
 export type { MatchmakingMessage } from './matchmaking.js';
 export type {

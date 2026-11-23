@@ -23,6 +23,7 @@ export const commandSchema = z.discriminatedUnion('type', [
     [
       'start',
       'leave-match',
+      'rematch',
       'add-bot',
       'sync',
       'report-no-trump',

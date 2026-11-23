@@ -65,6 +65,8 @@ export type PlayerGame = RoundHeader &
   }>;
 export type Snapshot = Readonly<{
   ranked?: boolean;
+  rematchVotes?: readonly Seat[];
+  rematchAvailable?: boolean;
   capabilities?: Readonly<{ nextRound: boolean }>;
   type: 'snapshot';
   roomId: string;
@@ -104,6 +106,7 @@ export type ClientCommand = Envelope &
         type:
           | 'start'
           | 'leave-match'
+          | 'rematch'
           | 'add-bot'
           | 'sync'
           | 'report-no-trump'
@@ -117,6 +120,7 @@ export type ClientCommand = Envelope &
     | Readonly<{ type: 'accuse'; payload: Readonly<{ playId: number }> }>
   );
 export type RoomEvent =
+  | Readonly<{ kind: 'seats-assigned'; members: readonly Member[] }>
   | Readonly<{ kind: 'member-joined'; member: Member }>
   | Readonly<{ kind: 'member-updated'; member: Member }>
   | Readonly<{
@@ -125,12 +129,15 @@ export type RoomEvent =
       connected: boolean;
       bot?: boolean;
       disconnectDeadline?: number | null;
+      rematchClosed?: boolean;
     }>
+  | Readonly<{ kind: 'rematch-votes'; seats: readonly Seat[] }>
   | Readonly<{ kind: 'match-ended'; score: Score }>
   | Readonly<{ kind: 'ready'; seat: Seat; ready: boolean }>
   | Readonly<{
       kind: 'round-started';
       cancelledBy?: Seat;
+      matchScore?: Score;
       round: RoundHeader;
       handCounts: Four<number>;
     }>
@@ -192,6 +199,12 @@ export type PublicProfile = Readonly<{
   thumbnailUrl: string | null;
   version: number;
 }>;
+export type RoomInvitation = Readonly<{
+  id: string;
+  senderName: string;
+  partnership: boolean;
+  expiresAt: number;
+}>;
 export type FriendAction =
   'request' | 'accept' | 'remove' | 'block' | 'unblock';
 export type FriendContact = Readonly<{
@@ -206,6 +219,7 @@ export type RatingOverview = Readonly<{
 }>;
 export type MatchStatistics = Readonly<{
   experimentalRating?: RatingOverview;
+  partnerships?: readonly { name: string; matches: number; wins: number }[];
   played: number;
   wins: number;
   rankedWins: number;
@@ -214,18 +228,33 @@ export type MatchStatistics = Readonly<{
   rankedForfeitLosses: number;
   recent: readonly Readonly<{
     completedAt: number;
+    hands?: readonly { outcome: string; tricks: readonly [number, number] }[];
     won: boolean;
     ranked: boolean;
     reason: NonNullable<Score['final']>['reason'];
   }>[];
 }>;
+export type ReviewStatus = 'open' | 'reviewed' | 'dismissed';
+export type ModerationReport = Readonly<{
+  id: string;
+  reason: string;
+  evidence: string;
+  note: string;
+  createdAt: number;
+  status: ReviewStatus;
+  revision: number;
+}>;
 export type AuthSession = Readonly<{
   user: PublicProfile | null;
+  canModerate?: boolean;
   statistics?: MatchStatistics;
   csrfToken: string | null;
   expiresAt: number | null;
   googleAvailable: boolean;
   guestAllowed: boolean;
+  guestCommunicationAllowed?: boolean;
+  privateCommunicationAllowed?: boolean;
+  guestIdentity?: GuestIdentity;
   avatarUploadsEnabled: boolean;
   room: RoomDescriptor | null;
 }>;

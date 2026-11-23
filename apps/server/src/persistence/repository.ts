@@ -1,3 +1,5 @@
+import { Moderation } from '../auth/moderation.js';
+import type { EloPolicy } from '../multiplayer/ratings.js';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -30,6 +32,7 @@ export interface AccountRepository {
   readonly guests?: GuestSessionStorage;
   readonly friends?: Friends;
   readonly matchStorage?: MatchStorage;
+  readonly moderation?: Moderation;
   user(id: string): UserRecord | undefined;
   googleUser(
     sub: string,
@@ -67,14 +70,16 @@ export class SqliteAccounts implements AccountRepository {
   private readonly sqlite;
   readonly matchStorage: MatchStorage;
   readonly friends: Friends;
+  readonly moderation: Moderation;
   readonly guests: GuestSessionStorage;
   private readonly db;
-  constructor(path: string, experimentalElo = false) {
+  constructor(path: string, experimentalElo: boolean | EloPolicy = false) {
     if (path !== ':memory:')
       mkdirSync(dirname(resolve(path)), { recursive: true, mode: 0o700 });
     this.sqlite = new Database(path);
     this.matchStorage = new SqliteMatchStorage(this.sqlite, experimentalElo);
     this.friends = new Friends(this.sqlite);
+    this.moderation = new Moderation(this.sqlite);
     this.guests = {
       loadActive: (now, limit) => {
         const rows = this.sqlite

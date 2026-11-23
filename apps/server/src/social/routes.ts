@@ -13,8 +13,14 @@ export function registerSocial(
   repo: AccountRepository,
   now: () => number,
   maxRooms: number,
+  accountOnly = false,
+  communicationsEnabled = true,
 ) {
   const authorize = (roomId: string, identity: Identity) => {
+    if (accountOnly && !identity.userId)
+      throw new RoomError('GUEST_COMMUNICATION_DISABLED', 403);
+    if (!communicationsEnabled)
+      throw new RoomError('PRIVATE_COMMUNICATION_DISABLED', 403);
     const { room } = rooms.authorize(roomId, identity);
     if (room.ranked) throw new RoomError('RANKED_COMMUNICATION_DISABLED', 403);
     const game = room.peers.get(identity.actorId);

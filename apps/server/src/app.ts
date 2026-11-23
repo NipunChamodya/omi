@@ -71,7 +71,14 @@ export function buildApp(options: AppOptions = {}) {
     registerRuntimeMonitoring(app);
   const repository =
     options.accounts?.repository ??
-    new SqliteAccounts(config.DATABASE_PATH, config.EXPERIMENTAL_ELO);
+    new SqliteAccounts(
+      config.DATABASE_PATH,
+      config.EXPERIMENTAL_ELO && {
+        initial: config.ELO_INITIAL,
+        k: config.ELO_K,
+        floor: config.ELO_FLOOR,
+      },
+    );
   const provider =
     options.accounts?.provider !== undefined
       ? options.accounts.provider
@@ -109,6 +116,10 @@ export function buildApp(options: AppOptions = {}) {
       matchStorage: repository.matchStorage,
       ice: config,
       allowGuests: config.ALLOW_GUESTS,
+      allowPrivateCommunications:
+        config.NODE_ENV !== 'production' ||
+        config.PRODUCTION_PRIVATE_COMMUNICATIONS,
+      moderators: new Set(config.MODERATOR_IDS),
       origin: config.APP_ORIGIN,
       secureCookies: config.NODE_ENV === 'production',
     });

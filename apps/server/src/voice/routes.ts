@@ -14,6 +14,8 @@ export function registerVoice(
   settings: IceSettings,
   now: () => number,
   maxRooms: number,
+  accountOnly = false,
+  communicationsEnabled = true,
 ) {
   const roomIdFor = (value: string) => {
     const result = z.uuid().safeParse(value);
@@ -21,6 +23,10 @@ export function registerVoice(
     return result.data;
   };
   const authorize = (roomId: string, identity: Identity) => {
+    if (accountOnly && !identity.userId)
+      throw new RoomError('GUEST_COMMUNICATION_DISABLED', 403);
+    if (!communicationsEnabled)
+      throw new RoomError('PRIVATE_COMMUNICATION_DISABLED', 403);
     const { room } = rooms.authorize(roomId, identity);
     if (room.ranked) throw new RoomError('RANKED_COMMUNICATION_DISABLED', 403);
     const peer = room.peers.get(identity.actorId);

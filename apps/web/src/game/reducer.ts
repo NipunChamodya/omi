@@ -41,12 +41,30 @@ export function applyEvent(
         ? {
             ...next,
             score: event.score,
+            rematchAvailable: true,
             game: { ...state.game, phase: 'complete', turn: null },
           }
         : null;
+    case 'seats-assigned': {
+      const me = event.members.find(
+        (member) => member.actorId === state.you.actorId,
+      );
+      if (!me || state.game) return null;
+      return {
+        ...next,
+        members: event.members,
+        you: { actorId: me.actorId, seat: me.seat, team: me.team },
+      };
+    }
+    case 'rematch-votes':
+      return { ...next, rematchVotes: event.seats };
     case 'presence':
       return {
         ...next,
+        ...(event.rematchClosed && {
+          rematchAvailable: false,
+          rematchVotes: [],
+        }),
         members: state.members.map((member) =>
           member.seat === event.seat
             ? {
@@ -69,6 +87,11 @@ export function applyEvent(
           tricks: [],
         },
         result: null,
+        ...(event.matchScore && {
+          score: event.matchScore,
+          rematchVotes: [],
+          rematchAvailable: false,
+        }),
       };
     case 'cards-dealt':
       if (!state.game) return null;

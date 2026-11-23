@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { digest } from './accounts.js';
 import { WebSocket } from 'ws';
 import sharp from 'sharp';
 import { buildApp } from '../app.js';
@@ -573,4 +574,225 @@ it('keeps friend requests private and blocks repeat requests from the blocked ac
   expect((await change(b, 'unblock', aId)).json().friends).toEqual([]);
   expect((await change(a, 'request', bId)).statusCode).toBe(200);
   expect((await change(b, 'remove', aId)).json().friends).toEqual([]);
+});
+
+it('delivers invitations only to friends and seats an accepting teammate opposite the host', async () => {
+  const host = await login();
+  const friend = await login();
+  const other = await login();
+  const hostId = host.session.user!.id;
+  const friendId = friend.session.user!.id;
+  repository.friends.change(hostId, friendId, 'request', Date.now());
+  repository.friends.change(friendId, hostId, 'accept', Date.now());
+  const room = (
+    await post(
+      '/rooms',
+      { actorId: hostId, actionId: randomUUID(), expectedVersion: 0 },
+      host.cookie,
+    )
+  ).json<RoomDescriptor>();
+  const invite = (who: typeof host, body: object) =>
+    post('/profile/invitations', body, who.cookie, who.session.csrfToken!);
+  expect(
+    (
+      await invite(host, {
+        action: 'send',
+        target: other.session.user!.id,
+        partnership: false,
+      })
+    ).statusCode,
+  ).toBe(404);
+  expect(
+    (
+      await invite(host, {
+        action: 'send',
+        target: friendId,
+        partnership: true,
+      })
+    ).statusCode,
+  ).toBe(200);
+  const [pending] = (await invite(friend, { action: 'list' })).json()
+    .invitations;
+  expect(pending).toMatchObject({ partnership: true });
+  expect(
+    (await invite(other, { action: 'respond', id: pending.id, accept: true }))
+      .statusCode,
+  ).toBe(404);
+  const accepted = await invite(friend, {
+    action: 'respond',
+    id: pending.id,
+    accept: true,
+  });
+  expect(accepted.statusCode).toBe(200);
+  expect(accepted.json().room.roomId).toBe(room.roomId);
+  expect(
+    (await invite(friend, { action: 'respond', id: pending.id, accept: true }))
+      .statusCode,
+  ).toBe(404);
+  const third = await post(
+    '/rooms/join',
+    {
+      roomId: room.roomId,
+      code: room.code,
+      actorId: other.session.user!.id,
+      actionId: randomUUID(),
+      expectedVersion: accepted.json().room.version,
+    },
+    other.cookie,
+  );
+  expect(third.statusCode).toBe(200);
+  const snapshot = await post(
+    '/rooms/snapshot',
+    { roomId: room.roomId },
+    friend.cookie,
+  );
+  expect(snapshot.json().you).toMatchObject({ seat: 2, team: 0 });
+});
+
+it('restricts moderation to configured accounts and records review revisions once', async () => {
+  const admin = await login();
+  const ordinary = await login();
+  await app.close();
+  repository = new SqliteAccounts(config().DATABASE_PATH);
+  app = buildApp({
+    logger: false,
+    config: { ...config(), MODERATOR_IDS: [admin.session.user!.id] },
+    accounts: { repository },
+  });
+  const id = randomUUID();
+  repository.storeSocialReport({
+    id,
+    roomId: randomUUID(),
+    reporterId: randomUUID(),
+    subjectId: randomUUID(),
+    messageId: randomUUID(),
+    reason: 'harassment',
+    note: '',
+    messageText: 'Reported fixture text',
+    messageCreatedAt: Date.now(),
+    createdAt: Date.now(),
+  });
+  expect(
+    (
+      await post(
+        '/profile/moderation',
+        { action: 'list' },
+        ordinary.cookie,
+        ordinary.session.csrfToken!,
+      )
+    ).statusCode,
+  ).toBe(403);
+  expect(
+    (await post('/profile/moderation', { action: 'list' }, admin.cookie))
+      .statusCode,
+  ).toBe(403);
+  const action = { action: 'review', id, revision: 0, status: 'reviewed' };
+  const review = () =>
+    post('/profile/moderation', action, admin.cookie, admin.session.csrfToken!);
+  expect((await review()).json().reports[0]).toMatchObject({
+    status: 'reviewed',
+    revision: 1,
+  });
+  expect((await review()).json().reports[0].revision).toBe(1);
+  expect(
+    (
+      await post(
+        '/profile/moderation',
+        { ...action, status: 'dismissed' },
+        admin.cookie,
+        admin.session.csrfToken!,
+      )
+    ).statusCode,
+  ).toBe(409);
+});
+
+it('allows opted-in production guests to join casual play while withholding communication', async () => {
+  const secureOrigin = 'https://omi.example';
+  const guestRepo = new SqliteAccounts(':memory:');
+  const signedIn = guestRepo.googleUser(
+    'production-policy-fixture',
+    'Signed in',
+    null,
+    Date.now(),
+  );
+  const rawToken = randomBytes(32).toString('base64url');
+  guestRepo.putSession({
+    tokenHash: digest(rawToken),
+    userId: signedIn.id,
+    csrfToken: rawToken,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 60_000,
+  });
+  const guestApp = buildApp({
+    logger: false,
+    accounts: { repository: guestRepo },
+    config: parseConfig({
+      NODE_ENV: 'production',
+      APP_ORIGIN: secureOrigin,
+      DATABASE_PATH: ':memory:',
+      ALLOW_GUESTS: 'true',
+      PRODUCTION_CASUAL_GUESTS: 'true',
+    }),
+  });
+  try {
+    const guest = await guestApp.inject({
+      method: 'POST',
+      url: '/transport/session',
+      headers: { origin: secureOrigin },
+      payload: { displayName: 'Guest player' },
+    });
+    expect(guest.statusCode).toBe(200);
+    expect(guest.cookies[0]).toMatchObject({
+      name: '__Host-omi_transport',
+      secure: true,
+      httpOnly: true,
+    });
+    const cookie = `${guest.cookies[0]!.name}=${guest.cookies[0]!.value}`;
+    const room = await guestApp.inject({
+      method: 'POST',
+      url: '/rooms',
+      headers: { origin: secureOrigin, cookie },
+      payload: {
+        actorId: guest.json().actorId,
+        actionId: randomUUID(),
+        expectedVersion: 0,
+      },
+    });
+    expect(room.statusCode).toBe(201);
+    const resumed = await guestApp.inject({
+      method: 'POST',
+      url: '/auth/session',
+      headers: { origin: secureOrigin, cookie },
+      payload: {},
+    });
+    expect(resumed.json()).toMatchObject({
+      guestIdentity: { actorId: guest.json().actorId },
+      privateCommunicationAllowed: false,
+      room: { roomId: room.json().roomId },
+    });
+    expect(resumed.json().guestIdentity).not.toHaveProperty('tokenHash');
+    const voice = await guestApp.inject({
+      method: 'POST',
+      url: `/rooms/${room.json().roomId}/voice/config`,
+      headers: { origin: secureOrigin, cookie },
+      payload: {},
+    });
+    expect(voice.json()).toMatchObject({
+      code: 'GUEST_COMMUNICATION_DISABLED',
+    });
+    const signedInVoice = await guestApp.inject({
+      method: 'POST',
+      url: `/rooms/${room.json().roomId}/voice/config`,
+      headers: {
+        origin: secureOrigin,
+        cookie: `__Host-omi_session=${rawToken}`,
+      },
+      payload: {},
+    });
+    expect(signedInVoice.json()).toMatchObject({
+      code: 'PRIVATE_COMMUNICATION_DISABLED',
+    });
+  } finally {
+    await guestApp.close();
+  }
 });

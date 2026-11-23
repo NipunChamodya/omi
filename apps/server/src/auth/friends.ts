@@ -14,6 +14,16 @@ type Relationship = {
 export class Friends {
   constructor(private readonly db: Database.Database) {}
 
+  accepted(actor: string, target: string): boolean {
+    const [left, right] = actor < target ? [actor, target] : [target, actor];
+    return !!this.db
+      .prepare(
+        `SELECT 1 FROM omi_friendships
+      WHERE left_id = ? AND right_id = ? AND accepted = 1 AND left_blocked = 0 AND right_blocked = 0`,
+      )
+      .get(left, right);
+  }
+
   list(actor: string): FriendContact[] {
     const result = this.db
       .prepare(

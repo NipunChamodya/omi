@@ -1,3 +1,4 @@
+import { useLocale, useCopy } from './i18n/locale';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { GameClient } from './game/client';
@@ -18,6 +19,12 @@ const GameTable = lazy(() => import('./components/GameTable'));
 export function App({ client: supplied }: { client?: GameClient }) {
   const [client] = useState(() => supplied ?? new GameClient());
   useGameAudio(client);
+  const language = useLocale((state) => state.language);
+  const changeLanguage = useLocale((state) => state.change);
+  const text = useCopy();
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
   const state = useStore(client.store);
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -120,6 +127,8 @@ export function App({ client: supplied }: { client?: GameClient }) {
         setAuthLoading(false);
         if (session.user && session.expiresAt)
           client.adoptAccount(session.user, session.room, session.expiresAt);
+        else if (session.guestIdentity)
+          client.adoptIdentity(session.guestIdentity, session.room);
         if (
           new URLSearchParams(window.location.search).get('auth') === 'failed'
         )
@@ -260,7 +269,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
           <>
             <div className="room-toolbar">
               <button className="text-button" onClick={client.home}>
-                ← Home
+                ← {text('Home')}
               </button>
               <button
                 className="text-button"
@@ -366,20 +375,38 @@ export function App({ client: supplied }: { client?: GameClient }) {
             Back to game
           </button>
         )}
+        <label>
+          Language / භාෂාව{' '}
+          <select
+            value={language}
+            onChange={(event) =>
+              changeLanguage(event.target.value === 'si' ? 'si' : 'en')
+            }
+          >
+            <option value="en">English</option>
+            <option value="si" lang="si">
+              සිංහල
+            </option>
+          </select>
+        </label>
         <PwaControls />
         <ThemeControls />
         <SoundSettings />
-        {state.view === 'room' && state.snapshot && !state.snapshot.ranked && (
-          <Suspense fallback={<p role="status">Loading room controls…</p>}>
-            <RoomControls
-              key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
-              roomId={state.snapshot.roomId}
-              actorId={state.snapshot.you.actorId}
-              members={state.snapshot.members}
-              online={online}
-            />
-          </Suspense>
-        )}
+        {state.view === 'room' &&
+          state.snapshot &&
+          !state.snapshot.ranked &&
+          auth?.privateCommunicationAllowed !== false &&
+          (auth?.user || auth?.guestCommunicationAllowed !== false) && (
+            <Suspense fallback={<p role="status">Loading room controls…</p>}>
+              <RoomControls
+                key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
+                roomId={state.snapshot.roomId}
+                actorId={state.snapshot.you.actorId}
+                members={state.snapshot.members}
+                online={online}
+              />
+            </Suspense>
+          )}
       </dialog>
       <dialog
         ref={leaving}
@@ -416,6 +443,17 @@ export function App({ client: supplied }: { client?: GameClient }) {
             onUpdate={updatedProfile}
             onRefresh={refreshAuth}
             onLogout={logout}
+            canInvite={
+              state.view === 'room' &&
+              !!state.snapshot &&
+              !state.snapshot.ranked &&
+              !state.snapshot.game &&
+              state.snapshot.hostId === state.snapshot.you.actorId
+            }
+            onRoom={(room) => {
+              setProfileOpen(false);
+              client.acceptMatch(room);
+            }}
           />
         </Suspense>
       )}

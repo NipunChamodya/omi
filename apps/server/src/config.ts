@@ -22,6 +22,30 @@ const schema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    ELO_INITIAL: z.coerce.number().int().min(0).max(10000).default(1000),
+    ELO_K: z.coerce.number().int().min(1).max(128).default(32),
+    ELO_FLOOR: z.coerce.number().int().min(0).max(10000).default(0),
+    MODERATOR_IDS: z
+      .string()
+      .max(1500)
+      .default('')
+      .transform((list) => [
+        ...new Set(
+          list
+            .split(',')
+            .map((id) => id.trim().toLowerCase())
+            .filter(Boolean),
+        ),
+      ])
+      .pipe(z.array(z.uuid()).max(32)),
+    PRODUCTION_PRIVATE_COMMUNICATIONS: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    PRODUCTION_CASUAL_GUESTS: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
     ALLOW_GUESTS: z
       .enum(['true', 'false'])
       .default('false')
@@ -35,6 +59,9 @@ const schema = z
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
+  })
+  .refine((config) => config.ELO_FLOOR <= config.ELO_INITIAL, {
+    message: 'Elo floor must not exceed initial rating',
   })
   .refine(
     (config) => config.NODE_ENV !== 'production' || !config.EXPERIMENTAL_ELO,
@@ -84,8 +111,11 @@ const schema = z
     { message: 'Invalid Google callback URL' },
   )
   .refine(
-    (config) => config.NODE_ENV !== 'production' || !config.ALLOW_GUESTS,
-    { message: 'Guest transport is forbidden in production' },
+    (config) =>
+      config.NODE_ENV !== 'production' ||
+      !config.ALLOW_GUESTS ||
+      config.PRODUCTION_CASUAL_GUESTS,
+    { message: 'Guest transport requires explicit production casual opt-in' },
   )
   .refine(
     (config) =>

@@ -1,5 +1,7 @@
+import { useCopy } from '../i18n/locale';
+import { ModerationPanel } from './ModerationPanel';
 import { useEffect, useRef, useState } from 'react';
-import type { AuthSession, PublicProfile } from '@omi/shared';
+import type { AuthSession, PublicProfile, RoomDescriptor } from '@omi/shared';
 import { FriendsPanel } from './FriendsPanel';
 import { authApi, avatarSource } from './api';
 import { ApiError } from '../game/api';
@@ -30,15 +32,20 @@ export default function Profile({
   onUpdate,
   onRefresh,
   onLogout,
+  canInvite,
+  onRoom,
 }: {
   session: AuthSession;
   onClose: () => void;
   onUpdate: (profile: PublicProfile) => void;
   onRefresh: () => Promise<void>;
   onLogout: () => Promise<void>;
+  canInvite: boolean;
+  onRoom: (room: RoomDescriptor) => void;
 }) {
   const user = session.user!;
   const stats = session.statistics;
+  const text = useCopy();
   const dialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(user.displayName);
@@ -97,7 +104,7 @@ export default function Profile({
       <div className="profile-heading">
         <div>
           <p className="eyebrow">YOUR PLACE AT THE TABLE</p>
-          <h2 id="profile-title">Your profile</h2>
+          <h2 id="profile-title">{text('Your profile')}</h2>
           {stats && (
             <section aria-label="Match statistics" className="quiet-note">
               <p>
@@ -137,6 +144,19 @@ export default function Profile({
                   </ol>
                 </details>
               )}
+              {!!stats.partnerships?.length && (
+                <details>
+                  <summary>Partnerships</summary>
+                  <ul>
+                    {stats.partnerships.map((partner, index) => (
+                      <li key={index}>
+                        {partner.name} · {partner.wins} wins in{' '}
+                        {partner.matches} matches
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               {!!stats.recent.length && (
                 <details>
                   <summary>Recent matches</summary>
@@ -153,6 +173,21 @@ export default function Profile({
                             : match.reason === 'ranked_forfeit'
                               ? ' · Forfeit'
                               : ''}
+                        {!!match.hands?.length && (
+                          <details>
+                            <summary>
+                              {match.hands.length} settled hands
+                            </summary>
+                            <ol>
+                              {match.hands.map((hand, index) => (
+                                <li key={index}>
+                                  {hand.outcome} · {hand.tricks[0]}–
+                                  {hand.tricks[1]} tricks
+                                </li>
+                              ))}
+                            </ol>
+                          </details>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -383,7 +418,15 @@ export default function Profile({
         Sign out
       </button>
       {session.csrfToken && (
-        <FriendsPanel actorId={user.id} csrf={session.csrfToken} />
+        <FriendsPanel
+          actorId={user.id}
+          csrf={session.csrfToken}
+          canInvite={canInvite}
+          onRoom={onRoom}
+        />
+      )}
+      {session.canModerate && session.csrfToken && (
+        <ModerationPanel csrf={session.csrfToken} />
       )}
     </dialog>
   );

@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 import { SponsorPlacement } from './SponsorPlacement';
 import { lazy, Suspense, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -22,6 +23,7 @@ export function Home({
   onSignIn: () => void;
 }) {
   const [tutorial, setTutorial] = useState(false);
+  const text = useCopy();
   const [sponsorDismissed, setSponsorDismissed] = useState(false);
   const joining = state.view === 'join';
   const [name, setName] = useState(
@@ -42,9 +44,9 @@ export function Home({
           <span className="tiny-line" /> A SRI LANKAN TRADITION
         </p>
         <h1 id="welcome-title">
-          Four friends.
+          {text('Four friends.')}
           <br />
-          <em>One table.</em>
+          <em>{text('One table.')}</em>
         </h1>
         <p className="welcome-description">
           A familiar game. A little friendly rivalry.
@@ -69,7 +71,7 @@ export function Home({
             setTutorial(true);
           }}
         >
-          Learn to play <span lang="si">· ඕමි ඉගෙන ගන්න</span>
+          {text('Learn to play')} <span lang="si">· ඕමි ඉගෙන ගන්න</span>
         </button>
         {tutorial && (
           <Suspense fallback={<p role="status">Loading practice…</p>}>
@@ -84,7 +86,7 @@ export function Home({
         {state.saved ? (
           <>
             <p className="eyebrow">WELCOME BACK</p>
-            <h2 id="entry-title">Your seat is saved.</h2>
+            <h2 id="entry-title">{text('Your seat is saved.')}</h2>
             <p>
               Return to table <strong>{state.saved.code}</strong> and pick up
               where you left off.
@@ -106,7 +108,8 @@ export function Home({
                   onClick={() => void client.resume()}
                   disabled={state.busy || authLoading}
                 >
-                  Return to your table <span aria-hidden="true">↗</span>
+                  {text('Return to your table')}{' '}
+                  <span aria-hidden="true">↗</span>
                 </button>
               </>
             )}
@@ -126,7 +129,9 @@ export function Home({
               {joining ? 'TAKE YOUR SEAT' : 'MAKE TIME FOR A GAME'}
             </p>
             <h2 id="entry-title">
-              {joining ? 'Your friends are waiting.' : 'Bring your people.'}
+              {text(
+                joining ? 'Your friends are waiting.' : 'Bring your people.',
+              )}
             </h2>
             <p>
               {joining
@@ -157,7 +162,7 @@ export function Home({
                   <form onSubmit={submit} className="entry-form">
                     {!session?.user && (
                       <>
-                        <label htmlFor="player-name">Your name</label>
+                        <label htmlFor="player-name">{text('Your name')}</label>
                         <input
                           id="player-name"
                           name="displayName"
@@ -173,7 +178,7 @@ export function Home({
                     )}
                     {joining && (
                       <>
-                        <label htmlFor="room-code">Table code</label>
+                        <label htmlFor="room-code">{text('Table code')}</label>
                         <input
                           id="room-code"
                           className="code-input"
@@ -206,8 +211,8 @@ export function Home({
                       {state.busy
                         ? 'Finding your seat…'
                         : joining
-                          ? 'Join table'
-                          : 'Create a table'}{' '}
+                          ? text('Join table')
+                          : text('Create a table')}{' '}
                       <span aria-hidden="true">↗</span>
                     </button>
                   </form>
@@ -224,7 +229,7 @@ export function Home({
                   onClick={client.showJoin}
                   disabled={state.busy || authLoading}
                 >
-                  Join a table <span aria-hidden="true">→</span>
+                  {text('Join a table')} <span aria-hidden="true">→</span>
                 </button>
               </>
             )}
@@ -232,7 +237,7 @@ export function Home({
               className="button secondary"
               onClick={() => client.navigate('multiplayer')}
             >
-              Multiplayer
+              {text('Multiplayer')}
             </button>
             <p className="quiet-note">
               Private tables. Familiar rules.

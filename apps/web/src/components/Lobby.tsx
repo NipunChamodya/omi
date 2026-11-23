@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 import type { Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
 import { avatarSource } from '../auth/api';
@@ -21,6 +22,7 @@ export function Lobby({
   enabled: boolean;
   pending: boolean;
 }) {
+  const text = useCopy();
   const own = snapshot.members.find(
     (member) => member.actorId === snapshot.you.actorId,
   )!;
@@ -33,7 +35,7 @@ export function Lobby({
       <p className="eyebrow">
         {snapshot.ranked ? 'RANKED TABLE' : 'CASUAL TABLE'}
       </p>
-      <h1 id="lobby-title">Your table is ready.</h1>
+      <h1 id="lobby-title">{text('Your table is ready.')}</h1>
       <p className="subtitle">
         {snapshot.members.length < 4
           ? `${4 - snapshot.members.length} more ${snapshot.members.length === 3 ? 'friend' : 'friends'} to make a game.`
@@ -63,7 +65,7 @@ export function Lobby({
           )
         }
       >
-        Copy invite link <span aria-hidden="true">↗</span>
+        {text('Copy invite link')} <span aria-hidden="true">↗</span>
       </button>
       <div className="lobby-seats" aria-label="Four table seats">
         {([0, 1, 2, 3] as const).map((seat) => {
@@ -118,7 +120,7 @@ export function Lobby({
             disabled={!enabled || pending}
             onClick={() => client.act({ type: 'add-bot', payload: {} })}
           >
-            Add a bot
+            {text('Add a bot')}
           </button>
         )}
         <button
@@ -129,7 +131,7 @@ export function Lobby({
             client.act({ type: 'ready', payload: { ready: !own.ready } })
           }
         >
-          {own.ready ? 'Not ready' : 'Ready to play'}
+          {text(own.ready ? 'Not ready' : 'Ready to play')}
         </button>
         {host ? (
           <button
@@ -137,7 +139,7 @@ export function Lobby({
             disabled={!enabled || pending || !allReady}
             onClick={() => client.act({ type: 'start', payload: {} })}
           >
-            Start game <span aria-hidden="true">→</span>
+            {text('Start game')} <span aria-hidden="true">→</span>
           </button>
         ) : (
           <p className="waiting-note">

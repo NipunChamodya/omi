@@ -2,6 +2,24 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.3 changes
+
+- The same table can start a new match once all human players accept and reconnect. Newly added permanent bots carry across automatically. The prior generation is archived in the same SQLite transaction that activates the new one. Room code and seats remain stable and the room version sequence continues, while each generation has a separate idempotency key for results and ratings.
+- Private lobby hosts can invite an accepted friend as a player or teammate. Invitations are bound to the recipient, expire after ten minutes, and are checked again at join. A blocked or removed friendship revokes pending invitations. Teammates take opposite seats before a match starts. Invitations and unstarted lobbies are process-local, so restart clears both.
+- Profiles show newly recorded settled-hand summaries and aggregate outcomes with account-backed partners. Existing experimental rating history and leaderboard remain opt-in. Proposed defaults can be configured with `ELO_INITIAL`, `ELO_K`, and `ELO_FLOOR`. Competitive updates are still rejected in production.
+- Production casual guest entry requires two explicit flags and uses secure host cookies. A valid guest cookie can recover a saved server-side seat even if the tab has no saved room. Guests cannot enter ranked matchmaking or use production chat or voice. Production private communications are also off for signed-in accounts by default.
+- The moderator dashboard requires a configured account UUID, a valid session, same Origin, and CSRF. It presents bounded recent report evidence and writes revisioned review actions to an audit table. Account suspension controls and a child-specific guardian workflow remain open.
+- A persisted Sinhala/English preference translates common navigation, lobby actions, game controls, and selected profile labels. Full settings, error, statistics and moderation localization remains incomplete.
+- A configured first-party sponsor still appears only on eligible initial Home. A separate per-creative approval flag is required and sponsor URLs with query strings or fragments are declined. No third-party integration or personalization was enabled.
+
+## V2.3 verification
+
+Development started on clean `dev` at `13c5761`. The private ignored checkpoint at `.remote-testing/omi-v23-checkpoint-13c5761/worktree.tar` includes tracked and untracked workspace files, excludes Git metadata and the checkpoint itself, and passed SHA-256 and file-by-file comparison across 26,724 entries.
+
+The V2.2 focused baseline passed 49 tests. V2.3 passed 224 unit and integration tests, 105 within the focused defensive security selection, and 15 infrastructure tests. Six selected Chromium and Firefox checks passed for gameplay, the friend-code flow, and 320px layout. The final targeted selection covering auth, production communication defaults, recovery and the web client passed 40 tests. Production build, typecheck, lint and bundle checks passed with 95,063 compressed entry bytes.
+
+The disk-backed loopback run handled eight rooms and 32 clients. Action p50/p95/p99 were 2.26/4.72/7.88 ms, with 187.6 MiB combined peak RSS. The read-only local preflight still failed production-mode, proxy, secure-origin, avatar storage, TURN, absolute database path, and current-migration checks. The live database and Azure resources were unchanged.
+
 ## V2.2 changes
 
 - A 4–4 hand leaves one pending Sepuru, even after consecutive draws. The next ordinary hand or Kapothi clears it. Kapothi transfers three kata kola. Previously saved Kapothi and repeated-draw gates are normalized on recovery.

@@ -299,7 +299,19 @@ it('recovers V2 rule gates and retires an old pending vote', () => {
       receipts: [],
       cancellationVote: { requester: 2, votes: [] },
     };
-    repository.matchStorage.save(base);
+    repository.matchStorage.save({
+      ...base,
+      members: base.members.map((member) =>
+        member.seat === 1
+          ? { ...member, bot: true }
+          : member.seat === 2
+            ? { ...member, bot: true, avatarUrl: null }
+            : member,
+      ),
+    });
+    const guests = repository.matchStorage.loadActive(1)[0]!.members;
+    expect(guests[1]?.permanentBot).toBe(true);
+    expect(guests[2]?.permanentBot).toBeUndefined();
     expect(repository.matchStorage.loadActive(1)[0]).not.toHaveProperty(
       'cancellationVote',
     );
@@ -328,5 +340,132 @@ it('recovers V2 rule gates and retires an old pending vote', () => {
     expect(repository.matchStorage.loadActive(1)[0]?.ledger.carry).toBe(0);
   } finally {
     repository.close();
+  }
+});
+
+it('archives a rematch generation, recovers the same room, and settles the new result once', async () => {
+  const repo = new SqliteAccounts(':memory:', true);
+  let now = 0;
+  const open = () =>
+    new RoomService(
+      () => now,
+      () => true,
+      DEFAULT_LIMITS,
+      () => 0,
+      repo.matchStorage,
+    );
+  let service = open();
+  try {
+    const players = Array.from({ length: 4 }, (_, i) => {
+      const user = repo.googleUser(`rematch-${i}`, `Player ${i}`, null, now);
+      return peer({
+        actorId: user.id,
+        userId: user.id,
+        tokenHash: randomUUID(),
+        displayName: user.displayName,
+        expiresAt: 1_000_000,
+      });
+    });
+    const host = players[0]!;
+    const { roomId } = service.match(players.map(({ identity }) => identity));
+    const command = async (
+      player: Peer,
+      type: 'start' | 'rematch' | 'ready',
+    ) => {
+      const snapshot = await service.getSnapshot(roomId, player.identity);
+      const envelope = {
+        roomId,
+        actorId: player.identity.actorId,
+        expectedVersion: snapshot.version,
+        actionId: randomUUID(),
+      };
+      await service.command(
+        roomId,
+        player,
+        type === 'ready'
+          ? { ...envelope, type, payload: { ready: true } }
+          : { ...envelope, type, payload: {} },
+      );
+    };
+    for (const member of players) {
+      await service.attach(roomId, member);
+      await command(member, 'ready');
+    }
+    await command(host, 'start');
+    const initial = await service.getSnapshot(roomId, host.identity);
+    const loser = players[1]!;
+    await service.detach(roomId, loser);
+    now = 40_000;
+    service.tick();
+    const settled = await service.getSnapshot(roomId, host.identity);
+    expect(settled.score.final?.reason).toBe('ranked_forfeit');
+    await service.attach(roomId, loser);
+    for (const member of players) await command(member, 'rematch');
+
+    const renewed = await service.getSnapshot(roomId, host.identity);
+    expect(renewed.game?.id).not.toBe(initial.game?.id);
+    expect(renewed.version).toBeGreaterThan(settled.version);
+    expect(renewed.score).toEqual({ totals: [10, 10], carry: 0, final: null });
+    expect(repo.matchStorage.loadActive(2)).toMatchObject([
+      { id: roomId, version: renewed.version },
+    ]);
+    expect(service.statistics(host.identity.actorId)?.played).toBe(1);
+    service.stop();
+    service = open();
+    for (const member of players) await service.attach(roomId, member);
+    expect((await service.getSnapshot(roomId, host.identity)).game?.id).toBe(
+      renewed.game?.id,
+    );
+    await service.detach(roomId, loser);
+    now = 80_000;
+    service.tick();
+    await service.getSnapshot(roomId, host.identity);
+    expect(service.statistics(host.identity.actorId)).toMatchObject({
+      played: 2,
+      wins: 2,
+      partnerships: [{ matches: 2, wins: 2 }],
+      experimentalRating: { history: [{ previous: 1016 }, { previous: 1000 }] },
+    });
+  } finally {
+    service.stop();
+    repo.close();
+  }
+});
+
+it('expires an invitation at its exact deadline', async () => {
+  let now = 0;
+  const service = new RoomService(
+    () => now,
+    () => true,
+    DEFAULT_LIMITS,
+  );
+  const person = (displayName: string) => {
+    const actorId = randomUUID();
+    return {
+      actorId,
+      userId: actorId,
+      displayName,
+      tokenHash: randomUUID(),
+      expiresAt: 1_000_000,
+    };
+  };
+  try {
+    const host = person('Host');
+    const guest = person('Friend');
+    service.create(host, {
+      actorId: host.actorId,
+      actionId: randomUUID(),
+      expectedVersion: 0,
+    });
+    service.createInvitation(host, guest.actorId, true);
+    const [invite] = service.listInvitations(guest.actorId, () => true);
+    expect(invite).toBeDefined();
+    now = invite!.expiresAt;
+    await expect(
+      service.respondToInvitation(guest, invite!.id, true, () => true),
+    ).rejects.toMatchObject({ code: 'INVITATION_UNAVAILABLE' });
+    expect(service.forActor(guest.actorId)).toBeNull();
+  } finally {
+    service.stop();
   }
 });

@@ -3,6 +3,10 @@ import type {
   AuthSession,
   FriendAction,
   FriendContact,
+  RoomInvitation,
+  ModerationReport,
+  ReviewStatus,
+  RoomDescriptor,
   PublicProfile,
 } from '@omi/shared';
 async function json<T>(
@@ -44,6 +48,30 @@ async function json<T>(
   }
 }
 export const authApi = {
+  moderation: (
+    payload:
+      | { action: 'list' }
+      | {
+          action: 'review';
+          id: string;
+          revision: number;
+          status: ReviewStatus;
+        },
+    csrf: string,
+  ) =>
+    json<{ reports: ModerationReport[] }>('/profile/moderation', payload, csrf),
+  invitations: (
+    payload:
+      | { action: 'list' }
+      | { action: 'send'; target: string; partnership: boolean }
+      | { action: 'respond'; id: string; accept: boolean },
+    csrf: string,
+  ) =>
+    json<{ invitations: RoomInvitation[]; room: RoomDescriptor | null }>(
+      '/profile/invitations',
+      payload,
+      csrf,
+    ),
   friends: (
     payload: { action: 'list' } | { action: FriendAction; target: string },
     csrf: string,

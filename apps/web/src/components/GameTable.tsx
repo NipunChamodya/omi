@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { InteractiveCard } from '../interactions/InteractiveCard';
@@ -100,6 +101,7 @@ export default function GameTable({
   const [over, setOver] = useState(false);
   const submitted = useRef(false);
   const presentation = useStore(client.store, (state) => state.presentation);
+  const text = useCopy();
   const live =
     enabled && presentation?.roomId === snapshot.roomId ? presentation : null;
   useEffect(() => {
@@ -149,14 +151,14 @@ export default function GameTable({
         data-testid="score"
       >
         <div>
-          <span>Your team</span>
+          <span>{text('Your team')}</span>
           <strong>{snapshot.score.totals[snapshot.you.team]}</strong>
           <small>
             {trickCounts[0]} {trickCounts[0] === 1 ? 'trick' : 'tricks'}
           </small>
         </div>
         <div className="trump-badge">
-          <span className="eyebrow">TRUMP</span>
+          <span className="eyebrow">{text('TRUMP')}</span>
           <strong
             className={
               game.trump === 'hearts' || game.trump === 'diamonds'
@@ -169,7 +171,7 @@ export default function GameTable({
           <small>{game.trump ? suits[game.trump].label : 'Not chosen'}</small>
         </div>
         <div>
-          <span>Their team</span>
+          <span>{text('Their team')}</span>
           <strong>
             {snapshot.score.totals[snapshot.you.team === 0 ? 1 : 0]}
           </strong>
@@ -256,13 +258,13 @@ export default function GameTable({
                   ? 'This round was cancelled.'
                   : yours
                     ? game.trick.length
-                      ? 'Your turn. Choose a card.'
-                      : 'Your lead. Choose a card.'
+                      ? text('Your turn. Choose a card.')
+                      : text('Your lead. Choose a card.')
                     : `Waiting for ${name(game.turn)}…`}
       </p>
       {game.phase === 'awaiting-cut' && cutter === snapshot.you.seat && (
         <section className="action-panel" aria-labelledby="cut-title">
-          <h2 id="cut-title">Cut the deck.</h2>
+          <h2 id="cut-title">{text('Cut the deck.')}</h2>
           <p>Lift the top {cut} cards. Then the first four will be dealt.</p>
           <label htmlFor="cut-position">
             Cut position <output>{cut}</output>
@@ -290,7 +292,7 @@ export default function GameTable({
       {game.phase === 'awaiting-trump' &&
         game.selector === snapshot.you.seat && (
           <section className="action-panel" aria-labelledby="trump-title">
-            <h2 id="trump-title">Choose trump.</h2>
+            <h2 id="trump-title">{text('Choose trump.')}</h2>
             <p>Choose a suit from your first four cards.</p>
             <div className="trump-choices">
               {(Object.keys(suits) as (keyof typeof suits)[])
@@ -318,7 +320,7 @@ export default function GameTable({
         game.phase !== 'cancelled' && (
           <section className="hand-panel" aria-label="Your hand">
             <div className="hand-heading">
-              <h2>Your hand</h2>
+              <h2>{text('Your hand')}</h2>
               <span>
                 {game.hand.length} cards
                 {game.phase === 'playing' ? ' · Hold & drag, or select' : ''}
@@ -365,8 +367,8 @@ export default function GameTable({
                   : chosen
                     ? `Play ${chosen.rank} ${suits[chosen.suit].symbol}`
                     : yours
-                      ? 'Select a card to play'
-                      : 'Waiting for your turn'}
+                      ? text('Select a card to play')
+                      : text('Waiting for your turn')}
               </button>
             )}
           </section>
@@ -379,12 +381,12 @@ export default function GameTable({
           <p className="eyebrow">BACK AROUND THE TABLE</p>
           <h2 id="result-title">
             {final?.reason === 'double_forfeit'
-              ? 'Both teams forfeited'
+              ? text('Both teams forfeited')
               : final
                 ? final.winner === snapshot.you.team
-                  ? 'Your team won!'
-                  : 'The other team won!'
-                : 'Round complete.'}
+                  ? text('Your team won!')
+                  : text('The other team won!')
+                : text('Round complete.')}
           </h2>
           <p>
             {final?.reason === 'loan_loss' ? (
@@ -429,17 +431,30 @@ export default function GameTable({
                 snapshot.members.some((member) => !member.connected)
               }
             >
-              Next round <span aria-hidden="true">→</span>
+              {text('Next round')} <span aria-hidden="true">→</span>
             </button>
           )}
           {final && (
-            <button
-              className="button primary"
-              disabled={!enabled || pending}
-              onClick={() => client.act({ type: 'leave-match', payload: {} })}
-            >
-              Return home
-            </button>
+            <div className="result-actions">
+              {snapshot.rematchAvailable !== false && (
+                <button
+                  className="button secondary"
+                  disabled={!enabled || pending}
+                  onClick={() => client.act({ type: 'rematch', payload: {} })}
+                >
+                  {snapshot.rematchVotes?.includes(snapshot.you.seat)
+                    ? text('Waiting for rematch')
+                    : text('Play again')}
+                </button>
+              )}
+              <button
+                className="button primary"
+                disabled={!enabled || pending}
+                onClick={() => client.act({ type: 'leave-match', payload: {} })}
+              >
+                {text('Return home')}
+              </button>
+            </div>
           )}
           {!final && (
             <p className="quiet-note">
@@ -469,7 +484,7 @@ export default function GameTable({
       )}
       {(game.phase === 'playing' || game.phase === 'complete') && (
         <details className="table-details">
-          <summary>Table history &amp; reports</summary>
+          <summary>{text('Table history & reports')}</summary>
           <p className="quiet-note">
             Report an opponent’s play after its trick finishes and before the
             round ends.

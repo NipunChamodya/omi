@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Accounts } from './accounts.js';
 import { digest } from './accounts.js';
+import type { GuestIdentity } from '@omi/shared';
 import type { RoomService } from '../multiplayer/rooms.js';
 import { RateLimiter, RoomError } from '../multiplayer/support.js';
 import { cropSchema, MAX_UPLOAD_BYTES } from '../avatars/images.js';
@@ -32,7 +33,10 @@ export async function registerAccountRoutes(
     origin: string;
     secure: boolean;
     guestAllowed: boolean;
+    allowPrivateCommunications: boolean;
+    moderators: ReadonlySet<string>;
     now: () => number;
+    guestFor: (request: FastifyRequest) => GuestIdentity | undefined;
     revokeGuest: (token: string | undefined) => void;
   },
 ) {
@@ -44,6 +48,7 @@ export async function registerAccountRoutes(
     sameSite: 'lax' as const,
   };
   const rate = new RateLimiter(options.now, 120, 60_000);
+  const moderationRate = new RateLimiter(options.now, 20, 60_000);
   const friendWrites = new RateLimiter(options.now, 10, 60_000);
   const uploads = new RateLimiter(options.now, 6, 60_000);
   let activeUploads = 0;
@@ -84,16 +89,36 @@ export async function registerAccountRoutes(
     api.post('/auth/session', async (request) => {
       parse(empty, request.body);
       const session = current(request);
+      const guest = !session ? options.guestFor(request) : undefined;
       const statistics = session && rooms.statistics(session.identity.actorId);
       return {
         ...(statistics && { statistics }),
         user: session?.profile ?? null,
+        ...(session &&
+          options.moderators.has(session.identity.actorId) && {
+            canModerate: true,
+          }),
         csrfToken: session?.csrfToken ?? null,
         expiresAt: session?.identity.expiresAt ?? null,
         googleAvailable: accounts.provider !== null,
         guestAllowed: options.guestAllowed,
+        ...(!options.allowPrivateCommunications && {
+          privateCommunicationAllowed: false,
+        }),
+        ...(options.secure && { guestCommunicationAllowed: false }),
         avatarUploadsEnabled: accounts.storage !== null,
-        room: session ? rooms.forActor(session.identity.actorId) : null,
+        ...(guest && {
+          guestIdentity: {
+            actorId: guest.actorId,
+            displayName: guest.displayName,
+            expiresAt: guest.expiresAt,
+          },
+        }),
+        room: session
+          ? rooms.forActor(session.identity.actorId)
+          : guest
+            ? rooms.forActor(guest.actorId)
+            : null,
       };
     });
     api.post('/auth/google/start', async (request, reply) => {
@@ -182,8 +207,83 @@ export async function registerAccountRoutes(
       if (body.action !== 'list') {
         if (!friendWrites.take(actor)) throw new RoomError('RATE_LIMITED', 429);
         store.change(actor, body.target, body.action, options.now());
+        if (body.action === 'block' || body.action === 'remove')
+          rooms.revokeInvitations(actor, body.target);
       }
       return { friends: store.list(actor) };
+    });
+    api.post('/profile/moderation', async (request) => {
+      const { identity } = authorized(request);
+      if (!options.moderators.has(identity.actorId))
+        throw new RoomError('MODERATOR_REQUIRED', 403);
+      if (!moderationRate.take(identity.actorId))
+        throw new RoomError('RATE_LIMITED', 429);
+      const store = accounts.repo.moderation;
+      if (!store) throw new RoomError('MODERATION_UNAVAILABLE', 503);
+      const body = parse(
+        z.discriminatedUnion('action', [
+          z.strictObject({ action: z.literal('list') }),
+          z.strictObject({
+            action: z.literal('review'),
+            id: z.uuid(),
+            revision: versionSchema,
+            status: z.enum(['open', 'reviewed', 'dismissed']),
+          }),
+        ]),
+        request.body,
+      );
+      if (body.action === 'review')
+        store.review(
+          identity.actorId,
+          body.id,
+          body.revision,
+          body.status,
+          options.now(),
+        );
+      return { reports: store.list(options.now()) };
+    });
+    api.post('/profile/invitations', async (request) => {
+      const { identity } = authorized(request);
+      const friends = accounts.repo.friends;
+      if (!friends) throw new RoomError('FRIENDS_UNAVAILABLE', 503);
+      const body = parse(
+        z.discriminatedUnion('action', [
+          z.strictObject({ action: z.literal('list') }),
+          z.strictObject({
+            action: z.literal('send'),
+            target: z.uuid(),
+            partnership: z.boolean(),
+          }),
+          z.strictObject({
+            action: z.literal('respond'),
+            id: z.uuid(),
+            accept: z.boolean(),
+          }),
+        ]),
+        request.body,
+      );
+      const isFriend = (id: string) => friends.accepted(identity.actorId, id);
+      let room = null;
+      if (body.action !== 'list') {
+        if (!friendWrites.take(identity.actorId))
+          throw new RoomError('RATE_LIMITED', 429);
+        if (body.action === 'send') {
+          if (!isFriend(body.target))
+            throw new RoomError('INVITATION_UNAVAILABLE', 404);
+          rooms.createInvitation(identity, body.target, body.partnership);
+        } else {
+          room = await rooms.respondToInvitation(
+            identity,
+            body.id,
+            body.accept,
+            isFriend,
+          );
+        }
+      }
+      return {
+        invitations: rooms.listInvitations(identity.actorId, isFriend),
+        room,
+      };
     });
     api.post('/profile', async (request) => {
       const session = authorized(request);

@@ -1,11 +1,19 @@
 /** First-party text placement. Creative is supplied by the application build, not a third-party script. */
 function readSponsor() {
+  if (import.meta.env.VITE_OMI_FAMILY_SPONSOR_APPROVED !== 'true') return null;
   const label: string | undefined = import.meta.env.VITE_OMI_SPONSOR_LABEL;
   const destination: string | undefined = import.meta.env.VITE_OMI_SPONSOR_URL;
   if (!label?.trim() || label.length > 80 || !destination) return null;
   try {
     const url = new URL(destination);
-    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      return null;
     return { label: label.trim(), url: url.href };
   } catch {
     return null;

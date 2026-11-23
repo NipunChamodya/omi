@@ -76,6 +76,9 @@ export function snapshot(
   const round = room.round;
   return {
     ranked: room.ranked ?? false,
+    rematchVotes: room.rematchVotes ?? [],
+    rematchAvailable:
+      !!room.ledger.final && !room.members.some((item) => item.departed),
     capabilities: { nextRound: nextRoundConfigured },
     type: 'snapshot',
     roomId: room.id,

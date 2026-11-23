@@ -71,6 +71,10 @@ function loadSaved(): SavedTable | null {
 }
 export function friendlyError(code: string, type?: string): string {
   switch (code) {
+    case 'REMATCH_UNAVAILABLE':
+      return 'This table is no longer available for a rematch.';
+    case 'REMATCH_WAITING':
+      return 'Waiting for everyone to reconnect and accept.';
     case 'MATCH_COMPLETE':
       return 'This match has ended.';
     case 'ROUND_NOT_SETTLED':
@@ -207,22 +211,22 @@ export class GameClient {
     room: RoomDescriptor | null,
     expiresAt: number,
   ) => {
+    this.adoptIdentity(
+      { actorId: profile.id, displayName: profile.displayName, expiresAt },
+      room,
+    );
+  };
+  adoptIdentity = (identity: GuestIdentity, room: RoomDescriptor | null) => {
     const state = this.store.getState();
-    if (state.identity && state.identity.actorId !== profile.id)
+    if (state.identity && state.identity.actorId !== identity.actorId)
       this.forgetIdentity();
-    this.store.setState({
-      identity: {
-        actorId: profile.id,
-        displayName: profile.displayName,
-        expiresAt,
-      },
-    });
+    this.store.setState({ identity });
     this.save(
       room
         ? {
             roomId: room.roomId,
             code: room.code,
-            displayName: profile.displayName,
+            displayName: identity.displayName,
           }
         : null,
     );

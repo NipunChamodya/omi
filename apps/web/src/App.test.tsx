@@ -163,6 +163,7 @@ it('renders the home and a safe error when authentication bootstrap rejects', as
 });
 
 it('shows one opening sponsor and removes it when leaving Home', async () => {
+  vi.stubEnv('VITE_OMI_FAMILY_SPONSOR_APPROVED', 'true');
   vi.stubEnv('VITE_OMI_SPONSOR_LABEL', 'Test sponsor');
   vi.stubEnv('VITE_OMI_SPONSOR_URL', 'https://example.com/');
   try {
@@ -183,5 +184,17 @@ it('shows one opening sponsor and removes it when leaving Home', async () => {
     ).toBeNull();
   } finally {
     vi.unstubAllEnvs();
+  }
+});
+
+it('switches beginner navigation to Sinhala and updates the document language', async () => {
+  render(<App />);
+  const language = await screen.findByRole('combobox', { name: /Language/ });
+  try {
+    fireEvent.change(language, { target: { value: 'si' } });
+    expect(document.documentElement.lang).toBe('si');
+    expect(screen.getByRole('button', { name: 'බහු ක්‍රීඩක' })).toBeVisible();
+  } finally {
+    fireEvent.change(language, { target: { value: 'en' } });
   }
 });

@@ -2825,3 +2825,14 @@ input {
 .friend-list button {
   margin-inline-start: 8px;
 }
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.playing-room .result-actions .button {
+  flex: 1 1 110px;
+  min-width: 0;
+  margin: 0;
+}

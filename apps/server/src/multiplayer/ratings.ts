@@ -1,19 +1,28 @@
 import type Database from 'better-sqlite3';
 import type { RatingOverview, Team } from '@omi/shared';
 
-export const experimentalElo = { initial: 1000, k: 32, floor: 0 } as const;
+export type EloPolicy = Readonly<{ initial: number; k: number; floor: number }>;
+export const experimentalElo: EloPolicy = {
+  initial: 1000,
+  k: 32,
+  floor: 0,
+} as const;
 
 export function teamRatingChange(
   own: number,
   opponent: number,
   won: boolean,
+  k = experimentalElo.k,
 ): number {
   const expected = 1 / (1 + 10 ** ((opponent - own) / 400));
-  return Math.round(experimentalElo.k * (Number(won) - expected));
+  return Math.round(k * (Number(won) - expected));
 }
 
 export class Ratings {
-  constructor(private readonly db: Database.Database) {}
+  constructor(
+    private readonly db: Database.Database,
+    private readonly policy = experimentalElo,
+  ) {}
 
   private rating(actor: string) {
     return (
@@ -21,7 +30,7 @@ export class Ratings {
         this.db
           .prepare('SELECT rating FROM omi_ratings WHERE actor_id = ?')
           .get(actor) as { rating: number } | undefined
-      )?.rating ?? experimentalElo.initial
+      )?.rating ?? this.policy.initial
     );
   }
 
@@ -49,9 +58,14 @@ export class Ratings {
       const team = (seat % 2) as Team;
       const previous = prior[seat]!;
       const rating = Math.max(
-        experimentalElo.floor,
+        this.policy.floor,
         previous +
-          teamRatingChange(means[team], means[1 - team]!, team === winner),
+          teamRatingChange(
+            means[team],
+            means[1 - team]!,
+            team === winner,
+            this.policy.k,
+          ),
       );
       history.run(roomId, actor, previous, rating, completedAt);
       update.run(actor, rating);

@@ -1,19 +1,48 @@
+import { useCopy } from '../i18n/locale';
 import { useState } from 'react';
-import type { FriendAction, FriendContact } from '@omi/shared';
+import type {
+  FriendAction,
+  FriendContact,
+  RoomInvitation,
+  RoomDescriptor,
+} from '@omi/shared';
 import { authApi } from './api';
 
 export function FriendsPanel({
   actorId,
   csrf,
+  canInvite,
+  onRoom,
 }: {
   actorId: string;
   csrf: string;
+  canInvite: boolean;
+  onRoom: (room: RoomDescriptor) => void;
 }) {
   const [contacts, setContacts] = useState<FriendContact[]>([]);
   const [code, setCode] = useState('');
+  const text = useCopy();
   const [state, setState] = useState<'idle' | 'busy' | 'ready' | 'error'>(
     'idle',
   );
+
+  const [invites, setInvites] = useState<RoomInvitation[]>([]);
+  const [inviteStatus, setInviteStatus] = useState('');
+  const [inviting, setInviting] = useState(false);
+  async function invite(action: Parameters<typeof authApi.invitations>[0]) {
+    setInviting(true);
+    setInviteStatus('');
+    try {
+      const response = await authApi.invitations(action, csrf);
+      setInvites(response.invitations);
+      if (response.room) onRoom(response.room);
+      if (action.action === 'send') setInviteStatus('Invitation sent.');
+    } catch {
+      setInviteStatus('This invitation is unavailable. Refresh to try again.');
+    } finally {
+      setInviting(false);
+    }
+  }
 
   async function run(action: FriendAction | 'list', target?: string) {
     setState('busy');
@@ -33,10 +62,52 @@ export function FriendsPanel({
   return (
     <details
       onToggle={(event) => {
-        if (event.currentTarget.open && state === 'idle') void run('list');
+        if (event.currentTarget.open) {
+          if (state === 'idle') void run('list');
+          void invite({ action: 'list' });
+        }
       }}
     >
-      <summary>Friends</summary>
+      <summary>{text('Friends')}</summary>
+      <button
+        type="button"
+        className="text-button"
+        disabled={inviting}
+        onClick={() => void invite({ action: 'list' })}
+      >
+        Refresh invitations
+      </button>
+      {inviteStatus && <p role="status">{inviteStatus}</p>}
+      {invites.length > 0 && (
+        <ul aria-label="Table invitations">
+          {invites.map((item) => (
+            <li key={item.id}>
+              {item.senderName} invited you{' '}
+              {item.partnership ? 'as their teammate' : 'to their table'}.{' '}
+              <button
+                type="button"
+                className="text-button"
+                disabled={inviting}
+                onClick={() =>
+                  void invite({ action: 'respond', id: item.id, accept: true })
+                }
+              >
+                Join table
+              </button>{' '}
+              <button
+                type="button"
+                className="text-button"
+                disabled={inviting}
+                onClick={() =>
+                  void invite({ action: 'respond', id: item.id, accept: false })
+                }
+              >
+                Decline
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="quiet-note">Share your friend code with people you know.</p>
       <output className="friend-code">{actorId}</output>
       <form
@@ -77,6 +148,38 @@ export function FriendsPanel({
         {contacts.map(({ id, displayName, status }) => (
           <li key={id}>
             <strong>{displayName}</strong>{' '}
+            {canInvite && status === 'accepted' && (
+              <>
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={inviting}
+                  onClick={() =>
+                    void invite({
+                      action: 'send',
+                      target: id,
+                      partnership: false,
+                    })
+                  }
+                >
+                  Invite to table
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={inviting}
+                  onClick={() =>
+                    void invite({
+                      action: 'send',
+                      target: id,
+                      partnership: true,
+                    })
+                  }
+                >
+                  Invite as teammate
+                </button>
+              </>
+            )}
             {status === 'sent' && <span>Request sent</span>}
             {status === 'incoming' && (
               <button
