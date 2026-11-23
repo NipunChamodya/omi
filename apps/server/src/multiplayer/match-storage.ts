@@ -1,7 +1,7 @@
 import type { EloPolicy } from './ratings.js';
 import { Ratings } from './ratings.js';
 import { createHash } from 'node:crypto';
-import type { MatchStatistics } from '@omi/shared';
+import type { MatchStatistics, RoomInvitation } from '@omi/shared';
 import { settleRound, countTricks } from '@omi/game-engine';
 import type { ScoreLedger } from '@omi/game-engine';
 import type Database from 'better-sqlite3';
@@ -20,15 +20,29 @@ export type StoredMatch = Pick<
   | 'lastActive'
   | 'ranked'
   | 'matchId'
+  | 'partnerId'
   | 'rematchVotes'
   | 'hands'
 > & { receipts: readonly (readonly [string, Receipt])[] };
 
+export type StoredInvitation = RoomInvitation & {
+  roomId: string;
+  sender: string;
+  recipient: string;
+};
+
 export interface MatchStorage {
   loadActive(limit: number): StoredMatch[];
-  save(state: StoredMatch, archivePrevious?: string): void;
+  save(
+    state: StoredMatch,
+    archivePrevious?: string,
+    consumeInvitation?: string,
+  ): void;
   archive(id: string): void;
   statistics(actorId: string): MatchStatistics;
+  loadInvitations(now: number, limit: number): StoredInvitation[];
+  addInvitation(invite: StoredInvitation): void;
+  removeInvitations(ids: readonly string[]): void;
 }
 
 export function storedMatch(room: Room): StoredMatch {
@@ -56,6 +70,7 @@ export function storedMatch(room: Room): StoredMatch {
     lastActive,
     ranked: ranked ?? false,
     matchId: room.matchId ?? room.id,
+    ...(room.partnerId && { partnerId: room.partnerId }),
     rematchVotes: room.rematchVotes ?? [],
     hands: room.hands ?? [],
     receipts: [...room.receipts],
@@ -101,8 +116,9 @@ export class SqliteMatchStorage implements MatchStorage {
       if (
         format !== 1 ||
         (state?.matchId ?? state?.id) !== id ||
-        !state.round ||
-        state.members.length !== 4 ||
+        state.members.length < 1 ||
+        state.members.length > 4 ||
+        ((state.round || state.ranked) && state.members.length !== 4) ||
         state.members.some((member, seat) => member.seat !== seat) ||
         !Number.isSafeInteger(state.version) ||
         state.version < 0 ||
@@ -137,7 +153,7 @@ export class SqliteMatchStorage implements MatchStorage {
         .cancellationVote;
       delete (restored as typeof restored & { cancellationDecided?: unknown })
         .cancellationDecided;
-      if (state.result?.status === 'unresolved') {
+      if (state.result?.status === 'unresolved' && state.round) {
         const settlement = settleRound(state.round, restored.ledger);
         if (settlement.status !== 'settled' || settlement.result !== 'seporu')
           throw new Error('Saved Sepuru could not be recovered');
@@ -152,7 +168,11 @@ export class SqliteMatchStorage implements MatchStorage {
     });
   }
 
-  save(state: StoredMatch, archivePrevious?: string): void {
+  save(
+    state: StoredMatch,
+    archivePrevious?: string,
+    consumeInvitation?: string,
+  ): void {
     const payload = JSON.stringify({ format: 1, state });
     const matchId = state.matchId ?? state.id;
     this.db.transaction(() => {
@@ -163,6 +183,13 @@ export class SqliteMatchStorage implements MatchStorage {
         ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, checksum = excluded.checksum`,
         )
         .run(matchId, payload, digest(payload));
+      if (consumeInvitation !== undefined) {
+        const removed = this.db
+          .prepare('DELETE FROM omi_room_invitations WHERE id = ?')
+          .run(consumeInvitation);
+        if (removed.changes !== 1)
+          throw new Error('Invitation was not available at commit');
+      }
       const final = state.ledger.final;
       if (!final) return;
       const record = this.db
@@ -254,6 +281,50 @@ export class SqliteMatchStorage implements MatchStorage {
     };
   }
 
+  loadInvitations(now: number, limit: number): StoredInvitation[] {
+    this.db
+      .prepare('DELETE FROM omi_room_invitations WHERE expires_at <= ?')
+      .run(now);
+    const rows = this.db
+      .prepare(
+        `SELECT id, room_id AS roomId, sender, recipient, sender_name AS senderName,
+      partnership, expires_at AS expiresAt FROM omi_room_invitations LIMIT ?`,
+      )
+      .all(limit + 1) as (Omit<StoredInvitation, 'partnership'> & {
+      partnership: number;
+    })[];
+    if (rows.length > limit)
+      throw new Error('Saved invitations exceed room capacity');
+    return rows.map((row) => ({ ...row, partnership: row.partnership === 1 }));
+  }
+
+  addInvitation(invite: StoredInvitation): void {
+    this.db
+      .prepare(
+        `INSERT INTO omi_room_invitations
+      (id,room_id,sender,recipient,sender_name,partnership,expires_at) VALUES (?,?,?,?,?,?,?)`,
+      )
+      .run(
+        invite.id,
+        invite.roomId,
+        invite.sender,
+        invite.recipient,
+        invite.senderName,
+        Number(invite.partnership),
+        invite.expiresAt,
+      );
+  }
+
+  removeInvitations(ids: readonly string[]): void {
+    if (!ids.length) return;
+    const remove = this.db.prepare(
+      'DELETE FROM omi_room_invitations WHERE id = ?',
+    );
+    this.db.transaction(() => {
+      for (const id of ids) remove.run(id);
+    })();
+  }
+
   archive(id: string): void {
     const row = this.db
       .prepare(
@@ -263,6 +334,10 @@ export class SqliteMatchStorage implements MatchStorage {
     if (!row || digest(row.payload) !== row.checksum)
       throw new Error('Saved OMI match failed integrity verification');
     const { state } = JSON.parse(row.payload) as { state: StoredMatch };
+    if (!state.round) {
+      this.db.prepare('DELETE FROM omi_match_state WHERE id = ?').run(id);
+      return;
+    }
     const payload = JSON.stringify({
       format: 1,
       history: { ranked: state.ranked, ledger: state.ledger },

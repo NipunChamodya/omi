@@ -41,6 +41,23 @@ export class Accounts {
     readonly callback: string,
     private readonly now: () => number = Date.now,
   ) {}
+  profile(user: UserRecord): PublicProfile {
+    const profile = publicProfile(user);
+    return this.repo.moderation?.safety(user.id).protectedPlay
+      ? {
+          ...profile,
+          googleAvatarUrl: null,
+          avatarUrl: null,
+          thumbnailUrl: null,
+        }
+      : profile;
+  }
+
+  async refreshPrivacy(actor: string): Promise<void> {
+    const user = this.repo.user(actor);
+    if (user) await this.refresh(user);
+  }
+
   get(token: string | undefined): CachedSession | undefined {
     if (!token || token.length !== 43) return undefined;
     const hash = digest(token);
@@ -56,7 +73,7 @@ export class Accounts {
     if (!user) return undefined;
     this.pruneCache();
     if (this.cache.size >= 1000) throw new RoomError('SESSION_CAPACITY', 503);
-    const profile = publicProfile(user);
+    const profile = this.profile(user);
     cached = {
       identity: null as unknown as Identity,
       csrfToken: row.csrfToken,
@@ -154,7 +171,7 @@ export class Accounts {
     this.cache.delete(hash);
   }
   private async refresh(user: UserRecord) {
-    const profile = publicProfile(user);
+    const profile = this.profile(user);
     for (const cached of this.cache.values())
       if (cached.identity.userId === user.id) cached.profile = profile;
     await this.onProfileChange(profile);

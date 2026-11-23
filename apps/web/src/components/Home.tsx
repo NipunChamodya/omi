@@ -41,7 +41,7 @@ export function Home({
     <div className="welcome-layout">
       <section className="welcome-copy" aria-labelledby="welcome-title">
         <p className="eyebrow">
-          <span className="tiny-line" /> A SRI LANKAN TRADITION
+          <span className="tiny-line" /> {text('A SRI LANKAN TRADITION')}
         </p>
         <h1 id="welcome-title">
           {text('Four friends.')}
@@ -49,9 +49,9 @@ export function Home({
           <em>{text('One table.')}</em>
         </h1>
         <p className="welcome-description">
-          A familiar game. A little friendly rivalry.
+          {text('A familiar game. A little friendly rivalry.')}
           <br />
-          Good company, wherever you are.
+          {text('Good company, wherever you are.')}
         </p>
         <div className="hero-cards" aria-hidden="true">
           <div className="hero-card first">
@@ -74,31 +74,32 @@ export function Home({
           {text('Learn to play')} <span lang="si">· ඕමි ඉගෙන ගන්න</span>
         </button>
         {tutorial && (
-          <Suspense fallback={<p role="status">Loading practice…</p>}>
+          <Suspense fallback={<p role="status">{text('Loading practice…')}</p>}>
             <Tutorial onClose={() => setTutorial(false)} />
           </Suspense>
         )}
         <p className="table-promise">
-          4 players <span>·</span> 2 teams <span>·</span> Your kind of company
+          {text('4 players')} <span>·</span> {text('2 teams')} <span>·</span>{' '}
+          {text('Your kind of company')}
         </p>
       </section>
       <section className="entry-panel" aria-labelledby="entry-title">
         {state.saved ? (
           <>
-            <p className="eyebrow">WELCOME BACK</p>
+            <p className="eyebrow">{text('WELCOME BACK')}</p>
             <h2 id="entry-title">{text('Your seat is saved.')}</h2>
             <p>
               Return to table <strong>{state.saved.code}</strong> and pick up
               where you left off.
             </p>
             {authLoading ? (
-              <p role="status">Checking your session…</p>
+              <p role="status">{text('Checking your session…')}</p>
             ) : !session?.user && !session?.guestAllowed ? (
               session?.googleAvailable ? (
                 <GoogleButton onClick={onSignIn} disabled={state.busy} />
               ) : (
                 <p className="quiet-note">
-                  Google sign-in is not available at this table yet.
+                  {text('Google sign-in is not available at this table yet.')}
                 </p>
               )
             ) : (
@@ -139,7 +140,7 @@ export function Home({
                 : 'Start a private table and invite three friends.'}
             </p>
             {authLoading ? (
-              <p role="status">Checking your session…</p>
+              <p role="status">{text('Checking your session…')}</p>
             ) : (
               <>
                 {session?.user ? (
@@ -150,12 +151,12 @@ export function Home({
                   <>
                     <GoogleButton onClick={onSignIn} disabled={state.busy} />
                     <p className="quiet-note">
-                      Sign in to save your profile and take your seat.
+                      {text('Sign in to save your profile and take your seat.')}
                     </p>
                   </>
                 ) : !session?.guestAllowed ? (
                   <p className="quiet-note">
-                    Google sign-in is not available at this table yet.
+                    {text('Google sign-in is not available at this table yet.')}
                   </p>
                 ) : null}
                 {(session?.user || session?.guestAllowed) && (
@@ -222,7 +223,7 @@ export function Home({
             {!joining && (
               <>
                 <div className="divider">
-                  <span>already have an invite?</span>
+                  <span>{text('already have an invite?')}</span>
                 </div>
                 <button
                   className="button secondary"
@@ -240,7 +241,7 @@ export function Home({
               {text('Multiplayer')}
             </button>
             <p className="quiet-note">
-              Private tables. Familiar rules.
+              {text('Private tables. Familiar rules.')}
               <br />A little space for the people you know.
             </p>
           </>

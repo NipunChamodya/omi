@@ -1,0 +1,15 @@
+import { describe, expect, it } from 'vitest';
+import { translate } from './locale';
+
+describe('interface copy', () => {
+  it('renders translated gameplay and account safety labels', () => {
+    expect(translate('si', 'Game table')).toBe('ක්‍රීඩා මේසය');
+    expect(translate('si', 'Protected play')).toBe('ආරක්ෂිත ක්‍රීඩාව');
+    expect(translate('en', 'Game table')).toBe('Game table');
+  });
+
+  it('preserves unknown text and does not read inherited object properties', () => {
+    expect(translate('si', 'Unknown message')).toBe('Unknown message');
+    expect(translate('si', 'constructor')).toBe('constructor');
+  });
+});

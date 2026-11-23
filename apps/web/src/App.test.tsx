@@ -198,3 +198,35 @@ it('switches beginner navigation to Sinhala and updates the document language', 
     fireEvent.change(language, { target: { value: 'en' } });
   }
 });
+
+it('does not show an approved opening sponsor for protected play', async () => {
+  vi.stubEnv('VITE_OMI_FAMILY_SPONSOR_APPROVED', 'true');
+  vi.stubEnv('VITE_OMI_SPONSOR_LABEL', 'Test sponsor');
+  vi.stubEnv('VITE_OMI_SPONSOR_URL', 'https://example.com/');
+  vi.mocked(authApi.session).mockResolvedValueOnce({
+    user: {
+      id: 'player',
+      displayName: 'Player',
+      version: 0,
+      googleAvatarUrl: null,
+      avatarUrl: null,
+      thumbnailUrl: null,
+    },
+    csrfToken: 'fixture',
+    expiresAt: null,
+    googleAvailable: false,
+    guestAllowed: true,
+    avatarUploadsEnabled: false,
+    room: null,
+    protectedPlay: true,
+  });
+  try {
+    render(<App />);
+    await screen.findByRole('button', { name: 'My profile' });
+    expect(
+      screen.queryByRole('complementary', { name: 'Advertisement' }),
+    ).toBeNull();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});

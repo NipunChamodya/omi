@@ -91,9 +91,23 @@ export async function registerMultiplayer(
     options: { maxPayload: 4096, perMessageDeflate: false },
   });
   const maintenance = setInterval(() => {
-    sessions.sweep();
-    options.accounts.maintenance();
-    rooms.heartbeat();
+    try {
+      sessions.sweep();
+      options.accounts.maintenance();
+    } catch {
+      app.log.warn(
+        { event: 'account_maintenance_failed' },
+        'Could not prune account state',
+      );
+    }
+    try {
+      rooms.heartbeat();
+    } catch {
+      app.log.warn(
+        { event: 'room_maintenance_failed' },
+        'Could not prune room state',
+      );
+    }
     httpRate.sweep();
     messageRate.sweep();
   }, 30_000);
@@ -176,6 +190,8 @@ export async function registerMultiplayer(
       limits.maxRooms,
       options.secureCookies,
       options.allowPrivateCommunications ?? !options.secureCookies,
+      (actor) =>
+        options.accounts.repo.moderation?.communicationBlocked(actor) ?? false,
     );
     registerMatchmaking(
       api,
@@ -193,6 +209,8 @@ export async function registerMultiplayer(
       limits.maxRooms,
       options.secureCookies,
       options.allowPrivateCommunications ?? !options.secureCookies,
+      (actor) =>
+        options.accounts.repo.moderation?.communicationBlocked(actor) ?? false,
     );
     api.options('/*', async (_request, reply) =>
       reply

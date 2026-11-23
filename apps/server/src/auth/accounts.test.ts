@@ -611,6 +611,9 @@ it('delivers invitations only to friends and seats an accepting teammate opposit
       })
     ).statusCode,
   ).toBe(200);
+  await app.close();
+  repository = new SqliteAccounts(config().DATABASE_PATH);
+  app = buildApp({ logger: false, config: config(), accounts: { repository } });
   const [pending] = (await invite(friend, { action: 'list' })).json()
     .invitations;
   expect(pending).toMatchObject({ partnership: true });
@@ -664,7 +667,7 @@ it('restricts moderation to configured accounts and records review revisions onc
     id,
     roomId: randomUUID(),
     reporterId: randomUUID(),
-    subjectId: randomUUID(),
+    subjectId: ordinary.session.user!.id,
     messageId: randomUUID(),
     reason: 'harassment',
     note: '',
@@ -686,6 +689,51 @@ it('restricts moderation to configured accounts and records review revisions onc
     (await post('/profile/moderation', { action: 'list' }, admin.cookie))
       .statusCode,
   ).toBe(403);
+  const restrict = { action: 'restrict', id, restricted: true };
+  expect(
+    (
+      await post(
+        '/profile/moderation',
+        restrict,
+        ordinary.cookie,
+        ordinary.session.csrfToken!,
+      )
+    ).statusCode,
+  ).toBe(403);
+  const administer = (restricted: boolean) =>
+    post(
+      '/profile/moderation',
+      { ...restrict, restricted },
+      admin.cookie,
+      admin.session.csrfToken!,
+    );
+  for (const restricted of [true, true, false]) {
+    expect(
+      (await administer(restricted)).json().reports[0].communicationRestricted,
+    ).toBe(restricted);
+    expect(
+      (await post('/auth/session', {}, ordinary.cookie)).json()
+        .communicationRestricted,
+    ).toBe(restricted);
+  }
+  expect((await administer(true)).statusCode).toBe(200);
+  const afterRetention = Date.now() + 31 * 24 * 60 * 60_000;
+  expect(repository.moderation.list(afterRetention)).toEqual([
+    expect.objectContaining({
+      id,
+      archived: true,
+      communicationRestricted: true,
+      evidence: '',
+    }),
+  ]);
+  repository.moderation.restrict(
+    admin.session.user!.id,
+    id,
+    false,
+    afterRetention,
+    new Set([admin.session.user!.id]),
+  );
+  expect(repository.moderation.list(afterRetention)).toEqual([]);
   const action = { action: 'review', id, revision: 0, status: 'reviewed' };
   const review = () =>
     post('/profile/moderation', action, admin.cookie, admin.session.csrfToken!);
@@ -795,4 +843,57 @@ it('allows opted-in production guests to join casual play while withholding comm
   } finally {
     await guestApp.close();
   }
+});
+
+it('keeps protected play after restart and refuses requests in either direction', async () => {
+  const protectedUser = await login();
+  const other = await login();
+  const protect = (protectedPlay: boolean, csrf?: string) =>
+    post('/profile/safety', { protectedPlay }, protectedUser.cookie, csrf);
+  expect((await protect(true)).statusCode).toBe(403);
+  expect(
+    (await protect(true, protectedUser.session.csrfToken!)).statusCode,
+  ).toBe(200);
+  expect(
+    (await protect(false, protectedUser.session.csrfToken!)).statusCode,
+  ).toBe(400);
+  await app.close();
+  repository = new SqliteAccounts(config().DATABASE_PATH);
+  app = buildApp({ logger: false, config: config(), accounts: { repository } });
+  expect(
+    (await post('/auth/session', {}, protectedUser.cookie)).json(),
+  ).toMatchObject({
+    protectedPlay: true,
+    privateCommunicationAllowed: false,
+    avatarUploadsEnabled: false,
+  });
+  for (const [sender, recipient] of [
+    [protectedUser, other],
+    [other, protectedUser],
+  ] as const)
+    expect(
+      (
+        await post(
+          '/profile/friends',
+          {
+            action: 'request',
+            target: recipient.session.user!.id,
+          },
+          sender.cookie,
+          sender.session.csrfToken!,
+        )
+      ).statusCode,
+    ).toBe(403);
+});
+
+it('returns a minimal readiness failure and remains alive if the database probe fails', async () => {
+  vi.spyOn(repository, 'checkReadiness').mockImplementation(() => {
+    throw new Error('private database detail');
+  });
+  const unavailable = await app.inject({ method: 'GET', url: '/ready' });
+  expect(unavailable.statusCode).toBe(503);
+  expect(unavailable.json()).toEqual({ status: 'unavailable' });
+  expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(
+    200,
+  );
 });

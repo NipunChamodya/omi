@@ -1,4 +1,4 @@
-import { useLocale, useCopy } from './i18n/locale';
+import { useLocale, useCopy, translate } from './i18n/locale';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { GameClient } from './game/client';
@@ -168,7 +168,8 @@ export function App({ client: supplied }: { client?: GameClient }) {
     !state.busy &&
     !authLoading &&
     !!auth &&
-    !auth.room;
+    !auth.room &&
+    !auth.protectedPlay;
   const [showSponsor, setShowSponsor] = useState(false);
   useEffect(
     () =>
@@ -189,7 +190,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
       className={`app-shell ${state.view === 'room' && state.snapshot?.game ? 'playing-room' : ''}`}
     >
       <a className="skip-link" href="#main">
-        Skip to content
+        {text('Skip to content')}
       </a>
       <header className="app-header">
         <Brand onHome={client.home} />
@@ -205,7 +206,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
                   : state.connection === 'connecting' ||
                       state.connection === 'reconnecting'
                     ? 'Connecting…'
-                    : 'Disconnected'}
+                    : text('Disconnected')}
               </>
             ) : (
               'THE SRI LANKAN TABLE'
@@ -214,7 +215,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
           {auth?.user && (
             <button
               className="profile-button"
-              aria-label="My profile"
+              aria-label={text('My profile')}
               onClick={() => {
                 setProfileOpen(true);
                 void refreshAuth().catch(() => undefined);
@@ -239,9 +240,9 @@ export function App({ client: supplied }: { client?: GameClient }) {
         <div className="feedback-stack">
           {authError && (
             <div className="feedback error" role="alert">
-              <p>{authError}</p>
+              <p>{translate(language, authError)}</p>
               <button
-                aria-label="Dismiss sign-in message"
+                aria-label={text('Dismiss sign-in message')}
                 onClick={() => setAuthError(null)}
               >
                 ×
@@ -250,16 +251,22 @@ export function App({ client: supplied }: { client?: GameClient }) {
           )}
           {state.error && (
             <div className="feedback error" role="alert">
-              <p>{state.error}</p>
-              <button aria-label="Dismiss message" onClick={client.dismiss}>
+              <p>{translate(language, state.error)}</p>
+              <button
+                aria-label={text('Dismiss message')}
+                onClick={client.dismiss}
+              >
                 ×
               </button>
             </div>
           )}
           {state.notice && (
             <div className="feedback notice" role="status">
-              <p>{state.notice}</p>
-              <button aria-label="Dismiss message" onClick={client.dismiss}>
+              <p>{translate(language, state.notice)}</p>
+              <button
+                aria-label={text('Dismiss message')}
+                onClick={client.dismiss}
+              >
                 ×
               </button>
             </div>
@@ -279,7 +286,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
                   if (panel instanceof HTMLDetailsElement) panel.open = true;
                 }}
               >
-                Sound & tools
+                {text('Sound & tools')}
               </button>
               <span className="room-code">
                 TABLE{' '}
@@ -301,7 +308,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
                     className="text-button"
                     onClick={() => void client.retry()}
                   >
-                    Reconnect
+                    {text('Reconnect')}
                   </button>
                 )}
               </div>
@@ -311,7 +318,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
                 <Suspense
                   fallback={
                     <p role="status" className="loading">
-                      Opening the table…
+                      {text('Opening the table…')}
                     </p>
                   }
                 >
@@ -332,7 +339,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
               )
             ) : (
               <p className="loading" role="status">
-                Setting your table…
+                {text('Setting your table…')}
               </p>
             )}
           </>
@@ -356,7 +363,9 @@ export function App({ client: supplied }: { client?: GameClient }) {
       <dialog
         ref={tools}
         className="table-utilities"
-        aria-label={playing ? 'Table settings and voice' : 'Game settings'}
+        aria-label={
+          playing ? text('Table settings and voice') : text('Game settings')
+        }
         onClick={(event) => {
           if (playing && (event.target as Element).closest('a[href="#main"]')) {
             event.preventDefault();
@@ -372,7 +381,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
             className="button secondary"
             onClick={() => setToolsOpen(false)}
           >
-            Back to game
+            {text('Back to game')}
           </button>
         )}
         <label>
@@ -397,7 +406,9 @@ export function App({ client: supplied }: { client?: GameClient }) {
           !state.snapshot.ranked &&
           auth?.privateCommunicationAllowed !== false &&
           (auth?.user || auth?.guestCommunicationAllowed !== false) && (
-            <Suspense fallback={<p role="status">Loading room controls…</p>}>
+            <Suspense
+              fallback={<p role="status">{text('Loading room controls…')}</p>}
+            >
               <RoomControls
                 key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
                 roomId={state.snapshot.roomId}
@@ -417,23 +428,23 @@ export function App({ client: supplied }: { client?: GameClient }) {
           client.cancelLeave();
         }}
       >
-        <h2 id="leave-title">Return from your table?</h2>
+        <h2 id="leave-title">{text('Return from your table?')}</h2>
         <p>
           Your seat, hand and scores stay at the server. Your friends will see
           you disconnect. You can return to this table.
         </p>
         <button className="button primary" onClick={client.cancelLeave}>
-          Keep playing
+          {text('Keep playing')}
         </button>
         <button className="button secondary" onClick={client.confirmLeave}>
-          Return home and keep my seat
+          {text('Return home and keep my seat')}
         </button>
       </dialog>
       {profileOpen && auth?.user && (
         <Suspense
           fallback={
             <p role="status" className="loading">
-              Opening your profile…
+              {text('Opening your profile…')}
             </p>
           }
         >
@@ -458,7 +469,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
         </Suspense>
       )}
       <footer className="app-footer">
-        <span>Made for the way we play.</span>
+        <span>{text('Made for the way we play.')}</span>
         <span lang="si">හිතවතුන් එක්ක ඕමි</span>
       </footer>
     </div>

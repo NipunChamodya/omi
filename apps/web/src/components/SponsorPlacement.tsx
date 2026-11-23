@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 /** First-party text placement. Creative is supplied by the application build, not a third-party script. */
 function readSponsor() {
   if (import.meta.env.VITE_OMI_FAMILY_SPONSOR_APPROVED !== 'true') return null;
@@ -33,10 +34,11 @@ export function claimOpeningSponsor(): boolean {
 }
 
 export function SponsorPlacement() {
+  const text = useCopy();
   const sponsor = readSponsor();
   if (!sponsor) return null;
   return (
-    <aside className="quiet-note" aria-label="Advertisement">
+    <aside className="quiet-note" aria-label={text('Advertisement')}>
       <span>Advertisement · </span>
       <a href={sponsor.url} target="_blank" rel="sponsored noopener noreferrer">
         {sponsor.label}

@@ -243,10 +243,14 @@ export type ModerationReport = Readonly<{
   createdAt: number;
   status: ReviewStatus;
   revision: number;
+  archived?: boolean;
+  communicationRestricted?: boolean;
 }>;
 export type AuthSession = Readonly<{
   user: PublicProfile | null;
   canModerate?: boolean;
+  protectedPlay?: boolean;
+  communicationRestricted?: boolean;
   statistics?: MatchStatistics;
   csrfToken: string | null;
   expiresAt: number | null;

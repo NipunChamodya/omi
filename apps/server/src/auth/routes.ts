@@ -54,6 +54,12 @@ export async function registerAccountRoutes(
   let activeUploads = 0;
   const current = (request: FastifyRequest) =>
     accounts.get(request.cookies[cookieName]);
+  const communicationBlocked = (actor: string) =>
+    accounts.repo.moderation?.communicationBlocked(actor) ?? false;
+  const disconnectCommunications = (actor: string) => {
+    rooms.disconnectCommunications(actor);
+    rooms.revokeInvitations(actor);
+  };
   const authorized = (request: FastifyRequest) => {
     const session = current(request);
     if (!session) throw new RoomError('LOGIN_REQUIRED', 401);
@@ -93,6 +99,12 @@ export async function registerAccountRoutes(
       const statistics = session && rooms.statistics(session.identity.actorId);
       return {
         ...(statistics && { statistics }),
+        ...(session &&
+          accounts.repo.moderation?.safety(session.identity.actorId)),
+        ...(session &&
+          communicationBlocked(session.identity.actorId) && {
+            privateCommunicationAllowed: false,
+          }),
         user: session?.profile ?? null,
         ...(session &&
           options.moderators.has(session.identity.actorId) && {
@@ -106,7 +118,9 @@ export async function registerAccountRoutes(
           privateCommunicationAllowed: false,
         }),
         ...(options.secure && { guestCommunicationAllowed: false }),
-        avatarUploadsEnabled: accounts.storage !== null,
+        avatarUploadsEnabled:
+          accounts.storage !== null &&
+          !(session && communicationBlocked(session.identity.actorId)),
         ...(guest && {
           guestIdentity: {
             actorId: guest.actorId,
@@ -189,6 +203,18 @@ export async function registerAccountRoutes(
       );
       return { ok: true };
     });
+    api.post('/profile/safety', async (request) => {
+      const { identity } = authorized(request);
+      parse(z.strictObject({ protectedPlay: z.literal(true) }), request.body);
+      if (!friendWrites.take(identity.actorId))
+        throw new RoomError('RATE_LIMITED', 429);
+      const store = accounts.repo.moderation;
+      if (!store) throw new RoomError('MODERATION_UNAVAILABLE', 503);
+      store.enableProtectedPlay(identity.actorId);
+      disconnectCommunications(identity.actorId);
+      await accounts.refreshPrivacy(identity.actorId);
+      return store.safety(identity.actorId);
+    });
     api.post('/profile/friends', async (request) => {
       const session = authorized(request);
       const body = parse(
@@ -206,6 +232,11 @@ export async function registerAccountRoutes(
       const actor = session.identity.actorId;
       if (body.action !== 'list') {
         if (!friendWrites.take(actor)) throw new RoomError('RATE_LIMITED', 429);
+        if (
+          (body.action === 'request' || body.action === 'accept') &&
+          (communicationBlocked(actor) || communicationBlocked(body.target))
+        )
+          throw new RoomError('PRIVATE_COMMUNICATION_DISABLED', 403);
         store.change(actor, body.target, body.action, options.now());
         if (body.action === 'block' || body.action === 'remove')
           rooms.revokeInvitations(actor, body.target);
@@ -224,6 +255,11 @@ export async function registerAccountRoutes(
         z.discriminatedUnion('action', [
           z.strictObject({ action: z.literal('list') }),
           z.strictObject({
+            action: z.literal('restrict'),
+            id: z.uuid(),
+            restricted: z.boolean(),
+          }),
+          z.strictObject({
             action: z.literal('review'),
             id: z.uuid(),
             revision: versionSchema,
@@ -232,6 +268,16 @@ export async function registerAccountRoutes(
         ]),
         request.body,
       );
+      if (body.action === 'restrict') {
+        const subject = store.restrict(
+          identity.actorId,
+          body.id,
+          body.restricted,
+          options.now(),
+          options.moderators,
+        );
+        if (body.restricted) disconnectCommunications(subject);
+      }
       if (body.action === 'review')
         store.review(
           identity.actorId,
@@ -262,7 +308,10 @@ export async function registerAccountRoutes(
         ]),
         request.body,
       );
-      const isFriend = (id: string) => friends.accepted(identity.actorId, id);
+      const isFriend = (id: string) =>
+        !communicationBlocked(identity.actorId) &&
+        !communicationBlocked(id) &&
+        friends.accepted(identity.actorId, id);
       let room = null;
       if (body.action !== 'list') {
         if (!friendWrites.take(identity.actorId))
@@ -313,6 +362,8 @@ export async function registerAccountRoutes(
       { bodyLimit: MAX_UPLOAD_BYTES + 4096 },
       async (request) => {
         const session = authorized(request);
+        if (communicationBlocked(session.identity.actorId))
+          throw new RoomError('PRIVATE_COMMUNICATION_DISABLED', 403);
         if (!accounts.storage)
           throw new RoomError('AVATAR_STORAGE_UNAVAILABLE', 503);
         if (activeUploads >= 2 || !uploads.take(session.identity.actorId))
@@ -367,7 +418,12 @@ export async function registerAccountRoutes(
           request.params.size,
         ).replace('.webp', '') as AvatarSize;
         const avatar = accounts.repo.avatar(id);
-        if (!avatar || avatar.status !== 'active' || !accounts.storage)
+        if (
+          !avatar ||
+          avatar.status !== 'active' ||
+          !accounts.storage ||
+          accounts.repo.moderation?.safety(avatar.userId).protectedPlay
+        )
           throw new RoomError('AVATAR_NOT_FOUND', 404);
         try {
           const bytes = await accounts.storage.get(id, size);

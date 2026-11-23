@@ -12,11 +12,13 @@ export function FriendsPanel({
   actorId,
   csrf,
   canInvite,
+  allowRequests,
   onRoom,
 }: {
   actorId: string;
   csrf: string;
   canInvite: boolean;
+  allowRequests: boolean;
   onRoom: (room: RoomDescriptor) => void;
 }) {
   const [contacts, setContacts] = useState<FriendContact[]>([]);
@@ -64,87 +66,103 @@ export function FriendsPanel({
       onToggle={(event) => {
         if (event.currentTarget.open) {
           if (state === 'idle') void run('list');
-          void invite({ action: 'list' });
+          if (allowRequests) void invite({ action: 'list' });
         }
       }}
     >
       <summary>{text('Friends')}</summary>
-      <button
-        type="button"
-        className="text-button"
-        disabled={inviting}
-        onClick={() => void invite({ action: 'list' })}
-      >
-        Refresh invitations
-      </button>
-      {inviteStatus && <p role="status">{inviteStatus}</p>}
-      {invites.length > 0 && (
-        <ul aria-label="Table invitations">
-          {invites.map((item) => (
-            <li key={item.id}>
-              {item.senderName} invited you{' '}
-              {item.partnership ? 'as their teammate' : 'to their table'}.{' '}
-              <button
-                type="button"
-                className="text-button"
-                disabled={inviting}
-                onClick={() =>
-                  void invite({ action: 'respond', id: item.id, accept: true })
-                }
-              >
-                Join table
-              </button>{' '}
-              <button
-                type="button"
-                className="text-button"
-                disabled={inviting}
-                onClick={() =>
-                  void invite({ action: 'respond', id: item.id, accept: false })
-                }
-              >
-                Decline
-              </button>
-            </li>
-          ))}
-        </ul>
+      {allowRequests && (
+        <>
+          <button
+            type="button"
+            className="text-button"
+            disabled={inviting}
+            onClick={() => void invite({ action: 'list' })}
+          >
+            Refresh invitations
+          </button>
+          {inviteStatus && <p role="status">{inviteStatus}</p>}
+          {invites.length > 0 && (
+            <ul aria-label={text('Table invitations')}>
+              {invites.map((item) => (
+                <li key={item.id}>
+                  {item.senderName} invited you{' '}
+                  {item.partnership ? 'as their teammate' : 'to their table'}.{' '}
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={inviting}
+                    onClick={() =>
+                      void invite({
+                        action: 'respond',
+                        id: item.id,
+                        accept: true,
+                      })
+                    }
+                  >
+                    Join table
+                  </button>{' '}
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={inviting}
+                    onClick={() =>
+                      void invite({
+                        action: 'respond',
+                        id: item.id,
+                        accept: false,
+                      })
+                    }
+                  >
+                    Decline
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="quiet-note">
+            {text('Share your friend code with people you know.')}
+          </p>
+          <output className="friend-code">{actorId}</output>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run('request', code.trim());
+            }}
+            className="entry-form"
+          >
+            <label htmlFor="friend-code">{text('Their friend code')}</label>
+            <input
+              id="friend-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={36}
+              required
+            />
+            <button
+              type="submit"
+              className="button secondary"
+              disabled={state === 'busy'}
+            >
+              {text('Send request')}
+            </button>
+          </form>
+        </>
       )}
-      <p className="quiet-note">Share your friend code with people you know.</p>
-      <output className="friend-code">{actorId}</output>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void run('request', code.trim());
-        }}
-        className="entry-form"
-      >
-        <label htmlFor="friend-code">Their friend code</label>
-        <input
-          id="friend-code"
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-          maxLength={36}
-          required
-        />
-        <button
-          type="submit"
-          className="button secondary"
-          disabled={state === 'busy'}
-        >
-          Send request
-        </button>
-      </form>
       {state === 'error' && (
         <p role="alert">
-          The friend action was unavailable. Check the code or try again.
+          {text(
+            'The friend action was unavailable. Check the code or try again.',
+          )}
         </p>
       )}
-      {state === 'busy' && <p role="status">Updating friends…</p>}
+      {state === 'busy' && <p role="status">{text('Updating friends…')}</p>}
       {state === 'ready' && contacts.length === 0 && (
-        <p className="quiet-note">No friends or requests yet.</p>
+        <p className="quiet-note">{text('No friends or requests yet.')}</p>
       )}
-      <ul className="friend-list" aria-label="Friend list">
+      <ul className="friend-list" aria-label={text('Friend list')}>
         {contacts.map(({ id, displayName, status }) => (
           <li key={id}>
             <strong>{displayName}</strong>{' '}
@@ -180,15 +198,15 @@ export function FriendsPanel({
                 </button>
               </>
             )}
-            {status === 'sent' && <span>Request sent</span>}
-            {status === 'incoming' && (
+            {status === 'sent' && <span>{text('Request sent')}</span>}
+            {allowRequests && status === 'incoming' && (
               <button
                 type="button"
                 className="text-button"
                 disabled={state === 'busy'}
                 onClick={() => void run('accept', id)}
               >
-                Accept
+                {text('Accept')}
               </button>
             )}
             {status === 'blocked' ? (
@@ -198,7 +216,7 @@ export function FriendsPanel({
                 disabled={state === 'busy'}
                 onClick={() => void run('unblock', id)}
               >
-                Unblock
+                {text('Unblock')}
               </button>
             ) : (
               <>
@@ -220,7 +238,7 @@ export function FriendsPanel({
                   disabled={state === 'busy'}
                   onClick={() => void run('block', id)}
                 >
-                  Block
+                  {text('Block')}
                 </button>
               </>
             )}

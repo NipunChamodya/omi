@@ -50,6 +50,7 @@ export default function Profile({
   const fileInput = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(user.displayName);
   const [busy, setBusy] = useState(false);
+  const [confirmProtection, setConfirmProtection] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -82,7 +83,7 @@ export default function Profile({
         setFile(null);
       if (fileInput.current) fileInput.current.value = '';
     } catch (error) {
-      setError(message(error));
+      setError(text(message(error)));
       await onRefresh().catch(() => undefined);
     } finally {
       setBusy(false);
@@ -103,10 +104,13 @@ export default function Profile({
     >
       <div className="profile-heading">
         <div>
-          <p className="eyebrow">YOUR PLACE AT THE TABLE</p>
+          <p className="eyebrow">{text('YOUR PLACE AT THE TABLE')}</p>
           <h2 id="profile-title">{text('Your profile')}</h2>
           {stats && (
-            <section aria-label="Match statistics" className="quiet-note">
+            <section
+              aria-label={text('Match statistics')}
+              className="quiet-note"
+            >
               <p>
                 {stats.played} played · {stats.wins} won ·{' '}
                 {stats.played - stats.wins} lost
@@ -128,14 +132,14 @@ export default function Profile({
                     result. Both teammates receive the adjustment. Double
                     forfeits leave ratings unchanged.
                   </p>
-                  <ul aria-label="Recent rating changes">
+                  <ul aria-label={text('Recent rating changes')}>
                     {stats.experimentalRating.history.map((entry, index) => (
                       <li key={index}>
                         {entry.previous} → {entry.rating}
                       </li>
                     ))}
                   </ul>
-                  <ol aria-label="Experimental leaderboard">
+                  <ol aria-label={text('Experimental leaderboard')}>
                     {stats.experimentalRating.leaders.map((entry, index) => (
                       <li key={index}>
                         {entry.name} · {entry.rating}
@@ -146,7 +150,7 @@ export default function Profile({
               )}
               {!!stats.partnerships?.length && (
                 <details>
-                  <summary>Partnerships</summary>
+                  <summary>{text('Partnerships')}</summary>
                   <ul>
                     {stats.partnerships.map((partner, index) => (
                       <li key={index}>
@@ -159,7 +163,7 @@ export default function Profile({
               )}
               {!!stats.recent.length && (
                 <details>
-                  <summary>Recent matches</summary>
+                  <summary>{text('Recent matches')}</summary>
                   <ul>
                     {stats.recent.map((match, index) => (
                       <li key={index}>
@@ -199,7 +203,7 @@ export default function Profile({
         <button
           type="button"
           className="text-button"
-          aria-label="Close profile"
+          aria-label={text('Close profile')}
           disabled={busy}
           onClick={() => dialog.current?.close()}
         >
@@ -224,7 +228,7 @@ export default function Profile({
         />
         <div>
           <strong>{user.displayName}</strong>
-          <small>Signed in with Google</small>
+          <small>{text('Signed in with Google')}</small>
         </div>
       </div>
       <form
@@ -237,7 +241,7 @@ export default function Profile({
           );
         }}
       >
-        <label htmlFor="profile-name">Display name</label>
+        <label htmlFor="profile-name">{text('Display name')}</label>
         <input
           id="profile-name"
           required
@@ -251,16 +255,16 @@ export default function Profile({
           className="button secondary"
           disabled={busy || !name.trim() || name.trim() === user.displayName}
         >
-          Save name
+          {text('Save name')}
         </button>
       </form>
       <section className="photo-editor" aria-labelledby="photo-title">
-        <h3 id="photo-title">Profile photo</h3>
-        <p>Choose from your gallery, then frame it your way.</p>
+        <h3 id="photo-title">{text('Profile photo')}</h3>
+        <p>{text('Choose from your gallery, then frame it your way.')}</p>
         <input
           ref={fileInput}
           className="file-input"
-          aria-label="Choose profile photo"
+          aria-label={text('Choose profile photo')}
           type="file"
           accept="image/jpeg,image/png,image/webp"
           disabled={busy || !session.avatarUploadsEnabled}
@@ -282,12 +286,12 @@ export default function Profile({
         />
         {!session.avatarUploadsEnabled && (
           <p className="quiet-note">
-            Photo uploads are not available right now.
+            {text('Photo uploads are not available right now.')}
           </p>
         )}
         {file && preview && (
           <>
-            <div className="crop-frame" aria-label="Photo crop preview">
+            <div className="crop-frame" aria-label={text('Photo crop preview')}>
               <img
                 src={preview}
                 alt="Your selected crop"
@@ -313,10 +317,10 @@ export default function Profile({
               />
             </div>
             <label className="crop-control">
-              Zoom
+              {text('Zoom')}
               <input
                 type="range"
-                aria-label="Zoom"
+                aria-label={text('Zoom')}
                 min={1}
                 max={4}
                 step={0.1}
@@ -326,10 +330,10 @@ export default function Profile({
               />
             </label>
             <label className="crop-control">
-              Horizontal position
+              {text('Horizontal position')}
               <input
                 type="range"
-                aria-label="Horizontal position"
+                aria-label={text('Horizontal position')}
                 min={0}
                 max={100}
                 value={x}
@@ -338,10 +342,10 @@ export default function Profile({
               />
             </label>
             <label className="crop-control">
-              Vertical position
+              {text('Vertical position')}
               <input
                 type="range"
-                aria-label="Vertical position"
+                aria-label={text('Vertical position')}
                 min={0}
                 max={100}
                 value={y}
@@ -378,7 +382,7 @@ export default function Profile({
                   if (fileInput.current) fileInput.current.value = '';
                 }}
               >
-                Cancel photo
+                {text('Cancel photo')}
               </button>
             </div>
           </>
@@ -395,7 +399,7 @@ export default function Profile({
               )
             }
           >
-            Remove custom photo
+            {text('Remove custom photo')}
           </button>
         )}
         <p className="quiet-note">
@@ -410,18 +414,63 @@ export default function Profile({
         onClick={() => {
           setBusy(true);
           void onLogout().catch((error) => {
-            setError(message(error));
+            setError(text(message(error)));
             setBusy(false);
           });
         }}
       >
-        Sign out
+        {text('Sign out')}
       </button>
+      <section aria-label={text('Protected play')}>
+        <p>
+          {text(
+            session.protectedPlay
+              ? 'Protected play is on.'
+              : 'Protected play turns off chat, voice, invitations, and sponsor messages for this account.',
+          )}
+        </p>
+        {session.csrfToken && !session.protectedPlay && (
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy}
+            onClick={async () => {
+              if (!confirmProtection) {
+                setConfirmProtection(true);
+                return;
+              }
+              setBusy(true);
+              try {
+                await authApi.protect(session.csrfToken!);
+                await onRefresh();
+                setConfirmProtection(false);
+              } catch (error) {
+                setError(text(message(error)));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {text(
+              confirmProtection
+                ? 'Confirm protected play (cannot be turned off here)'
+                : 'Enable protected play',
+            )}
+          </button>
+        )}
+      </section>
       {session.csrfToken && (
         <FriendsPanel
           actorId={user.id}
           csrf={session.csrfToken}
-          canInvite={canInvite}
+          allowRequests={
+            !session.protectedPlay && !session.communicationRestricted
+          }
+          canInvite={
+            canInvite &&
+            !session.protectedPlay &&
+            !session.communicationRestricted
+          }
           onRoom={onRoom}
         />
       )}

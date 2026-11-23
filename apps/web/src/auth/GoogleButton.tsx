@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 export function GoogleButton({
   onClick,
   disabled,
@@ -5,6 +6,7 @@ export function GoogleButton({
   onClick: () => void;
   disabled: boolean;
 }) {
+  const text = useCopy();
   return (
     <button
       className="google-button"
@@ -30,7 +32,7 @@ export function GoogleButton({
           d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6C30.03 37.65 27.26 38.5 24 38.5c-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z"
         />
       </svg>
-      <span>Continue with Google</span>
+      <span>{text('Continue with Google')}</span>
     </button>
   );
 }

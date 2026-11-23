@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 import { useEffect, useState } from 'react';
 import { useDataSaver } from './preferences';
 interface InstallPrompt extends Event {
@@ -5,6 +6,7 @@ interface InstallPrompt extends Event {
   userChoice: Promise<{ outcome: string }>;
 }
 export function PwaControls() {
+  const text = useCopy();
   const saver = useDataSaver();
   const [install, setInstall] = useState<InstallPrompt | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
@@ -66,17 +68,17 @@ export function PwaControls() {
     };
   }, []);
   return (
-    <aside className="pwa-controls" aria-label="App settings">
+    <aside className="pwa-controls" aria-label={text('App settings')}>
       <label>
         <input
           type="checkbox"
           checked={saver.enabled}
           onChange={(event) => saver.set(event.target.checked)}
         />{' '}
-        Data Saver Mode
+        {text('Data Saver Mode')}
       </label>
       <details>
-        <summary>Install &amp; data settings</summary>
+        <summary>{text('Install & data settings')}</summary>
         <p>
           {saver.enabled
             ? 'Data Saver: avatars and decorative motion are off. Music and effects stay off until you choose to enable them.'
@@ -93,7 +95,7 @@ export function PwaControls() {
                 .catch(() => setInstall(null));
             }}
           >
-            Install OMI
+            {text('Install OMI')}
           </button>
         ) : (
           <p>
@@ -104,7 +106,9 @@ export function PwaControls() {
         )}
         {failed && (
           <p role="status">
-            Offline setup is unavailable. OMI can still be used online.
+            {text(
+              'Offline setup is unavailable. OMI can still be used online.',
+            )}
           </p>
         )}
       </details>

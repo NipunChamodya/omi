@@ -61,25 +61,29 @@ export function MultiplayerMenu({
       {view === 'friends' && (
         <>
           <p>
-            Create a private table or join your friends with an invite code.
+            {text(
+              'Create a private table or join your friends with an invite code.',
+            )}
           </p>
           <button
             className="button primary"
             onClick={() => client.navigate('create')}
           >
-            Create Room
+            {text('Create Room')}
           </button>
           <button className="button secondary" onClick={client.showJoin}>
-            Join Room
+            {text('Join Room')}
           </button>
         </>
       )}
       {view === 'online' && (
         <>
-          <p>Four signed-in people. No bots and no simulated players.</p>
+          <p>
+            {text('Four signed-in people. No bots and no simulated players.')}
+          </p>
           {!session?.user ? (
             <>
-              <p>Sign in to join the ranked, human-only queue.</p>
+              <p>{text('Sign in to join the ranked, human-only queue.')}</p>
               {session?.googleAvailable && (
                 <GoogleButton onClick={onSignIn} disabled={false} />
               )}
@@ -102,7 +106,7 @@ export function MultiplayerMenu({
                 </button>
               ) : (
                 <button className="button secondary" onClick={queue.stop}>
-                  Cancel search
+                  {text('Cancel search')}
                 </button>
               )}
             </>

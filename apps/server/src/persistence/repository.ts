@@ -64,6 +64,7 @@ export interface AccountRepository {
   forgetAvatar(id: string): void;
   prune(now: number): void;
   storeSocialReport(report: SocialReport): string;
+  checkReadiness?(): void;
   close(): void;
 }
 export class SqliteAccounts implements AccountRepository {
@@ -73,6 +74,9 @@ export class SqliteAccounts implements AccountRepository {
   readonly moderation: Moderation;
   readonly guests: GuestSessionStorage;
   private readonly db;
+  checkReadiness(): void {
+    this.sqlite.prepare('SELECT id FROM omi_match_state LIMIT 1').get();
+  }
   constructor(path: string, experimentalElo: boolean | EloPolicy = false) {
     if (path !== ':memory:')
       mkdirSync(dirname(resolve(path)), { recursive: true, mode: 0o700 });

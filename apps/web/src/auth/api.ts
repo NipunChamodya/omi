@@ -48,9 +48,16 @@ async function json<T>(
   }
 }
 export const authApi = {
+  protect: (csrf: string) =>
+    json<{ protectedPlay: boolean }>(
+      '/profile/safety',
+      { protectedPlay: true },
+      csrf,
+    ),
   moderation: (
     payload:
       | { action: 'list' }
+      | { action: 'restrict'; id: string; restricted: boolean }
       | {
           action: 'review';
           id: string;

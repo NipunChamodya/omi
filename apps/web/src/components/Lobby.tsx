@@ -42,18 +42,20 @@ export function Lobby({
           : 'Four seats. Let the friendly rivalry begin.'}
       </p>
       {snapshot.ranked && (
-        <p className="quiet-note">Chat and voice are off at ranked tables.</p>
+        <p className="quiet-note">
+          {text('Chat and voice are off at ranked tables.')}
+        </p>
       )}
       <div className="invite-box">
         <div>
-          <span className="eyebrow">TABLE CODE</span>
+          <span className="eyebrow">{text('TABLE CODE')}</span>
           <strong>{snapshot.code}</strong>
         </div>
         <button
           className="button compact secondary"
           onClick={() => void copyText(snapshot.code, client)}
         >
-          Copy code
+          {text('Copy code')}
         </button>
       </div>
       <button
@@ -67,7 +69,7 @@ export function Lobby({
       >
         {text('Copy invite link')} <span aria-hidden="true">↗</span>
       </button>
-      <div className="lobby-seats" aria-label="Four table seats">
+      <div className="lobby-seats" aria-label={text('Four table seats')}>
         {([0, 1, 2, 3] as const).map((seat) => {
           const member = snapshot.members.find((item) => item.seat === seat);
           const teammate = seat % 2 === snapshot.you.team;
@@ -88,7 +90,7 @@ export function Lobby({
                 <strong>
                   {member?.displayName ?? 'An open seat'}
                   {member?.actorId === own.actorId && (
-                    <span className="you-tag">YOU</span>
+                    <span className="you-tag">{text('YOU')}</span>
                   )}
                 </strong>
                 <span>
@@ -111,7 +113,7 @@ export function Lobby({
         })}
       </div>
       <p className="quiet-note">
-        You and your teammate will sit opposite each other.
+        {text('You and your teammate will sit opposite each other.')}
       </p>
       <div className="lobby-actions">
         {host && !snapshot.ranked && snapshot.members.length < 4 && (

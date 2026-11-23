@@ -50,7 +50,7 @@ import {
   snapshot,
 } from './projection.js';
 import { storedMatch } from './match-storage.js';
-import type { MatchStorage } from './match-storage.js';
+import type { MatchStorage, StoredInvitation } from './match-storage.js';
 import { RoomError, SerialQueue } from './support.js';
 import type { Identity } from './support.js';
 
@@ -131,14 +131,7 @@ export class RoomService {
   private readonly rooms = new Map<string, Room>();
   private readonly codes = new Map<string, string>();
   private readonly memberships = new Map<string, string>();
-  private readonly invitations = new Map<
-    string,
-    RoomInvitation & {
-      roomId: string;
-      sender: string;
-      recipient: string;
-    }
-  >();
+  private readonly invitations = new Map<string, StoredInvitation>();
   private readonly httpReceipts = new Map<
     string,
     {
@@ -153,10 +146,19 @@ export class RoomService {
     private readonly entropy: RandomInt = randomInt,
     private readonly storage?: MatchStorage,
   ) {
-    const recoveryDeadline = this.now() + reconnectGraceMs;
+    const recoveredAt = this.now();
+    const recoveryDeadline = recoveredAt + reconnectGraceMs;
     for (const state of storage?.loadActive(limits.maxRooms) ?? []) {
       if (
-        new Set(state.members.map((member) => member.actorId)).size !== 4 ||
+        !state.round &&
+        recoveredAt - state.lastActive >= limits.idleRoomTtlMs
+      ) {
+        storage?.archive(state.id);
+        continue;
+      }
+      if (
+        new Set(state.members.map((member) => member.actorId)).size !==
+          state.members.length ||
         this.codes.has(state.code) ||
         state.members.some(
           (member) => !member.departed && this.memberships.has(member.actorId),
@@ -166,7 +168,7 @@ export class RoomService {
       const room: Room = {
         ...state,
         members: state.members.map((member) =>
-          member.bot || state.ledger.final
+          !state.round || member.bot || state.ledger.final
             ? member
             : {
                 ...member,
@@ -183,6 +185,12 @@ export class RoomService {
       for (const member of room.members)
         if (!member.departed) this.memberships.set(member.actorId, room.id);
     }
+    for (const invite of storage?.loadInvitations(
+      recoveredAt,
+      limits.maxRooms * 8,
+    ) ?? [])
+      this.invitations.set(invite.id, invite);
+    this.pruneInvitations();
   }
   statistics(actorId: string) {
     return this.storage?.statistics(actorId);
@@ -262,7 +270,11 @@ export class RoomService {
     bucket.records.set(actionId, { fingerprint, descriptor });
     return descriptor;
   }
-  create(identity: Identity, request: CreateRequest): RoomDescriptor {
+  create(
+    identity: Identity,
+    request: CreateRequest,
+    rankedRoster?: readonly Identity[],
+  ): RoomDescriptor {
     this.checkIdentity(identity, request.actorId);
     const fingerprint = JSON.stringify({ kind: 'create', ...request });
     const prior = this.previousHttp(identity, request.actionId, fingerprint);
@@ -285,15 +297,14 @@ export class RoomService {
       code,
       hostId: identity.actorId,
       version: 0,
-      members: [
-        {
-          actorId: identity.actorId,
-          displayName: identity.displayName,
-          seat: 0,
-          ready: false,
-          avatarUrl: identity.avatarUrl ?? null,
-        },
-      ],
+      ranked: !!rankedRoster,
+      members: (rankedRoster ?? [identity]).map((member, index) => ({
+        actorId: member.actorId,
+        displayName: member.displayName,
+        seat: index as Seat,
+        ready: false,
+        avatarUrl: member.avatarUrl ?? null,
+      })),
       peers: new Map(),
       round: null,
       ledger: createLedger(),
@@ -302,9 +313,11 @@ export class RoomService {
       receipts: new Map(),
       lastActive: this.now(),
     };
+    this.storage?.save(storedMatch(room));
     this.rooms.set(room.id, room);
     this.codes.set(code, room.id);
-    this.memberships.set(identity.actorId, room.id);
+    for (const member of room.members)
+      this.memberships.set(member.actorId, room.id);
     return this.rememberHttp(
       identity,
       request.actionId,
@@ -326,24 +339,11 @@ export class RoomService {
         throw new RoomError('ALREADY_IN_ROOM');
     }
     const host = identities[0]!;
-    const created = this.create(host, {
-      actorId: host.actorId,
-      actionId: randomUUID(),
-      expectedVersion: 0,
-    });
-    const room = this.rooms.get(created.roomId)!;
-    room.ranked = true;
-    // No awaits between validation and membership installation: competing entries cannot interleave.
-    room.members = identities.map((identity, seat) => ({
-      actorId: identity.actorId,
-      displayName: identity.displayName,
-      seat: seat as Seat,
-      ready: false,
-      avatarUrl: identity.avatarUrl ?? null,
-    }));
-    for (const identity of identities)
-      this.memberships.set(identity.actorId, room.id);
-    return this.descriptor(room);
+    return this.create(
+      host,
+      { actorId: host.actorId, actionId: randomUUID(), expectedVersion: 0 },
+      identities,
+    );
   }
   private connected(room: Room): boolean {
     return (
@@ -365,28 +365,44 @@ export class RoomService {
     if (!room) throw new RoomError('ROOM_NOT_FOUND', 404);
     return this.descriptor(room);
   }
-  revokeInvitations(actor: string, target: string): void {
-    for (const [id, invite] of this.invitations) {
-      if (
-        (invite.sender === actor && invite.recipient === target) ||
-        (invite.sender === target && invite.recipient === actor)
-      )
-        this.invitations.delete(id);
-    }
+  private removeInvitations(ids: readonly string[]): void {
+    this.storage?.removeInvitations(ids);
+    for (const id of ids) this.invitations.delete(id);
+  }
+
+  disconnectCommunications(actor: string): void {
+    const roomId = this.memberships.get(actor);
+    if (roomId) this.onPeerDisconnect(roomId, actor);
+  }
+  revokeInvitations(actor: string, target?: string): void {
+    this.removeInvitations(
+      [...this.invitations.values()]
+        .filter(
+          (invite) =>
+            (invite.sender === actor &&
+              (!target || invite.recipient === target)) ||
+            (invite.recipient === actor &&
+              (!target || invite.sender === target)),
+        )
+        .map(({ id }) => id),
+    );
   }
 
   private pruneInvitations() {
     const now = this.now();
-    for (const [id, invite] of this.invitations) {
-      const room = this.rooms.get(invite.roomId);
-      if (
-        invite.expiresAt <= now ||
-        !room ||
-        room.round ||
-        room.members.length >= 4
-      )
-        this.invitations.delete(id);
-    }
+    this.removeInvitations(
+      [...this.invitations.values()]
+        .filter((invite) => {
+          const room = this.rooms.get(invite.roomId);
+          return (
+            invite.expiresAt <= now ||
+            !room ||
+            room.round ||
+            room.members.length >= 4
+          );
+        })
+        .map(({ id }) => id),
+    );
   }
 
   listInvitations(
@@ -439,7 +455,7 @@ export class RoomService {
     )
       throw new RoomError('INVITATION_CAPACITY', 429);
     const id = randomUUID();
-    this.invitations.set(id, {
+    const invite: StoredInvitation = {
       id,
       roomId: room.id,
       sender: identity.actorId,
@@ -447,7 +463,9 @@ export class RoomService {
       senderName: identity.displayName,
       partnership,
       expiresAt: this.now() + 10 * 60_000,
-    });
+    };
+    this.storage?.addInvitation(invite);
+    this.invitations.set(id, invite);
   }
 
   async respondToInvitation(
@@ -467,7 +485,7 @@ export class RoomService {
     )
       throw new RoomError('INVITATION_UNAVAILABLE', 404);
     if (!accept) {
-      this.invitations.delete(id);
+      this.removeInvitations([id]);
       return null;
     }
     return this.join(
@@ -491,7 +509,7 @@ export class RoomService {
         )
           throw new RoomError('INVITATION_UNAVAILABLE', 409);
         if (invite.partnership) current.partnerId = identity.actorId;
-        this.invitations.delete(id);
+        return id;
       },
     );
   }
@@ -513,7 +531,7 @@ export class RoomService {
   join(
     identity: Identity,
     request: JoinRequest,
-    admit?: (room: Room) => void,
+    admit?: (room: Room) => string,
   ): Promise<RoomDescriptor> {
     this.checkIdentity(identity, request.actorId);
     const room = this.rooms.get(request.roomId);
@@ -531,7 +549,11 @@ export class RoomService {
         throw new RoomError('VERSION_CONFLICT', 409, room.version);
       if (room.members.length === 4 || room.round)
         throw new RoomError('ROOM_FULL');
-      admit?.(room);
+      const draft = {
+        ...room,
+        members: room.members.map((item) => ({ ...item })),
+      };
+      const consumed = admit?.(draft);
       const member: RoomMember = {
         actorId: identity.actorId,
         displayName: identity.displayName,
@@ -539,17 +561,23 @@ export class RoomService {
         ready: false,
         avatarUrl: identity.avatarUrl ?? null,
       };
-      room.members.push(member);
-      this.memberships.set(identity.actorId, room.id);
-      const reseated = this.seatPartnership(room);
-      this.advance(room, () =>
-        reseated
-          ? {
-              kind: 'seats-assigned',
-              members: room.members.map((item) => publicMember(room, item)),
-            }
-          : { kind: 'member-joined', member: publicMember(room, member) },
+      draft.members.push(member);
+      const reseated = this.seatPartnership(draft);
+      this.advance(
+        draft,
+        () =>
+          reseated
+            ? {
+                kind: 'seats-assigned',
+                members: room.members.map((item) => publicMember(room, item)),
+              }
+            : { kind: 'member-joined', member: publicMember(room, member) },
+        undefined,
+        room,
+        consumed,
       );
+      if (consumed) this.invitations.delete(consumed);
+      this.memberships.set(identity.actorId, room.id);
 
       return this.rememberHttp(
         identity,
@@ -974,18 +1002,18 @@ export class RoomService {
     event: (recipient: RoomMember) => RoomEvent,
     exclude?: Peer,
     commitTo: Room = room,
+    consumeInvitation?: string,
   ): void {
     const fromVersion = room.version;
     const lastActive = this.now();
     const committed = { ...room, version: fromVersion + 1, lastActive };
-    if (committed.round) {
-      const previous = commitTo.matchId ?? commitTo.id;
-      const current = committed.matchId ?? committed.id;
-      this.storage?.save(
-        storedMatch(committed),
-        previous === current ? undefined : previous,
-      );
-    }
+    const previous = commitTo.matchId ?? commitTo.id;
+    const current = committed.matchId ?? committed.id;
+    this.storage?.save(
+      storedMatch(committed),
+      previous === current ? undefined : previous,
+      consumeInvitation,
+    );
     Object.assign(commitTo, committed);
     room = commitTo;
     for (const member of room.members) {
@@ -1179,7 +1207,7 @@ export class RoomService {
         room.queue.pending === 0 &&
         this.now() - room.lastActive >= this.limits.idleRoomTtlMs
       ) {
-        if (room.round) this.storage?.archive(room.matchId ?? id);
+        this.storage?.archive(room.matchId ?? id);
         this.rooms.delete(id);
         this.codes.delete(room.code);
         for (const member of room.members)

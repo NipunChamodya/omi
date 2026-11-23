@@ -2,6 +2,21 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.4 changes
+
+- Expanded the existing Sinhala catalog across navigation, login and profile controls, friends, lobby, gameplay feedback, moderation and PWA settings. English fallback is safe for unknown copy and the compiler checks keys used by the typed catalog. Dynamic errors and some settings, moderation, match statistics, and game-state copy still need translation.
+- Account-level protected play requires an authenticated, same-Origin, CSRF-protected request. The user confirms activation in their profile. The application cannot turn this setting off pending the owner’s guardian policy. Protected play disconnects live voice and chat, blocks new connections and friend or room invitations in both directions, suppresses opening sponsorship, and hides profile photos and friend-code sharing. Existing friend removal and blocking remain available. Production guest and ranked communication restrictions stay in force.
+- The existing dashboard can restrict or restore communication for a reported registered account. Configured moderator IDs, CSRF, and rate limits apply. Restrictions leave gameplay available and write a separate audit record on state change. Active restrictions can be lifted after the original report evidence expires. Guardian/age verification, account suspension and legal or provider acceptance remain open.
+- Unstarted lobbies and expiring invitations now use SQLite alongside active matches. Invitation acceptance commits the seat assignment and consumes the invitation in the same transaction. Restart recovery rechecks expiry, idle lobby age and friendship eligibility. Gameplay command receipts remain durable. HTTP create/join idempotency receipts remain process-local.
+- The local `/ready` probe checks that SQLite can read the match-state table. The public health check still reports liveness. Scheduled account and room maintenance failures log fixed event names without private state. Production Elo remains gated; approved game rules, table arrangement, white faces, card backs and artwork references were preserved.
+
+## V2.4 verification
+
+- Started from a clean `dev` at `a565d3c`. The final checks passed 229 unit and integration tests, including the 107-test focused defensive security selection, and 15 infrastructure tests. Eight selected browser checks and four PWA checks passed. Build, TypeScript, lint and the bundle gate passed; the compressed entry totaled 98,815 bytes. The test suite covered account privacy, moderation, transactional rating and duplicate settlement, clean restart with an invite, and abrupt termination with committed match and lobby state.
+- The 320 px Sinhala join flow, English join flow, friend codes, four-player play/reload and PWA checks ran in Chromium and Firefox. Two Firefox checks timed out in the initial parallel selection and passed on serial rerun. Physical mobile devices and real network behavior remain unverified.
+- The supported loopback load run used a disposable SQLite WAL database, eight rooms, 32 clients, 320 actions, eight reconnects, eight replay checks and a 15-second idle soak. Action p50/p95/p99 were 2.32/4.00/8.17 ms. Combined process CPU averaged 4% and peak combined RSS was 209.4 MiB. The harness rejects a 12-room run. This run did not model reconnect storms, slow peers, cloud latency or production capacity.
+- The local production preflight reported missing production mode, loopback proxy and secure-origin settings, avatar storage and TURN, an absolute database path and the expected migration level on the configured development database. The production database, Azure deployment and public provider checks remain pending.
+
 ## V2.3 changes
 
 - The same table can start a new match once all human players accept and reconnect. Newly added permanent bots carry across automatically. The prior generation is archived in the same SQLite transaction that activates the new one. Room code and seats remain stable and the room version sequence continues, while each generation has a separate idempotency key for results and ratings.

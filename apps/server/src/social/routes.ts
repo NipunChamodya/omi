@@ -15,11 +15,12 @@ export function registerSocial(
   maxRooms: number,
   accountOnly = false,
   communicationsEnabled = true,
+  communicationBlocked: (actor: string) => boolean = () => false,
 ) {
   const authorize = (roomId: string, identity: Identity) => {
     if (accountOnly && !identity.userId)
       throw new RoomError('GUEST_COMMUNICATION_DISABLED', 403);
-    if (!communicationsEnabled)
+    if (!communicationsEnabled || communicationBlocked(identity.actorId))
       throw new RoomError('PRIVATE_COMMUNICATION_DISABLED', 403);
     const { room } = rooms.authorize(roomId, identity);
     if (room.ranked) throw new RoomError('RANKED_COMMUNICATION_DISABLED', 403);

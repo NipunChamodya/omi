@@ -53,7 +53,7 @@ test('compiled migration, backup, restore, readiness and production shutdown wor
     assert.deepEqual(JSON.parse(run('ops/backup-cli.js', ['create', backup])), {
       operation: 'create',
       integrity: 'ok',
-      migrations: 5,
+      migrations: 6,
     });
     assert.equal(statSync(backup).mode & 0o777, 0o600);
     run('ops/backup-cli.js', ['verify', backup]);
@@ -119,6 +119,9 @@ test('compiled migration, backup, restore, readiness and production shutdown wor
       `http://127.0.0.1:${port}/health?code=${marker}`,
     );
     assert.equal(response.status, 200);
+    const liveReadiness = await fetch(`http://127.0.0.1:${port}/ready`);
+    assert.equal(liveReadiness.status, 200);
+    assert.deepEqual(await liveReadiness.json(), { status: 'ready' });
     assert.equal(
       response.headers.get('strict-transport-security'),
       'max-age=86400',
@@ -156,7 +159,7 @@ test('compiled migration, backup, restore, readiness and production shutdown wor
   }
 });
 
-test('recovers a committed match snapshot after abrupt process termination', () => {
+test('recovers committed match, lobby and invitation state after abrupt process termination', () => {
   const directory = mkdtempSync(join(tmpdir(), 'omi-abrupt-'));
   const db = join(directory, 'match.sqlite');
   const repository = pathToFileURL(
@@ -173,13 +176,28 @@ test('recovers a committed match snapshot after abrupt process termination', () 
       ledger: { ...createLedger(), carry: 1 }, result: null,
       lastActive: 42, ranked: false, receipts: [],
     });
+    repo.matchStorage.save({
+      id: 'lobby-fixture', code: 'BCDEFGHJ', hostId: 'host', version: 1,
+      members: [{ actorId: 'host', displayName: 'Host', seat: 0, ready: false }],
+      round: null, ledger: createLedger(), result: null,
+      lastActive: 42, ranked: false, receipts: [],
+    });
+    repo.matchStorage.addInvitation({ id: 'invite', roomId: 'lobby-fixture',
+      sender: 'host', recipient: 'guest', senderName: 'Host', partnership: true, expiresAt: 100 });
     process.kill(process.pid, 'SIGKILL');
   `;
   const reopen = `
     import { SqliteAccounts } from ${JSON.stringify(repository)};
     const repo = new SqliteAccounts(process.argv[1]);
-    const [room] = repo.matchStorage.loadActive(1);
-    console.log(JSON.stringify([room.id, room.version, room.round.dealer, room.ledger.carry]));
+    const rooms = repo.matchStorage.loadActive(2);
+    const match = rooms.find((room) => room.id === 'crash-fixture');
+    const lobby = rooms.find((room) => room.id === 'lobby-fixture');
+    const pending = repo.matchStorage.loadInvitations(99, 1);
+    const expired = repo.matchStorage.loadInvitations(100, 1);
+    console.log(JSON.stringify([
+      match.id, match.version, match.round.dealer, match.ledger.carry,
+      lobby.members.length, pending[0].recipient, expired.length
+    ]));
     repo.close();
   `;
   try {
@@ -195,7 +213,15 @@ test('recovers a committed match snapshot after abrupt process termination', () 
       { timeout: 5000 },
     );
     assert.equal(recovered.status, 0, String(recovered.stderr));
-    assert.deepEqual(JSON.parse(recovered.stdout), ['crash-fixture', 12, 2, 1]);
+    assert.deepEqual(JSON.parse(recovered.stdout), [
+      'crash-fixture',
+      12,
+      2,
+      1,
+      1,
+      'guest',
+      0,
+    ]);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

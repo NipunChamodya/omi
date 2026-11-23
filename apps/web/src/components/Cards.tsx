@@ -1,3 +1,4 @@
+import { useCopy } from '../i18n/locale';
 import { useDataSaver } from '../pwa/preferences';
 import { useStore } from 'zustand';
 import { themeStore } from '../themes/store';
@@ -89,11 +90,12 @@ export function CardBack() {
   );
 }
 export function Brand({ onHome }: { onHome?: () => void }) {
+  const text = useCopy();
   return (
     <a
       className="brand"
       href="/"
-      aria-label="OMI home"
+      aria-label={text('OMI home')}
       onClick={(event) => {
         if (onHome) {
           event.preventDefault();

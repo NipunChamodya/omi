@@ -50,3 +50,20 @@ test('beginner practice gives feedback and switches to Sinhala', async ({
   await page.keyboard.press('Escape');
   await expect(translated).toHaveCount(0);
 });
+
+test('Sinhala join labels fit a narrow screen and survive reload', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/');
+  await page.getByRole('combobox', { name: /Language/ }).selectOption('si');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'si');
+  await page.reload();
+  await page.getByRole('button', { name: 'මේසයකට එක්වන්න' }).click();
+  await expect(page.getByLabel('මේස කේතය')).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});

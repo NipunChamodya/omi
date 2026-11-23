@@ -32,6 +32,7 @@ function Player({
   snapshot: Snapshot;
   position: string;
 }) {
+  const text = useCopy();
   const active = snapshot.game!.turn === member.seat;
   const local = member.seat === snapshot.you.seat;
   return (
@@ -47,7 +48,9 @@ function Player({
         />
         <span
           className={`presence-dot ${member.connected ? 'connected' : ''}`}
-          aria-label={member.connected ? 'Connected' : 'Disconnected'}
+          aria-label={
+            member.connected ? text('Connected') : text('Disconnected')
+          }
         />
       </span>
       <strong className="player-name" title={member.displayName}>
@@ -147,7 +150,7 @@ export default function GameTable({
     <div className={`game-view phase-${game.phase}`}>
       <section
         className="scoreboard"
-        aria-label="Team scores"
+        aria-label={text('Team scores')}
         data-testid="score"
       >
         <div>
@@ -186,7 +189,7 @@ export default function GameTable({
       </div>
       <section
         className={`felt-table ${dragging ? 'drag-active' : ''}`}
-        aria-label="Game table"
+        aria-label={text('Game table')}
       >
         {snapshot.members.map((member) => (
           <Player
@@ -201,7 +204,9 @@ export default function GameTable({
           data-testid="card-drop-zone"
           data-drop-ready={dragging && playable}
           className={`trick-area ${completed ? 'completed' : ''} ${over ? 'drop-over' : ''} ${live?.event.kind === 'card-played' && live.event.completedTrick ? `trick-collect collect-${positions[relative(live.event.completedTrick.winner, snapshot.you.seat)]}` : ''}`}
-          aria-label={completed ? 'Last completed trick' : 'Current trick'}
+          aria-label={
+            completed ? text('Last completed trick') : text('Current trick')
+          }
         >
           {!plays.length && (
             <div className="table-watermark" aria-hidden="true">
@@ -243,14 +248,16 @@ export default function GameTable({
         role="status"
       >
         {live?.event.kind === 'round-started' &&
-          live.event.cancelledBy !== undefined && <>No trump. Same dealer. </>}
+          live.event.cancelledBy !== undefined && (
+            <>{text('No trump. Same dealer.')} </>
+          )}
         {!enabled
-          ? 'Reconnecting to your table…'
+          ? text('Reconnecting to your table…')
           : game.phase === 'awaiting-cut'
             ? `${name(cutter)} is cutting the deck.`
             : game.phase === 'awaiting-trump'
               ? yours
-                ? 'Choose your trump suit.'
+                ? text('Choose your trump suit.')
                 : `${name(game.selector)} is choosing trump.`
               : game.phase === 'complete'
                 ? 'Eight tricks. One good game.'
@@ -267,7 +274,7 @@ export default function GameTable({
           <h2 id="cut-title">{text('Cut the deck.')}</h2>
           <p>Lift the top {cut} cards. Then the first four will be dealt.</p>
           <label htmlFor="cut-position">
-            Cut position <output>{cut}</output>
+            {text('Cut position')} <output>{cut}</output>
           </label>
           <input
             id="cut-position"
@@ -285,7 +292,7 @@ export default function GameTable({
             }
             disabled={!enabled || pending}
           >
-            Cut &amp; deal
+            {text('Cut & deal')}
           </button>
         </section>
       )}
@@ -293,7 +300,7 @@ export default function GameTable({
         game.selector === snapshot.you.seat && (
           <section className="action-panel" aria-labelledby="trump-title">
             <h2 id="trump-title">{text('Choose trump.')}</h2>
-            <p>Choose a suit from your first four cards.</p>
+            <p>{text('Choose a suit from your first four cards.')}</p>
             <div className="trump-choices">
               {(Object.keys(suits) as (keyof typeof suits)[])
                 .filter((suit) => game.hand.some((card) => card.suit === suit))
@@ -353,7 +360,7 @@ export default function GameTable({
             {game.phase === 'playing' && (
               <button
                 className="button primary play-button"
-                aria-label="Play selected card"
+                aria-label={text('Play selected card')}
                 disabled={!playable || !chosen}
                 onClick={() => {
                   if (chosen) {
@@ -459,8 +466,10 @@ export default function GameTable({
           {!final && (
             <p className="quiet-note">
               {snapshot.members.some((member) => !member.connected)
-                ? 'All four players must reconnect before the next round.'
-                : 'The host can start the next round when all four players are connected.'}
+                ? text('All four players must reconnect before the next round.')
+                : text(
+                    'The host can start the next round when all four players are connected.',
+                  )}
             </p>
           )}
         </section>
@@ -486,8 +495,9 @@ export default function GameTable({
         <details className="table-details">
           <summary>{text('Table history & reports')}</summary>
           <p className="quiet-note">
-            Report an opponent’s play after its trick finishes and before the
-            round ends.
+            {text(
+              'Report an opponent’s play after its trick finishes and before the round ends.',
+            )}
           </p>
           {game.phase === 'playing' &&
             game.trump &&

@@ -14,10 +14,12 @@ export function ModerationPanel({ csrf }: { csrf: string }) {
       const next = await authApi.moderation(action, csrf);
       setReports(next.reports);
       setStatus(
-        next.reports.length === 0 ? 'No recent reports.' : 'Reports updated.',
+        next.reports.length === 0
+          ? text('No recent reports.')
+          : text('Reports updated.'),
       );
     } catch {
-      setStatus('Could not update reports. Refresh and try again.');
+      setStatus(text('Could not update reports. Refresh and try again.'));
     } finally {
       setBusy(false);
     }
@@ -31,42 +33,63 @@ export function ModerationPanel({ csrf }: { csrf: string }) {
         disabled={busy}
         onClick={() => void load({ action: 'list' })}
       >
-        Load recent reports
+        {text('Load recent reports')}
       </button>
       <p role="status">{status}</p>
       <ul>
         {reports.map((report) => (
           <li key={report.id}>
             <p>
-              {report.reason} · {report.status} ·{' '}
-              {new Date(report.createdAt).toLocaleDateString()}
+              {report.archived
+                ? text('Active restriction')
+                : `${report.reason} · ${report.status}`}{' '}
+              · {new Date(report.createdAt).toLocaleDateString()}
             </p>
-            <blockquote>{report.evidence}</blockquote>
+            {report.evidence && <blockquote>{report.evidence}</blockquote>}
             {report.note && <p>{report.note}</p>}
-            {(['reviewed', 'dismissed', 'open'] as const)
-              .filter((next) => next !== report.status)
-              .map((next) => (
-                <button
-                  key={next}
-                  type="button"
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() =>
-                    void load({
-                      action: 'review',
-                      id: report.id,
-                      revision: report.revision,
-                      status: next,
-                    })
-                  }
-                >
-                  {next === 'open'
-                    ? 'Reopen report'
-                    : next === 'reviewed'
-                      ? 'Mark reviewed'
-                      : 'Dismiss report'}
-                </button>
-              ))}
+            <button
+              type="button"
+              className="text-button"
+              disabled={busy}
+              onClick={() =>
+                void load({
+                  action: 'restrict',
+                  id: report.id,
+                  restricted: !report.communicationRestricted,
+                })
+              }
+            >
+              {text(
+                report.communicationRestricted
+                  ? 'Restore communication'
+                  : 'Restrict communication',
+              )}
+            </button>
+            {!report.archived &&
+              (['reviewed', 'dismissed', 'open'] as const)
+                .filter((next) => next !== report.status)
+                .map((next) => (
+                  <button
+                    key={next}
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() =>
+                      void load({
+                        action: 'review',
+                        id: report.id,
+                        revision: report.revision,
+                        status: next,
+                      })
+                    }
+                  >
+                    {next === 'open'
+                      ? text('Reopen report')
+                      : next === 'reviewed'
+                        ? text('Mark reviewed')
+                        : text('Dismiss report')}
+                  </button>
+                ))}
           </li>
         ))}
       </ul>

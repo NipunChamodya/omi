@@ -124,6 +124,15 @@ export function buildApp(options: AppOptions = {}) {
       secureCookies: config.NODE_ENV === 'production',
     });
   });
+  app.get('/ready', async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    try {
+      repository.checkReadiness?.();
+      return { status: 'ready' };
+    } catch {
+      return reply.code(503).send({ status: 'unavailable' });
+    }
+  });
   app.get('/health', async (): Promise<HealthResponse> => ({
     status: 'ok',
     service: 'omi-server',
