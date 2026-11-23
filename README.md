@@ -328,7 +328,7 @@ The temporary deployment was stopped after verification. These results describe 
 
 ## Current readiness
 
-OMI V2 adds physical kata kola settlement, terminal outcomes, manual Baldu and cancellation voting, connected-seat recovery, casual bots, and human-only ranked tables. Started matches are stored in the existing SQLite database. See the [current V2 development status](docs/V2_DEVELOPMENT_STATUS.md) for the implemented behaviors, rule gates, limitations, and deployment scope. The previous readiness reports are historical.
+V2.2 finalizes Sepuru and Kapothi settlement, automatic no-trump redeals, and ranked double forfeits. Elo is available as an opt-in local trial. See the [current V2.2 status](docs/V2_DEVELOPMENT_STATUS.md) and [Azure deployment design](docs/AZURE_DEPLOYMENT.md).
 
 ## Repository map
 

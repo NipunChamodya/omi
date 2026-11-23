@@ -5,12 +5,19 @@ import type { PrivateRound } from './round.js';
 
 export type TransferReason =
   'selector-win' | 'selector-loss' | 'kapothi' | 'manual-accusation';
-export type MatchResult = Readonly<{
-  reason: 'inventory_depleted' | 'loan_loss' | 'ranked_forfeit';
-  winner: Team;
-  loser: Team;
-  roundId: string;
-}>;
+export type MatchResult =
+  | Readonly<{
+      reason: 'inventory_depleted' | 'loan_loss' | 'ranked_forfeit';
+      winner: Team;
+      loser: Team;
+      roundId: string;
+    }>
+  | Readonly<{
+      reason: 'double_forfeit';
+      winner: null;
+      loser: null;
+      roundId: string;
+    }>;
 export type LedgerEntry =
   | Readonly<{
       kind: 'carry';
@@ -34,7 +41,6 @@ export type ScoreLedger = Readonly<{
   settledRounds: readonly string[];
   entries: readonly LedgerEntry[];
   final: MatchResult | null;
-  continuationBlocked: boolean;
 }>;
 export function createLedger(): ScoreLedger {
   return {
@@ -43,7 +49,6 @@ export function createLedger(): ScoreLedger {
     settledRounds: [],
     entries: [],
     final: null,
-    continuationBlocked: false,
   };
 }
 
@@ -97,7 +102,6 @@ function settleTransfer(
 }
 
 export type Settlement =
-  | Readonly<{ status: 'unresolved'; reason: 'REPEATED_DRAW' }>
   | Readonly<{ status: 'already-settled'; ledger: ScoreLedger }>
   | Readonly<{
       status: 'settled';
@@ -117,11 +121,9 @@ export function settleRound(
   if (ledger.settledRounds.includes(round.id))
     return { status: 'already-settled', ledger };
   requireRule(!ledger.final, 'MATCH_COMPLETE');
-  requireRule(!ledger.continuationBlocked, 'UNRESOLVED_RULE');
   const counts = countTricks(round);
   const id = `round:${round.id}`;
   if (counts[0] === 4) {
-    if (ledger.carry) return { status: 'unresolved', reason: 'REPEATED_DRAW' };
     return {
       status: 'settled',
       result: 'seporu',
@@ -153,14 +155,12 @@ export function settleRound(
     amount,
     reason,
   );
-  const kapothiAfterSepuru = kapothi && ledger.carry === 1;
   return {
     status: 'settled',
     result: reason,
     ledger: {
       ...settled,
-      carry: kapothiAfterSepuru ? 1 : 0,
-      continuationBlocked: kapothiAfterSepuru && !settled.final,
+      carry: 0,
     },
   };
 }

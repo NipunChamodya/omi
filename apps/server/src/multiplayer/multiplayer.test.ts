@@ -1051,116 +1051,98 @@ describe('private gameplay deception over the transport', () => {
 });
 
 describe('approved rule integration', () => {
-  it('cancels and fully restarts a verified no-trump round after two eligible voters approve', async () => {
-    const deck = createDeck();
-    const hands = [
-      deck.slice(0, 8),
-      deck.slice(8, 16),
-      deck.slice(24, 32),
-      deck.slice(16, 24),
-    ];
-    const cut = [
-      ...hands.flatMap((hand) => hand.slice(0, 4)),
-      ...hands.flatMap((hand) => hand.slice(4)),
-    ];
-    const target = [...cut.slice(16), ...cut.slice(0, 16)];
-    const working = [...deck];
-    const entropyValues = [3]; // Initial dealer; then exact Fisher–Yates swaps for the fixture.
-    for (let i = 31; i > 0; i--) {
-      const j = working.findIndex(
-        (held) => cardId(held) === cardId(target[i]!),
+  it.each([false, true])(
+    'allows automatic redeal only before the first play (played %s)',
+    async (played) => {
+      const deck = createDeck();
+      const hands = [
+        deck.slice(0, 8),
+        deck.slice(8, 16),
+        deck.slice(24, 32),
+        deck.slice(16, 24),
+      ];
+      const cut = [
+        ...hands.flatMap((hand) => hand.slice(0, 4)),
+        ...hands.flatMap((hand) => hand.slice(4)),
+      ];
+      const target = [...cut.slice(16), ...cut.slice(0, 16)];
+      const working = [...deck];
+      const entropyValues = [3]; // Initial dealer; then exact Fisher–Yates swaps for the fixture.
+      for (let i = 31; i > 0; i--) {
+        const j = working.findIndex(
+          (held) => cardId(held) === cardId(target[i]!),
+        );
+        expect(j).toBeLessThanOrEqual(i);
+        entropyValues.push(j);
+        [working[i], working[j]] = [working[j]!, working[i]!];
+      }
+      await reset({
+        multiplayer: {
+          entropy: (bound) => entropyValues.shift() ?? bound - 1,
+        },
+      });
+      const { guests, clients, room } = await table();
+      const initial = await snap(guests[0]!, room.roomId);
+      expect(initial.game!.dealer).toBe(3);
+      const dealt = await clients[2]!.send(
+        'cut',
+        { offset: 16 },
+        initial.version,
       );
-      expect(j).toBeLessThanOrEqual(i);
-      entropyValues.push(j);
-      [working[i], working[j]] = [working[j]!, working[i]!];
-    }
-    await reset({
-      multiplayer: {
-        entropy: (bound) => entropyValues.shift() ?? bound - 1,
-      },
-    });
-    const { guests, clients, room } = await table();
-    const initial = await snap(guests[0]!, room.roomId);
-    expect(initial.game!.dealer).toBe(3);
-    const dealt = await clients[2]!.send(
-      'cut',
-      { offset: 16 },
-      initial.version,
-    );
-    expect(dealt.reply.type).toBe('ack');
-    const trump = await clients[0]!.send(
-      'trump',
-      { suit: 'spades' },
-      dealt.reply.version!,
-    );
-    expect(trump.reply.type).toBe('ack');
-    const report = await clients[1]!.send(
-      'report-no-trump',
-      {},
-      trump.reply.version!,
-    );
-    expect(report.reply.type).toBe('ack');
-    expect(
-      (
-        await clients[1]!.send(
-          'vote-cancellation',
-          { approve: true },
-          report.reply.version!,
-        )
-      ).reply,
-    ).toMatchObject({ type: 'error', code: 'VOTE_NOT_ALLOWED' });
-    const firstVote = await clients[0]!.send(
-      'vote-cancellation',
-      { approve: true },
-      report.reply.version!,
-    );
-    expect(firstVote.reply.type).toBe('ack');
-    expect(
-      (
-        await clients[0]!.send(
-          'vote-cancellation',
-          { approve: true },
-          firstVote.reply.version!,
-        )
-      ).reply,
-    ).toMatchObject({ type: 'error', code: 'VOTE_NOT_ALLOWED' });
-    expect(
-      (
-        await clients[2]!.send(
-          'vote-cancellation',
-          { approve: true },
-          firstVote.reply.version!,
-        )
-      ).reply.type,
-    ).toBe('ack');
-    const cancelled = await snap(guests[1]!, room.roomId);
-    expect(cancelled.game!.phase).toBe('cancelled');
-    expect(cancelled.score.totals).toEqual([10, 10]);
-    expect(
-      (
-        await clients[0]!.send(
+      expect(dealt.reply.type).toBe('ack');
+      const trump = await clients[0]!.send(
+        'trump',
+        { suit: 'spades' },
+        dealt.reply.version!,
+      );
+      expect(trump.reply.type).toBe('ack');
+      if (played) {
+        const card = await clients[0]!.send(
           'play',
           { card: { suit: 'spades', rank: 'A' } },
-          cancelled.version,
-        )
-      ).reply,
-    ).toMatchObject({ type: 'error', code: 'INVALID_GAME_ACTION' });
-    const restart = await clients[0]!.send('restart', {}, cancelled.version);
-    expect(restart.reply.type).toBe('ack');
-    const restarted = await snap(guests[0]!, room.roomId);
-    expect(restarted.game!.id).not.toBe(initial.game!.id);
-    expect(restarted.game!.phase).toBe('awaiting-cut');
-    expect(restarted.game!.dealer).toBe(3);
-    expect(restarted.game!.selector).toBe(0);
-    expect(restarted.game!.handCounts).toEqual([0, 0, 0, 0]);
-    expect(restarted.game!.tricks).toEqual([]);
-    expect(restarted.score).toEqual(cancelled.score);
-    noPrivateFields(restarted);
-    expect(
-      (await clients[2]!.send('cut', { offset: 8 }, restarted.version)).reply
-        .type,
-    ).toBe('ack');
-  });
+          trump.reply.version!,
+        );
+        expect(card.reply.type).toBe('ack');
+        const late = await clients[1]!.send(
+          'report-no-trump',
+          {},
+          card.reply.version!,
+        );
+        expect(late.reply).toMatchObject({ code: 'REPORT_REJECTED' });
+        expect((await snap(guests[0]!, room.roomId)).game!.id).toBe(
+          initial.game!.id,
+        );
+        return;
+      }
+      const report = await clients[1]!.send(
+        'report-no-trump',
+        {},
+        trump.reply.version!,
+      );
+      expect(report.reply.type).toBe('ack');
+      const replay = await clients[1]!.send(
+        'report-no-trump',
+        {},
+        trump.reply.version!,
+        { actionId: report.message.actionId },
+      );
+      expect(replay.reply).toMatchObject({ type: 'ack', duplicate: true });
+      const restarted = await snap(guests[0]!, room.roomId);
+      expect(restarted.game!.id).not.toBe(initial.game!.id);
+      expect(restarted.game!.phase).toBe('awaiting-cut');
+      expect(restarted.game!.dealer).toBe(3);
+      expect(restarted.game!.selector).toBe(0);
+      expect(restarted.game!.handCounts).toEqual([0, 0, 0, 0]);
+      expect(restarted.game!.tricks).toEqual([]);
+      expect(restarted.score.totals).toEqual([10, 10]);
+      expect(restarted.version).toBe(report.reply.version);
+      noPrivateFields(restarted);
+      expect(
+        (await clients[2]!.send('cut', { offset: 8 }, restarted.version)).reply
+          .type,
+      ).toBe('ack');
+    },
+  );
   it('preserves the score ledger into another round only with an explicit test dealer policy', async () => {
     await reset({
       multiplayer: {},

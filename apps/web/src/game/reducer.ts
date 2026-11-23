@@ -41,7 +41,6 @@ export function applyEvent(
         ? {
             ...next,
             score: event.score,
-            cancellationVote: null,
             game: { ...state.game, phase: 'complete', turn: null },
           }
         : null;
@@ -70,8 +69,6 @@ export function applyEvent(
           tricks: [],
         },
         result: null,
-        cancellationVote: null,
-        cancellationDecided: false,
       };
     case 'cards-dealt':
       if (!state.game) return null;
@@ -119,17 +116,10 @@ export function applyEvent(
             ? { ...next.game, phase: 'complete', turn: null }
             : next.game,
       };
-    case 'cancellation-vote':
-      return {
-        ...next,
-        cancellationVote: event.vote,
-        cancellationDecided: event.rejected ?? false,
-      };
     case 'round-cancelled':
       return state.game
         ? {
             ...next,
-            cancellationVote: null,
             game: { ...state.game, phase: 'cancelled', turn: null },
           }
         : null;

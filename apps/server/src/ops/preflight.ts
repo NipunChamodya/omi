@@ -77,7 +77,7 @@ export function deploymentChecks(config: ReturnType<typeof parseConfig>) {
     );
     add(
       'database-integrity-and-migrations',
-      verifyBackup(config.DATABASE_PATH).migrations >= 3,
+      verifyBackup(config.DATABASE_PATH).migrations >= 4,
     );
   } catch {
     add('database-integrity-and-migrations', false);

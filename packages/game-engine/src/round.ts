@@ -219,11 +219,13 @@ export function canRequestCancellation(
   return (
     round.phase === 'playing' &&
     round.trump !== null &&
+    round.evidence.length === 0 &&
+    round.hands[requester].length === 8 &&
     !round.hands[requester].some((card) => card.suit === round.trump)
   );
 }
 
-/** Applies an approved vote. The room service authenticates voters and verifies the tally. */
+/** Cancels an eligible, unplayed hand without settling it. */
 export function cancelRound(
   round: PrivateRound,
   requester: Seat,

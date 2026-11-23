@@ -22,6 +22,7 @@ export function registerVoice(
   };
   const authorize = (roomId: string, identity: Identity) => {
     const { room } = rooms.authorize(roomId, identity);
+    if (room.ranked) throw new RoomError('RANKED_COMMUNICATION_DISABLED', 403);
     const peer = room.peers.get(identity.actorId);
     if (
       !peer ||

@@ -69,11 +69,11 @@ export class SqliteAccounts implements AccountRepository {
   readonly friends: Friends;
   readonly guests: GuestSessionStorage;
   private readonly db;
-  constructor(path: string) {
+  constructor(path: string, experimentalElo = false) {
     if (path !== ':memory:')
       mkdirSync(dirname(resolve(path)), { recursive: true, mode: 0o700 });
     this.sqlite = new Database(path);
-    this.matchStorage = new SqliteMatchStorage(this.sqlite);
+    this.matchStorage = new SqliteMatchStorage(this.sqlite, experimentalElo);
     this.friends = new Friends(this.sqlite);
     this.guests = {
       loadActive: (now, limit) => {

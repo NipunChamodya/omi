@@ -2,7 +2,6 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
 import type {
   Ack,
-  CancellationVote,
   ClientCommand,
   Failure,
   RoomDescriptor,
@@ -77,8 +76,6 @@ export type Room = {
   ledger: ScoreLedger;
   result: RoundResult;
   ranked?: boolean;
-  cancellationVote?: CancellationVote | null;
-  cancellationDecided?: boolean;
   queue: SerialQueue;
   receipts: Map<string, Receipt>;
   lastActive: number;
@@ -141,6 +138,7 @@ export class RoomService {
     private readonly entropy: RandomInt = randomInt,
     private readonly storage?: MatchStorage,
   ) {
+    const recoveryDeadline = this.now() + reconnectGraceMs;
     for (const state of storage?.loadActive(limits.maxRooms) ?? []) {
       if (
         new Set(state.members.map((member) => member.actorId)).size !== 4 ||
@@ -158,7 +156,7 @@ export class RoomService {
             : {
                 ...member,
                 disconnectDeadline:
-                  member.disconnectDeadline ?? this.now() + reconnectGraceMs,
+                  member.disconnectDeadline ?? recoveryDeadline,
               },
         ),
         peers: new Map(),
@@ -416,18 +414,20 @@ export class RoomService {
       if (peer.socket.readyState !== WebSocket.OPEN) return;
       const old = room.peers.get(peer.identity.actorId);
       this.expireDisconnects(room);
-      room.peers.set(peer.identity.actorId, peer);
       if (old) {
+        room.peers.set(peer.identity.actorId, peer);
         this.onPeerDisconnect(roomId, peer.identity.actorId);
         old.socket.close(4001, 'Replaced by reconnect');
       } else {
-        const member = room.members.find(
+        const members = room.members.map((item) => ({ ...item }));
+        const member = members.find(
           (item) => item.actorId === peer.identity.actorId,
         )!;
         delete member.disconnectDeadline;
         member.bot = false;
+        const peers = new Map(room.peers).set(peer.identity.actorId, peer);
         this.advance(
-          room,
+          { ...room, members, peers },
           () => ({
             kind: 'presence',
             seat: member.seat,
@@ -436,6 +436,7 @@ export class RoomService {
             disconnectDeadline: null,
           }),
           peer,
+          room,
         );
       }
       room.lastActive = this.now();
@@ -449,6 +450,7 @@ export class RoomService {
     const room = this.rooms.get(roomId);
     if (!room || room.peers.get(peer.identity.actorId) !== peer)
       return Promise.resolve();
+    const deadline = this.now() + reconnectGraceMs;
     return room.queue.run(() => {
       if (room.peers.get(peer.identity.actorId) !== peer) return;
       this.onPeerDisconnect(roomId, peer.identity.actorId);
@@ -457,7 +459,7 @@ export class RoomService {
         (item) => item.actorId === peer.identity.actorId,
       )!;
       if (room.round && !room.ledger.final)
-        member.disconnectDeadline = this.now() + reconnectGraceMs;
+        member.disconnectDeadline = deadline;
       this.advance(room, () => ({
         kind: 'presence',
         seat: member.seat,
@@ -599,8 +601,6 @@ export class RoomService {
     }
     const previous = room.round;
     if (!previous) throw new RoomError('ROUND_NOT_STARTED');
-    if (room.cancellationVote && command.type !== 'vote-cancellation')
-      throw new RoomError('CANCELLATION_VOTE_ACTIVE');
     if (command.type === 'cut' || command.type === 'trump') {
       const round =
         command.type === 'cut'
@@ -628,8 +628,7 @@ export class RoomService {
             outcome: settlement.result,
             tricks: countTricks(round),
           };
-        } else if (settlement.status === 'unresolved')
-          result = { status: 'unresolved', reason: settlement.reason };
+        }
       }
       room.round = round;
       room.ledger = ledger;
@@ -686,43 +685,20 @@ export class RoomService {
       });
     }
     if (command.type === 'report-no-trump') {
-      if (room.cancellationDecided) throw new RoomError('UNRESOLVED_RULE');
       if (!canRequestCancellation(previous, member.seat))
         throw new RoomError('REPORT_REJECTED');
-      const vote = { requester: member.seat, votes: [] };
-      room.cancellationVote = vote;
-      return () => ({ kind: 'cancellation-vote', vote });
-    }
-    if (command.type === 'vote-cancellation') {
-      const current = room.cancellationVote;
-      if (
-        !current ||
-        current.requester === member.seat ||
-        current.votes.some((vote) => vote.seat === member.seat)
-      )
-        throw new RoomError('VOTE_NOT_ALLOWED');
-      const votes = [
-        ...current.votes,
-        { seat: member.seat, approve: command.payload.approve },
-      ];
-      const approvals = votes.filter((vote) => vote.approve).length;
-      if (approvals >= 2) {
-        room.cancellationVote = null;
-        room.round = cancelRound(previous, current.requester);
-        return () => ({ kind: 'round-cancelled', reporter: current.requester });
-      }
-      if (votes.length - approvals >= 2) {
-        room.cancellationVote = null;
-        room.cancellationDecided = true;
-        return () => ({
-          kind: 'cancellation-vote',
-          vote: null,
-          rejected: true,
-        });
-      }
-      const vote = { ...current, votes };
-      room.cancellationVote = vote;
-      return () => ({ kind: 'cancellation-vote', vote });
+      const round = restartCancelledRound(
+        cancelRound(previous, member.seat),
+        randomUUID(),
+        shuffleDeck(createDeck(), this.entropy),
+      );
+      room.round = round;
+      return () => ({
+        kind: 'round-started',
+        round: roundHeader(round),
+        handCounts: handCounts(round),
+        cancelledBy: member.seat,
+      });
     }
     if (command.type === 'restart') {
       if (member.actorId !== room.hostId)
@@ -738,7 +714,6 @@ export class RoomService {
       );
       room.round = round;
       room.result = null;
-      room.cancellationDecided = false;
       return () => ({
         kind: 'round-started',
         round: roundHeader(round),
@@ -750,10 +725,7 @@ export class RoomService {
         throw new RoomError('HOST_REQUIRED', 403);
       if (previous.phase !== 'complete')
         throw new RoomError('ROUND_NOT_COMPLETE');
-      if (room.result?.status !== 'settled')
-        throw new RoomError('UNRESOLVED_RULE');
-      if (room.ledger.continuationBlocked)
-        throw new RoomError('UNRESOLVED_RULE');
+      if (!room.result) throw new RoomError('ROUND_NOT_SETTLED');
       const dealer = nextSeat(previous.dealer);
       if (!this.connected(room))
         throw new RoomError('FOUR_READY_PLAYERS_REQUIRED');
@@ -764,7 +736,6 @@ export class RoomService {
       );
       room.round = round;
       room.result = null;
-      room.cancellationDecided = false;
       return () => ({
         kind: 'round-started',
         round: roundHeader(round),
@@ -827,38 +798,38 @@ export class RoomService {
   }
   private expireDisconnects(room: Room): void {
     if (!room.round || room.ledger.final) return;
+    const now = this.now();
     const expired = room.members
       .filter(
         (member) =>
           !room.peers.has(member.actorId) &&
           member.disconnectDeadline !== undefined &&
-          member.disconnectDeadline <= this.now(),
+          member.disconnectDeadline <= now,
       )
       .sort((a, b) => a.disconnectDeadline! - b.disconnectDeadline!);
     if (room.ranked && expired[0]) {
       const loser = teamOf(expired[0].seat);
-      if (
-        expired.some(
-          (member) =>
-            member.disconnectDeadline === expired[0]!.disconnectDeadline &&
-            teamOf(member.seat) !== loser,
-        )
-      )
-        return;
+      const simultaneous = expired.some(
+        (member) =>
+          member.disconnectDeadline === expired[0]!.disconnectDeadline &&
+          teamOf(member.seat) !== loser,
+      );
+      const roundId = room.round.id;
       const ledger: ScoreLedger = {
         ...room.ledger,
-        final: {
-          reason: 'ranked_forfeit',
-          winner: otherTeam(loser),
-          loser,
-          roundId: room.round.id,
-        },
+        final: simultaneous
+          ? { reason: 'double_forfeit', winner: null, loser: null, roundId }
+          : {
+              reason: 'ranked_forfeit',
+              winner: otherTeam(loser),
+              loser,
+              roundId,
+            },
       };
       const draft = {
         ...room,
         ledger,
         round: { ...room.round, phase: 'complete' as const, turn: null },
-        cancellationVote: null,
       };
       this.advance(
         draft,
@@ -910,7 +881,6 @@ export class RoomService {
             !round ||
             room.ledger.final ||
             room.ranked ||
-            room.cancellationVote ||
             room.peers.size === 0
           )
             return;

@@ -70,7 +70,8 @@ export function buildApp(options: AppOptions = {}) {
   if (config.NODE_ENV === 'production' && options.logger !== false)
     registerRuntimeMonitoring(app);
   const repository =
-    options.accounts?.repository ?? new SqliteAccounts(config.DATABASE_PATH);
+    options.accounts?.repository ??
+    new SqliteAccounts(config.DATABASE_PATH, config.EXPERIMENTAL_ELO);
   const provider =
     options.accounts?.provider !== undefined
       ? options.accounts.provider

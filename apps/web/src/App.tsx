@@ -6,6 +6,7 @@ import { authApi, avatarSource } from './auth/api';
 import { ThemeControls } from './themes/ThemeControls';
 import { PwaControls } from './pwa/PwaControls';
 import { Brand, Avatar } from './components/Cards';
+import { claimOpeningSponsor } from './components/SponsorPlacement';
 import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
 import { SoundSettings } from './audio/SoundSettings';
@@ -145,6 +146,34 @@ export function App({ client: supplied }: { client?: GameClient }) {
       client.stop();
     };
   }, [client]);
+  const [opening, setOpening] = useState(
+    () =>
+      state.view === 'home' && !state.saved && window.location.search === '',
+  );
+  const sponsorClaimed = useRef(false);
+  const sponsorEligible =
+    opening &&
+    state.view === 'home' &&
+    !state.saved &&
+    !state.snapshot &&
+    !state.busy &&
+    !authLoading &&
+    !!auth &&
+    !auth.room;
+  const [showSponsor, setShowSponsor] = useState(false);
+  useEffect(
+    () =>
+      client.store.subscribe(({ view, busy, saved, snapshot }) => {
+        if (view !== 'home' || busy || saved || snapshot) setOpening(false);
+      }),
+    [client],
+  );
+  useEffect(() => {
+    if (sponsorEligible && !sponsorClaimed.current) {
+      sponsorClaimed.current = true;
+      setShowSponsor(claimOpeningSponsor());
+    }
+  }, [sponsorEligible]);
   const online = state.connection === 'online';
   return (
     <div
@@ -310,6 +339,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
             state={state}
             session={auth}
             authLoading={authLoading}
+            showSponsor={sponsorEligible && showSponsor}
             onSignIn={() => void signIn()}
           />
         )}
@@ -339,7 +369,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
         <PwaControls />
         <ThemeControls />
         <SoundSettings />
-        {state.view === 'room' && state.snapshot && (
+        {state.view === 'room' && state.snapshot && !state.snapshot.ranked && (
           <Suspense fallback={<p role="status">Loading room controls…</p>}>
             <RoomControls
               key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}

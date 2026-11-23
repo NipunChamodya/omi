@@ -492,7 +492,6 @@ describe('confirmed scoring and unresolved combinations', () => {
       expect(result.ledger).toMatchObject({
         totals: remaining,
         final: { reason, winner: 0, loser: 1, roundId: round.id },
-        continuationBlocked: false,
         entries: [{ kind, amount: 3 }],
       });
       expect(settleRound(round, result.ledger).status).toBe('already-settled');
@@ -502,16 +501,17 @@ describe('confirmed scoring and unresolved combinations', () => {
       );
     },
   );
-  it('gates a repeated Sepuru and gates progression after settling Kapothi', () => {
+  it('retains one Sepuru across draws and clears it on Kapothi', () => {
     const ledger: ScoreLedger = freeze({ ...createLedger(), carry: 1 });
-    expect(settleRound(withTricks(4), ledger)).toEqual({
-      status: 'unresolved',
-      reason: 'REPEATED_DRAW',
+    expect(settleRound(withTricks(4), ledger)).toMatchObject({
+      status: 'settled',
+      result: 'seporu',
+      ledger: { totals: [10, 10], carry: 1 },
     });
     expect(settleRound(withTricks(8), ledger)).toMatchObject({
       status: 'settled',
       result: 'kapothi',
-      ledger: { totals: [13, 7], carry: 1, continuationBlocked: true },
+      ledger: { totals: [13, 7], carry: 0 },
     });
     expect(ledger).toEqual({ ...createLedger(), carry: 1 });
     expectCode(() => settleRound(ready(), ledger), 'ROUND_NOT_COMPLETE');
@@ -622,6 +622,8 @@ describe('no-trump eligibility and same-dealer redeal', () => {
     expect(canRequestCancellation(round, 0)).toBe(false);
     expect(canRequestCancellation(round, 1)).toBe(true);
     expect(canRequestCancellation(round, 3)).toBe(true);
+    const played = playCard(round, round.turn!, round.hands[round.turn!][0]!);
+    expect(canRequestCancellation(played, 3)).toBe(false);
     expect(
       canRequestCancellation(createRound('not-dealt', 0, createDeck()), 1),
     ).toBe(false);

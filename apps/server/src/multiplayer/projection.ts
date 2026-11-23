@@ -64,7 +64,6 @@ export function publicScore(ledger: ScoreLedger): Score {
     totals: [ledger.totals[0], ledger.totals[1]],
     carry: ledger.carry,
     final: ledger.final,
-    continuationBlocked: ledger.continuationBlocked,
   };
 }
 /** Explicit whitelist. Never spread a private engine object or ledger onto the wire. */
@@ -77,8 +76,6 @@ export function snapshot(
   const round = room.round;
   return {
     ranked: room.ranked ?? false,
-    cancellationVote: room.cancellationVote ?? null,
-    cancellationDecided: room.cancellationDecided ?? false,
     capabilities: { nextRound: nextRoundConfigured },
     type: 'snapshot',
     roomId: room.id,

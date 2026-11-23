@@ -48,3 +48,31 @@ test('extracts only an actual Quick Tunnel URL from connector output', () => {
   );
   assert.equal(quickUrl('https://malicious.example.com'), undefined);
 });
+
+test('Azure direct TLS reuses the API allowlist and ignores visitor forwarding headers', () => {
+  const directTls = {
+    certificate: '/etc/omi/fullchain.pem',
+    key: '/etc/omi/key.pem',
+  };
+  const output = renderConfig({
+    ...settings,
+    publicOrigin: 'https://play.example.com',
+    directTls,
+  });
+  assert.match(output, /listen 443 ssl;/);
+  assert.match(output, /ssl_reject_handshake on;/);
+  assert.match(output, /ssl_certificate_key "\/etc\/omi\/key.pem"/);
+  assert.match(output, /proxy_set_header X-Forwarded-For \$remote_addr/);
+  assert.match(output, /proxy_pass http:\/\/127\.0\.0\.1:3000/);
+  assert.doesNotMatch(output, /real_ip_header|127\.0\.0\.1:8080|@[A-Z_]+@/);
+  assert.throws(() =>
+    renderConfig({ ...settings, directTls: { ...directTls, key: '/bad;key' } }),
+  );
+  assert.throws(() =>
+    renderConfig({
+      ...settings,
+      publicOrigin: 'https://play.example.com:444',
+      directTls,
+    }),
+  );
+});

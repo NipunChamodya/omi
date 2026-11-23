@@ -306,6 +306,7 @@ async function round() {
   return clients;
 }
 const started = performance.now();
+const cpuStarted = process.cpuUsage();
 try {
   base = await app.listen({ host: '127.0.0.1', port: 0 });
   const groups = await Promise.all(
@@ -332,6 +333,8 @@ try {
   }
   latency.sort((a, b) => a - b);
   const p95 = latency[Math.floor(latency.length * 0.95)]!;
+  const cpu = process.cpuUsage(cpuStarted);
+  const elapsed = performance.now() - started;
   peakRss = Math.max(peakRss, process.memoryUsage().rss);
   assert(p95 < 250, 'Local action p95 exceeded 250ms');
   assert(
@@ -359,6 +362,12 @@ try {
           latency[Math.floor(latency.length * 0.5)]!.toFixed(2),
         ),
         actionP95Ms: Number(p95.toFixed(2)),
+        actionP99Ms: Number(
+          latency[Math.floor(latency.length * 0.99)]!.toFixed(2),
+        ),
+        averageCombinedCpuPercent: Number(
+          ((cpu.user + cpu.system) / (elapsed * 10)).toFixed(1),
+        ),
         eventLoopP99Ms: Number((loop.percentile(99) / 1e6).toFixed(2)),
         peakCombinedRssMiB: Number((peakRss / 1024 / 1024).toFixed(1)),
       },

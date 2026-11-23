@@ -108,6 +108,14 @@ it('matches exactly four authenticated people atomically and recovers an assigne
     expect(snapshot.you.actorId).toBe(person.id);
     expect(snapshot.game).toBeNull();
   }
+  const voice = await app.inject({
+    method: 'POST',
+    url: `/rooms/${first.room.roomId}/voice/config`,
+    headers: { origin, cookie: people[0]!.cookie },
+    payload: {},
+  });
+  expect(voice.statusCode).toBe(403);
+  expect(voice.json().code).toBe('RANKED_COMMUNICATION_DISABLED');
   const resumed = await connect(people[0]!.cookie);
   await poll(() => resumed.messages.some((m) => m.type === 'matched'));
   expect(resumed.messages.find((m) => m.type === 'matched')).toEqual(first);

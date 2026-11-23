@@ -34,11 +34,6 @@ export const commandSchema = z.discriminatedUnion('type', [
   ),
   z.strictObject({
     ...envelope,
-    type: z.literal('vote-cancellation'),
-    payload: z.strictObject({ approve: z.boolean() }),
-  }),
-  z.strictObject({
-    ...envelope,
     type: z.literal('cut'),
     payload: z.strictObject({ offset: z.number().int().min(1).max(31) }),
   }),

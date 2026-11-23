@@ -116,10 +116,9 @@ export default function GameTable({
       setSelected(null);
   }, [game.hand, selected]);
   const yours = game.turn === snapshot.you.seat;
-  const vote = snapshot.cancellationVote;
   const final = snapshot.score.final;
   const playable =
-    enabled && !pending && !vote && !final && yours && game.phase === 'playing';
+    enabled && !pending && !final && yours && game.phase === 'playing';
   const play = (card: Card) => {
     if (!playable || submitted.current || client.store.getState().pending)
       return;
@@ -241,25 +240,25 @@ export default function GameTable({
         data-your-turn={yours && game.phase === 'playing'}
         role="status"
       >
+        {live?.event.kind === 'round-started' &&
+          live.event.cancelledBy !== undefined && <>No trump. Same dealer. </>}
         {!enabled
           ? 'Reconnecting to your table…'
-          : vote
-            ? 'Play paused for a redeal vote.'
-            : game.phase === 'awaiting-cut'
-              ? `${name(cutter)} is cutting the deck.`
-              : game.phase === 'awaiting-trump'
-                ? yours
-                  ? 'Choose your trump suit.'
-                  : `${name(game.selector)} is choosing trump.`
-                : game.phase === 'complete'
-                  ? 'Eight tricks. One good game.'
-                  : game.phase === 'cancelled'
-                    ? 'This round was cancelled.'
-                    : yours
-                      ? game.trick.length
-                        ? 'Your turn. Choose a card.'
-                        : 'Your lead. Choose a card.'
-                      : `Waiting for ${name(game.turn)}…`}
+          : game.phase === 'awaiting-cut'
+            ? `${name(cutter)} is cutting the deck.`
+            : game.phase === 'awaiting-trump'
+              ? yours
+                ? 'Choose your trump suit.'
+                : `${name(game.selector)} is choosing trump.`
+              : game.phase === 'complete'
+                ? 'Eight tricks. One good game.'
+                : game.phase === 'cancelled'
+                  ? 'This round was cancelled.'
+                  : yours
+                    ? game.trick.length
+                      ? 'Your turn. Choose a card.'
+                      : 'Your lead. Choose a card.'
+                    : `Waiting for ${name(game.turn)}…`}
       </p>
       {game.phase === 'awaiting-cut' && cutter === snapshot.you.seat && (
         <section className="action-panel" aria-labelledby="cut-title">
@@ -315,7 +314,6 @@ export default function GameTable({
           </section>
         )}
       {game.hand.length > 0 &&
-        !vote &&
         game.phase !== 'complete' &&
         game.phase !== 'cancelled' && (
           <section className="hand-panel" aria-label="Your hand">
@@ -373,44 +371,6 @@ export default function GameTable({
             )}
           </section>
         )}
-      {vote && (
-        <section className="result-panel" aria-labelledby="vote-title">
-          <h2 id="vote-title">Vote to redeal · අත පොලේ ගහන්න</h2>
-          <p role="status">
-            {name(vote.requester)} requested a redeal.{' '}
-            {vote.votes.filter((entry) => entry.approve).length} of 2 approvals.
-          </p>
-          {vote.requester !== snapshot.you.seat &&
-            !vote.votes.some((entry) => entry.seat === snapshot.you.seat) && (
-              <div className="result-scores">
-                <button
-                  className="button primary"
-                  disabled={!enabled || pending}
-                  onClick={() =>
-                    client.act({
-                      type: 'vote-cancellation',
-                      payload: { approve: true },
-                    })
-                  }
-                >
-                  Approve
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={!enabled || pending}
-                  onClick={() =>
-                    client.act({
-                      type: 'vote-cancellation',
-                      payload: { approve: false },
-                    })
-                  }
-                >
-                  Keep playing
-                </button>
-              </div>
-            )}
-        </section>
-      )}
       {game.phase === 'complete' && (
         <section
           className={`result-panel ${final?.reason === 'loan_loss' && live ? 'loan-loss' : ''}`}
@@ -418,11 +378,13 @@ export default function GameTable({
         >
           <p className="eyebrow">BACK AROUND THE TABLE</p>
           <h2 id="result-title">
-            {final
-              ? final.winner === snapshot.you.team
-                ? 'Your team won!'
-                : 'The other team won!'
-              : 'Round complete.'}
+            {final?.reason === 'double_forfeit'
+              ? 'Both teams forfeited'
+              : final
+                ? final.winner === snapshot.you.team
+                  ? 'Your team won!'
+                  : 'The other team won!'
+                : 'Round complete.'}
           </h2>
           <p>
             {final?.reason === 'loan_loss' ? (
@@ -432,8 +394,8 @@ export default function GameTable({
               </>
             ) : final?.reason === 'ranked_forfeit' ? (
               'A ranked player’s reconnection period expired.'
-            ) : snapshot.result?.status === 'unresolved' ? (
-              'This scoring combination needs rule confirmation. Your score is unchanged.'
+            ) : final?.reason === 'double_forfeit' ? (
+              'Players on both teams reached the reconnection deadline together.'
             ) : snapshot.result?.outcome === 'seporu' ? (
               'සෙපෝරු · Four tricks each. Sepuru applies to the next settlement.'
             ) : snapshot.result?.outcome === 'kapothi' ? (
@@ -463,8 +425,6 @@ export default function GameTable({
               disabled={
                 !enabled ||
                 pending ||
-                snapshot.result?.status === 'unresolved' ||
-                snapshot.score.continuationBlocked ||
                 snapshot.capabilities?.nextRound === false ||
                 snapshot.members.some((member) => !member.connected)
               }
@@ -483,13 +443,9 @@ export default function GameTable({
           )}
           {!final && (
             <p className="quiet-note">
-              {snapshot.score.continuationBlocked
-                ? 'Kapothi was settled. The next deal awaits clarification of the pending Sepuru.'
-                : snapshot.result?.status === 'unresolved'
-                  ? 'A second consecutive Sepuru awaits a ruling.'
-                  : snapshot.members.some((member) => !member.connected)
-                    ? 'All four players must reconnect before the next round.'
-                    : 'The host can start the next round when all four players are connected.'}
+              {snapshot.members.some((member) => !member.connected)
+                ? 'All four players must reconnect before the next round.'
+                : 'The host can start the next round when all four players are connected.'}
             </p>
           )}
         </section>
@@ -519,9 +475,10 @@ export default function GameTable({
             round ends.
           </p>
           {game.phase === 'playing' &&
-            !vote &&
-            !snapshot.cancellationDecided &&
             game.trump &&
+            game.hand.length === 8 &&
+            !game.trick.length &&
+            !game.tricks.length &&
             game.hand.every((card) => card.suit !== game.trump) && (
               <button
                 className="button secondary"
@@ -530,7 +487,7 @@ export default function GameTable({
                   client.act({ type: 'report-no-trump', payload: {} })
                 }
               >
-                Report no trump <span lang="si">අත පොලේ ගහන්න</span>
+                Redeal without trump <span lang="si">අත පොලේ ගහන්න</span>
               </button>
             )}
           {[
@@ -553,7 +510,6 @@ export default function GameTable({
                     </strong>
                   </span>
                   {game.phase === 'playing' &&
-                    !vote &&
                     index < game.tricks.length &&
                     play.seat % 2 !== snapshot.you.team && (
                       <button

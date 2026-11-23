@@ -1,5 +1,8 @@
+import { Ratings } from './ratings.js';
 import { createHash } from 'node:crypto';
 import type { MatchStatistics } from '@omi/shared';
+import { settleRound, countTricks } from '@omi/game-engine';
+import type { ScoreLedger } from '@omi/game-engine';
 import type Database from 'better-sqlite3';
 import type { Receipt, Room } from './rooms.js';
 
@@ -14,8 +17,6 @@ export type StoredMatch = Pick<
   | 'ledger'
   | 'result'
   | 'lastActive'
-  | 'cancellationVote'
-  | 'cancellationDecided'
   | 'ranked'
 > & { receipts: readonly (readonly [string, Receipt])[] };
 
@@ -37,8 +38,6 @@ export function storedMatch(room: Room): StoredMatch {
     ledger,
     result,
     lastActive,
-    cancellationVote,
-    cancellationDecided,
     ranked,
   } = room;
   return {
@@ -51,8 +50,6 @@ export function storedMatch(room: Room): StoredMatch {
     ledger,
     result,
     lastActive,
-    cancellationVote: cancellationVote ?? null,
-    cancellationDecided: cancellationDecided ?? false,
     ranked: ranked ?? false,
     receipts: [...room.receipts],
   };
@@ -62,7 +59,13 @@ const digest = (payload: string) =>
   createHash('sha256').update(payload).digest('hex');
 
 export class SqliteMatchStorage implements MatchStorage {
-  constructor(private readonly db: Database.Database) {}
+  private readonly ratings: Ratings | null;
+  constructor(
+    private readonly db: Database.Database,
+    experimental = false,
+  ) {
+    this.ratings = experimental ? new Ratings(db) : null;
+  }
 
   loadActive(limit: number): StoredMatch[] {
     const rows = this.db
@@ -77,7 +80,14 @@ export class SqliteMatchStorage implements MatchStorage {
         throw new Error('Saved OMI match failed integrity verification');
       const { format, state } = JSON.parse(payload) as {
         format: unknown;
-        state: StoredMatch;
+        state: Omit<StoredMatch, 'ledger' | 'result'> & {
+          ledger: ScoreLedger & { continuationBlocked?: boolean };
+          result:
+            | StoredMatch['result']
+            | { status: 'unresolved'; reason: 'REPEATED_DRAW' };
+          cancellationVote?: unknown;
+          cancellationDecided?: unknown;
+        };
       };
       if (
         format !== 1 ||
@@ -94,7 +104,33 @@ export class SqliteMatchStorage implements MatchStorage {
       ) {
         throw new Error('Saved OMI match failed format validation');
       }
-      return state;
+      const { continuationBlocked, ...ledger } = state.ledger;
+      const restored: StoredMatch = {
+        ...state,
+        ledger:
+          continuationBlocked ||
+          (state.result?.status === 'settled' &&
+            state.result.outcome === 'kapothi')
+            ? { ...ledger, carry: 0 }
+            : ledger,
+        result: state.result?.status === 'unresolved' ? null : state.result,
+      };
+      delete (restored as typeof restored & { cancellationVote?: unknown })
+        .cancellationVote;
+      delete (restored as typeof restored & { cancellationDecided?: unknown })
+        .cancellationDecided;
+      if (state.result?.status === 'unresolved') {
+        const settlement = settleRound(state.round, restored.ledger);
+        if (settlement.status !== 'settled' || settlement.result !== 'seporu')
+          throw new Error('Saved Sepuru could not be recovered');
+        restored.ledger = settlement.ledger;
+        restored.result = {
+          status: 'settled',
+          outcome: 'seporu',
+          tricks: countTricks(state.round),
+        };
+      }
+      return restored;
     });
   }
 
@@ -112,13 +148,28 @@ export class SqliteMatchStorage implements MatchStorage {
       const record = this.db
         .prepare(`INSERT INTO omi_match_results (room_id, actor_id, won, ranked, reason, completed_at)
         VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(room_id, actor_id) DO NOTHING`);
+      let inserted = 0;
       for (const member of state.members) {
-        record.run(
+        inserted += record.run(
           state.id,
           member.actorId,
           Number(member.seat % 2 === final.winner),
           Number(!!state.ranked),
           final.reason,
+          state.lastActive,
+        ).changes;
+      }
+      if (
+        this.ratings &&
+        state.ranked &&
+        final.winner !== null &&
+        inserted > 0
+      ) {
+        if (inserted !== 4) throw new Error('Incomplete ranked result');
+        this.ratings.record(
+          state.id,
+          state.members.map(({ actorId }) => actorId),
+          final.winner,
           state.lastActive,
         );
       }
@@ -134,7 +185,7 @@ export class SqliteMatchStorage implements MatchStorage {
       count(*) FILTER (WHERE won = 1 AND ranked = 1) AS rankedWins,
       count(*) FILTER (WHERE won = 1 AND ranked = 0) AS casualWins,
       count(*) FILTER (WHERE won = 0 AND reason = 'loan_loss') AS loanLosses,
-      count(*) FILTER (WHERE won = 0 AND reason = 'ranked_forfeit') AS rankedForfeitLosses
+      count(*) FILTER (WHERE won = 0 AND reason IN ('ranked_forfeit', 'double_forfeit')) AS rankedForfeitLosses
       FROM omi_match_results WHERE actor_id = ?`,
       )
       .get(actorId) as Omit<MatchStatistics, 'recent'>;
@@ -151,6 +202,9 @@ export class SqliteMatchStorage implements MatchStorage {
     }[];
     return {
       ...totals,
+      ...(this.ratings && {
+        experimentalRating: this.ratings.overview(actorId),
+      }),
       recent: rows.map((row) => ({
         ...row,
         won: row.won === 1,

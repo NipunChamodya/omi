@@ -18,6 +18,10 @@ const schema = z
       .refine((value) => /^https?:/.test(value), 'HTTP(S) required')
       .default('http://127.0.0.1:5173'),
     DATABASE_PATH: z.string().min(1).default('./data/omi.sqlite'),
+    EXPERIMENTAL_ELO: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
     ALLOW_GUESTS: z
       .enum(['true', 'false'])
       .default('false')
@@ -32,6 +36,10 @@ const schema = z
       .enum(['development', 'test', 'production'])
       .default('development'),
   })
+  .refine(
+    (config) => config.NODE_ENV !== 'production' || !config.EXPERIMENTAL_ELO,
+    { message: 'Experimental Elo is disabled in production' },
+  )
   .refine(
     (config) =>
       Boolean(config.VOICE_TURN_SECRET) === config.VOICE_TURN_URLS.length > 0,

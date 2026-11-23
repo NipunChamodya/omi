@@ -161,3 +161,27 @@ it('renders the home and a safe error when authentication bootstrap rejects', as
   expect(screen.queryByText('private-provider-detail')).not.toBeInTheDocument();
   expect(screen.queryByText('Checking your session…')).not.toBeInTheDocument();
 });
+
+it('shows one opening sponsor and removes it when leaving Home', async () => {
+  vi.stubEnv('VITE_OMI_SPONSOR_LABEL', 'Test sponsor');
+  vi.stubEnv('VITE_OMI_SPONSOR_URL', 'https://example.com/');
+  try {
+    const first = render(<App />);
+    expect(
+      await screen.findByRole('complementary', { name: 'Advertisement' }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Multiplayer' }));
+    expect(
+      screen.queryByRole('complementary', { name: 'Advertisement' }),
+    ).toBeNull();
+    first.unmount();
+    window.history.replaceState(null, '', '/');
+    render(<App />);
+    await screen.findByRole('button', { name: /Create a table/ });
+    expect(
+      screen.queryByRole('complementary', { name: 'Advertisement' }),
+    ).toBeNull();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});

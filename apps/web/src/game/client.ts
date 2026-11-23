@@ -71,16 +71,10 @@ function loadSaved(): SavedTable | null {
 }
 export function friendlyError(code: string, type?: string): string {
   switch (code) {
-    case 'UNRESOLVED_RULE':
-      return type === 'next-round' || type === 'restart'
-        ? 'This settlement needs clarification before another hand can start.'
-        : 'Another cancellation request in this hand needs a confirmed repeat-request rule.';
     case 'MATCH_COMPLETE':
       return 'This match has ended.';
-    case 'CANCELLATION_VOTE_ACTIVE':
-      return 'Finish the cancellation vote before playing.';
-    case 'VOTE_NOT_ALLOWED':
-      return 'Only the other players may vote, once each.';
+    case 'ROUND_NOT_SETTLED':
+      return 'Finish the current hand before starting the next one.';
     case 'BOT_NOT_ALLOWED':
       return 'Bots can only be added to a casual lobby with open seats.';
     case 'VERSION_CONFLICT':
@@ -109,7 +103,9 @@ export function friendlyError(code: string, type?: string): string {
     case 'HOST_REQUIRED':
       return 'Only the table host can do that.';
     case 'REPORT_REJECTED':
-      return 'The report could not be confirmed.';
+      return type === 'report-no-trump'
+        ? 'A redeal is available only before the first card is played and with no trump in your hand.'
+        : 'The report could not be confirmed.';
     case 'REPORT_ALREADY_APPLIED':
       return 'That report has already been counted.';
     default:

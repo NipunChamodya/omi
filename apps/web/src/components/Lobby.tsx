@@ -1,4 +1,3 @@
-import { SponsorPlacement } from './SponsorPlacement';
 import type { Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
 import { avatarSource } from '../auth/api';
@@ -40,6 +39,9 @@ export function Lobby({
           ? `${4 - snapshot.members.length} more ${snapshot.members.length === 3 ? 'friend' : 'friends'} to make a game.`
           : 'Four seats. Let the friendly rivalry begin.'}
       </p>
+      {snapshot.ranked && (
+        <p className="quiet-note">Chat and voice are off at ranked tables.</p>
+      )}
       <div className="invite-box">
         <div>
           <span className="eyebrow">TABLE CODE</span>
@@ -145,7 +147,6 @@ export function Lobby({
           </p>
         )}
       </div>
-      <SponsorPlacement />
     </section>
   );
 }

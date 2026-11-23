@@ -16,6 +16,7 @@ export function registerSocial(
 ) {
   const authorize = (roomId: string, identity: Identity) => {
     const { room } = rooms.authorize(roomId, identity);
+    if (room.ranked) throw new RoomError('RANKED_COMMUNICATION_DISABLED', 403);
     const game = room.peers.get(identity.actorId);
     if (
       !game ||

@@ -2,6 +2,28 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.2 changes
+
+- A 4–4 hand leaves one pending Sepuru, even after consecutive draws. The next ordinary hand or Kapothi clears it. Kapothi transfers three kata kola. Previously saved Kapothi and repeated-draw gates are normalized on recovery.
+- A player with eight cards and zero trump may request a redeal before the first play. The server atomically replaces the hand with a fresh shuffle at the same dealer and preserves the ledger. A V2 pending vote is discarded on recovery. An eligible player can make a fresh request. Previously cancelled V2 hands can still use the legacy restart control.
+- The earliest expired ranked deadline wins precedence. Equal opposing deadlines settle both teams as forfeiting, with no winner. Recovered seats that lack a persisted deadline share one recovery timestamp. Ranked chat and voice are disabled at both the interface and server boundaries. Private-room reporting and opt-in voice remain available.
+- Local opt-in Elo uses proposed defaults of 1,000, K=32, and floor zero. Each partnership uses its average against the opposing partnership. A double forfeit leaves ratings unchanged. Current rating, recent adjustments and a bounded leaderboard appear in the profile when the flag is enabled. Production rejects that setting. The match and rating records share a transaction and historical matches are not backfilled.
+- A configured first-party sponsor may appear on the initial home screen once in the browser tab session, after successful account bootstrap confirms there is no match to restore. Navigation, busy state, join links and saved matches suppress it. Third-party ads and personalization remain disabled.
+- The existing 32-card renderer, layout, backs and tap/drag controls are reused. White backgrounds and the pip counts are already implemented.
+- See [Azure deployment](AZURE_DEPLOYMENT.md) for the single Linux VM, mounted managed disk, direct TLS and future scaling plan.
+
+## V2.2 verification
+
+The worktree started clean on `dev` at `d881f40`. V2.2 passed 218 unit/integration tests and 15 infrastructure tests. The recovery cases include abrupt SIGKILL after a committed snapshot, retired V2 rules, double forfeits, and duplicate settlement with experimental rating history. Six selected Chromium/Firefox checks covered the mobile round and the card themes. Build, typecheck, lint, and the bundle gate passed, with 93,273 compressed entry bytes. The generated Azure nginx configuration passed a local syntax check with a disposable certificate.
+
+The disk-backed benchmark used eight rooms and 32 clients. Action p50/p95/p99 were 2.24/5.45/7.13 ms. The combined benchmark process measured 196.4 MiB peak RSS and 7.5% average single-core-equivalent CPU over gameplay and a five-second idle socket soak. Eight reconnects and eight duplicate-action checks passed. The benchmark does not measure remote network capacity or SQLite latency in isolation.
+
+## Remaining V2.2 acceptance
+
+Competitive Elo parameters still require approval. Same-table rematches, fixed partnerships and in-app invitations, complete Sinhala/English localization, detailed partnership and per-hand statistics, production guest entry, and an administrator dashboard remain incomplete. Age and guardian rules, private-room child-safety acceptance, and advertising policy review remain open. Apple, public Google, live TURN, physical devices, and Azure cost and deployment acceptance remain unverified. Court artwork still needs an authorized source.
+
+The sections below describe the historical V2 baseline and retain the previous verification record.
+
 ## Gameplay
 
 Two teams begin with 10 kata kola each. Settlement transfers ownership without changing the total of 20. A payable transfer that empties the payer's inventory is terminal. An unaffordable obligation is recorded as unpaid and ends the match immediately in loan loss. The payer keeps its remaining counters. A settled round rotates the dealer counterclockwise. Successful Baldu ends the hand with a three-counter obligation. The server validates a report for an opponent's completed trick while the hand is still in progress. Validation is synchronous inside the serialized room command, so a card cannot interleave with adjudication. Invalid reports leave the hand unchanged.

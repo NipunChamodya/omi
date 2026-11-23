@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { WebSocket } from 'ws';
@@ -53,7 +53,7 @@ test('compiled migration, backup, restore, readiness and production shutdown wor
     assert.deepEqual(JSON.parse(run('ops/backup-cli.js', ['create', backup])), {
       operation: 'create',
       integrity: 'ok',
-      migrations: 3,
+      migrations: 4,
     });
     assert.equal(statSync(backup).mode & 0o777, 0o600);
     run('ops/backup-cli.js', ['verify', backup]);
@@ -153,5 +153,50 @@ test('compiled migration, backup, restore, readiness and production shutdown wor
       child.kill('SIGKILL');
     writer?.close();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('recovers a committed match snapshot after abrupt process termination', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'omi-abrupt-'));
+  const db = join(directory, 'match.sqlite');
+  const repository = pathToFileURL(
+    join(dist, 'persistence/repository.js'),
+  ).href;
+  const setup = `
+    import { SqliteAccounts } from ${JSON.stringify(repository)};
+    import { createDeck, createRound, createLedger } from '@omi/game-engine';
+    const repo = new SqliteAccounts(process.argv[1]);
+    repo.matchStorage.save({
+      id: 'crash-fixture', code: 'ABCDEFGH', hostId: '0', version: 12,
+      members: [0, 1, 2, 3].map((seat) => ({ actorId: String(seat), displayName: 'Fixture', seat, ready: true })),
+      round: createRound('private-round', 2, createDeck()),
+      ledger: { ...createLedger(), carry: 1 }, result: null,
+      lastActive: 42, ranked: false, receipts: [],
+    });
+    process.kill(process.pid, 'SIGKILL');
+  `;
+  const reopen = `
+    import { SqliteAccounts } from ${JSON.stringify(repository)};
+    const repo = new SqliteAccounts(process.argv[1]);
+    const [room] = repo.matchStorage.loadActive(1);
+    console.log(JSON.stringify([room.id, room.version, room.round.dealer, room.ledger.carry]));
+    repo.close();
+  `;
+  try {
+    const crash = spawnSync(
+      process.execPath,
+      ['--input-type=module', '-e', setup, db],
+      { timeout: 5000 },
+    );
+    assert.equal(crash.signal, 'SIGKILL', String(crash.stderr));
+    const recovered = spawnSync(
+      process.execPath,
+      ['--input-type=module', '-e', reopen, db],
+      { timeout: 5000 },
+    );
+    assert.equal(recovered.status, 0, String(recovered.stderr));
+    assert.deepEqual(JSON.parse(recovered.stdout), ['crash-fixture', 12, 2, 1]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });

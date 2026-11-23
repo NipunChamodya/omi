@@ -11,15 +11,18 @@ export function Home({
   state,
   session,
   authLoading,
+  showSponsor,
   onSignIn,
 }: {
   client: GameClient;
   state: ClientState;
   session: AuthSession | null;
   authLoading: boolean;
+  showSponsor: boolean;
   onSignIn: () => void;
 }) {
   const [tutorial, setTutorial] = useState(false);
+  const [sponsorDismissed, setSponsorDismissed] = useState(false);
   const joining = state.view === 'join';
   const [name, setName] = useState(
     state.identity?.displayName ?? state.saved?.displayName ?? '',
@@ -59,7 +62,13 @@ export function Home({
             <CardFace card={{ rank: 'Q', suit: 'clubs' }} />
           </div>
         </div>
-        <button className="text-button" onClick={() => setTutorial(true)}>
+        <button
+          className="text-button"
+          onClick={() => {
+            setSponsorDismissed(true);
+            setTutorial(true);
+          }}
+        >
           Learn to play <span lang="si">· ඕමි ඉගෙන ගන්න</span>
         </button>
         {tutorial && (
@@ -231,7 +240,7 @@ export function Home({
             </p>
           </>
         )}
-        <SponsorPlacement />
+        {showSponsor && !sponsorDismissed && <SponsorPlacement />}
       </section>
     </div>
   );

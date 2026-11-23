@@ -111,6 +111,32 @@ export default function Profile({
                 · {stats.loanLosses} loan losses · {stats.rankedForfeitLosses}{' '}
                 ranked forfeit losses
               </p>
+              {stats.experimentalRating && (
+                <details>
+                  <summary>
+                    Experimental Elo · {stats.experimentalRating.rating}
+                  </summary>
+                  <p>
+                    Local trial. Each team’s average rating sets its expected
+                    result. Both teammates receive the adjustment. Double
+                    forfeits leave ratings unchanged.
+                  </p>
+                  <ul aria-label="Recent rating changes">
+                    {stats.experimentalRating.history.map((entry, index) => (
+                      <li key={index}>
+                        {entry.previous} → {entry.rating}
+                      </li>
+                    ))}
+                  </ul>
+                  <ol aria-label="Experimental leaderboard">
+                    {stats.experimentalRating.leaders.map((entry, index) => (
+                      <li key={index}>
+                        {entry.name} · {entry.rating}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
               {!!stats.recent.length && (
                 <details>
                   <summary>Recent matches</summary>
@@ -122,9 +148,11 @@ export default function Profile({
                         {match.won ? 'Won' : 'Lost'}
                         {match.reason === 'loan_loss'
                           ? ' · Loan loss'
-                          : match.reason === 'ranked_forfeit'
-                            ? ' · Forfeit'
-                            : ''}
+                          : match.reason === 'double_forfeit'
+                            ? ' · Double forfeit'
+                            : match.reason === 'ranked_forfeit'
+                              ? ' · Forfeit'
+                              : ''}
                       </li>
                     ))}
                   </ul>

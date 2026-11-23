@@ -17,7 +17,6 @@ export type {
   RoundHeader,
   PlayerGame,
   Snapshot,
-  CancellationVote,
   RoomDescriptor,
   GuestIdentity,
   ClientCommand,
@@ -32,6 +31,7 @@ export type {
   PublicProfile,
   AuthSession,
   MatchStatistics,
+  RatingOverview,
   FriendAction,
   FriendContact,
 } from './protocol.js';

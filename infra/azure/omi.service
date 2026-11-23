@@ -1,0 +1,26 @@
+[Unit]
+Description=OMI authoritative multiplayer server
+After=network.target
+RequiresMountsFor=/srv/omi-data
+
+[Service]
+User=omi
+Group=omi
+WorkingDirectory=/opt/omi/current/apps/server
+EnvironmentFile=/etc/omi/server.env
+ExecStartPre=/usr/bin/mountpoint -q /srv/omi-data
+ExecStart=/opt/omi/node/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=40
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/omi-data
+MemoryHigh=500M
+MemoryMax=650M
+
+[Install]
+WantedBy=multi-user.target

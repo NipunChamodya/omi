@@ -28,26 +28,26 @@ export type Member = Readonly<{
 export type Score = Readonly<{
   totals: readonly [number, number];
   carry: 0 | 1;
-  continuationBlocked?: boolean;
-  final?: Readonly<{
-    reason: 'inventory_depleted' | 'loan_loss' | 'ranked_forfeit';
-    winner: Team;
-    loser: Team;
-    roundId: string;
-  }> | null;
+  final?:
+    | Readonly<{
+        reason: 'inventory_depleted' | 'loan_loss' | 'ranked_forfeit';
+        winner: Team;
+        loser: Team;
+        roundId: string;
+      }>
+    | Readonly<{
+        reason: 'double_forfeit';
+        winner: null;
+        loser: null;
+        roundId: string;
+      }>
+    | null;
 }>;
-export type RoundResult =
-  | null
-  | Readonly<{
-      status: 'settled';
-      outcome:
-        'seporu' | 'selector-win' | 'selector-loss' | 'kapothi' | 'baldu';
-      tricks: readonly [number, number];
-    }>
-  | Readonly<{
-      status: 'unresolved';
-      reason: 'REPEATED_DRAW';
-    }>;
+export type RoundResult = null | Readonly<{
+  status: 'settled';
+  outcome: 'seporu' | 'selector-win' | 'selector-loss' | 'kapothi' | 'baldu';
+  tricks: readonly [number, number];
+}>;
 export type RoundHeader = Readonly<{
   id: string;
   phase: Phase;
@@ -63,14 +63,8 @@ export type PlayerGame = RoundHeader &
     trick: readonly PublicPlay[];
     tricks: readonly PublicTrick[];
   }>;
-export type CancellationVote = Readonly<{
-  requester: Seat;
-  votes: readonly Readonly<{ seat: Seat; approve: boolean }>[];
-}>;
 export type Snapshot = Readonly<{
   ranked?: boolean;
-  cancellationVote?: CancellationVote | null;
-  cancellationDecided?: boolean;
   capabilities?: Readonly<{ nextRound: boolean }>;
   type: 'snapshot';
   roomId: string;
@@ -117,10 +111,6 @@ export type ClientCommand = Envelope &
           | 'next-round';
         payload: Record<string, never>;
       }>
-    | Readonly<{
-        type: 'vote-cancellation';
-        payload: Readonly<{ approve: boolean }>;
-      }>
     | Readonly<{ type: 'cut'; payload: Readonly<{ offset: number }> }>
     | Readonly<{ type: 'trump'; payload: Readonly<{ suit: Suit }> }>
     | Readonly<{ type: 'play'; payload: Readonly<{ card: Card }> }>
@@ -140,6 +130,7 @@ export type RoomEvent =
   | Readonly<{ kind: 'ready'; seat: Seat; ready: boolean }>
   | Readonly<{
       kind: 'round-started';
+      cancelledBy?: Seat;
       round: RoundHeader;
       handCounts: Four<number>;
     }>
@@ -168,11 +159,6 @@ export type RoomEvent =
       amount: 3;
       score: Score;
       result?: RoundResult;
-    }>
-  | Readonly<{
-      kind: 'cancellation-vote';
-      vote: CancellationVote | null;
-      rejected?: boolean;
     }>
   | Readonly<{ kind: 'round-cancelled'; reporter: Seat }>;
 export type Ack = Readonly<{
@@ -213,7 +199,13 @@ export type FriendContact = Readonly<{
   displayName: string;
   status: 'incoming' | 'sent' | 'accepted' | 'blocked';
 }>;
+export type RatingOverview = Readonly<{
+  rating: number;
+  history: readonly { previous: number; rating: number; completedAt: number }[];
+  leaders: readonly { name: string; rating: number }[];
+}>;
 export type MatchStatistics = Readonly<{
+  experimentalRating?: RatingOverview;
   played: number;
   wins: number;
   rankedWins: number;

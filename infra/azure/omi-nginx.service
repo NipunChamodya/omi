@@ -1,0 +1,16 @@
+[Unit]
+Description=OMI HTTPS and WebSocket edge
+After=network.target omi.service
+
+[Service]
+Type=exec
+RuntimeDirectory=omi-nginx
+ExecStartPre=/usr/sbin/nginx -t -c /etc/omi/nginx.conf
+ExecStart=/usr/sbin/nginx -c /etc/omi/nginx.conf
+ExecReload=/usr/sbin/nginx -s reload -c /etc/omi/nginx.conf
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

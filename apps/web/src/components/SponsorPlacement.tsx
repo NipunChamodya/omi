@@ -11,9 +11,21 @@ function readSponsor() {
     return null;
   }
 }
-const sponsor = readSponsor();
+const openingKey = 'omi.opening-sponsor-seen';
+
+export function claimOpeningSponsor(): boolean {
+  if (!readSponsor()) return false;
+  try {
+    if (sessionStorage.getItem(openingKey)) return false;
+    sessionStorage.setItem(openingKey, '1');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function SponsorPlacement() {
+  const sponsor = readSponsor();
   if (!sponsor) return null;
   return (
     <aside className="quiet-note" aria-label="Advertisement">
