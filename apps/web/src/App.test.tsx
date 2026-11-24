@@ -171,7 +171,7 @@ it('shows one opening sponsor and removes it when leaving Home', async () => {
     expect(
       await screen.findByRole('complementary', { name: 'Advertisement' }),
     ).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Multiplayer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play Online' }));
     expect(
       screen.queryByRole('complementary', { name: 'Advertisement' }),
     ).toBeNull();
@@ -194,7 +194,9 @@ it('switches beginner navigation to Sinhala and updates the document language', 
   try {
     fireEvent.change(language, { target: { value: 'si' } });
     expect(document.documentElement.lang).toBe('si');
-    expect(screen.getByRole('button', { name: 'බහු ක්‍රීඩක' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'අන්තර්ජාලයෙන් ක්‍රීඩා කරන්න' }),
+    ).toBeVisible();
   } finally {
     fireEvent.change(language, { target: { value: 'en' } });
   }

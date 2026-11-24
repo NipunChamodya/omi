@@ -1,3 +1,4 @@
+import { TropicalCourt } from './TropicalCourt';
 import { useCopy } from '../i18n/locale';
 import { useDataSaver } from '../pwa/preferences';
 import { useStore } from 'zustand';
@@ -31,10 +32,14 @@ const pipRows: Partial<Record<Card['rank'], readonly (readonly number[])[]>> = {
 };
 export function CardFace({ card }: { card: Card }) {
   const pips = pipRows[card.rank];
+  const theme = useStore(themeStore, (state) => state.active);
+  const court = theme === 'tropical' && ['J', 'Q', 'K'].includes(card.rank);
   return (
     <span
       aria-hidden="true"
-      className={`card-face ${card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : ''}`}
+      data-rank={card.rank}
+      data-suit={card.suit}
+      className={`card-face ${card.rank === 'A' ? 'card-face--ace' : ''} ${card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : ''}`}
     >
       <span className="card-corner">
         <b>{card.rank}</b>
@@ -58,6 +63,8 @@ export function CardFace({ card }: { card: Card }) {
             }),
           )}
         </svg>
+      ) : court ? (
+        <TropicalCourt card={card} />
       ) : (
         <span className="card-pip" aria-hidden="true">
           {suits[card.suit].symbol}

@@ -131,9 +131,9 @@ export async function registerAccountRoutes(
           },
         }),
         room: session
-          ? rooms.forActor(session.identity.actorId)
+          ? rooms.forActor(session.identity.actorId, true)
           : guest
-            ? rooms.forActor(guest.actorId)
+            ? rooms.forActor(guest.actorId, true)
             : null,
       };
     });

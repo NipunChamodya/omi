@@ -276,6 +276,17 @@ export async function registerMultiplayer(
       );
       return rooms.getSnapshot(body.roomId, identity);
     });
+    api.post('/rooms/release', async (request) => {
+      const identity = identityFor(request);
+      if (identity.userId)
+        options.accounts.requireCsrf(identity, request.headers['x-csrf-token']);
+      const { roomId } = parse(
+        z.strictObject({ roomId: roomIdSchema }),
+        request.body,
+      );
+      await rooms.releaseSeat(identity, roomId);
+      return { ok: true };
+    });
     api.post('/rooms/join', async (request) => {
       const identity = identityFor(request);
       return rooms.join(identity, parse(joinSchema, request.body));

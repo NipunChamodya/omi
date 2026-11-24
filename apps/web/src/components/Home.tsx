@@ -46,6 +46,7 @@ export function Home({
     void client.enter(
       session?.user?.displayName ?? name,
       joining ? code.trim().toUpperCase() : undefined,
+      session?.csrfToken ?? undefined,
     );
   }
   return (
@@ -79,19 +80,10 @@ export function Home({
           <div className="island-stage__actions">
             <GameButton
               tone="green"
-              onClick={() =>
-                state.saved
-                  ? void client.resume()
-                  : client.navigate('multiplayer')
-              }
-              disabled={
-                state.busy ||
-                authLoading ||
-                (!!state.saved && !session?.user && !session?.guestAllowed)
-              }
+              onClick={() => client.navigate('multiplayer')}
+              disabled={state.busy || authLoading}
             >
-              {text(state.saved ? 'Return to your table' : 'Play OMI')}{' '}
-              <span aria-hidden="true">▶</span>
+              {text('Play OMI')} <span aria-hidden="true">▶</span>
             </GameButton>
             <button
               className="island-stage__learn"
@@ -113,7 +105,8 @@ export function Home({
         </section>
       )}
       <GamePanel titleId="entry-title" recovery={!!state.saved}>
-        {state.saved ? (
+        {state.saved &&
+        (state.view === 'home' || state.saved.seatStatus !== 'completed') ? (
           <>
             <p className="eyebrow">{text('WELCOME BACK')}</p>
             <h2 id="entry-title">{text('Your seat is saved.')}</h2>
@@ -139,6 +132,12 @@ export function Home({
                   disabled={state.busy || authLoading}
                 >
                   {text('Resume table')} <span aria-hidden="true">↗</span>
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => client.navigate('multiplayer')}
+                >
+                  {text('Play Online')}
                 </button>
                 <p className="seated-options">
                   {text(
@@ -279,7 +278,7 @@ export function Home({
               className="button secondary"
               onClick={() => client.navigate('multiplayer')}
             >
-              {text('Multiplayer')}
+              {text('Play Online')}
             </button>
           </>
         )}

@@ -1,3 +1,4 @@
+import './table-adventure.css';
 import { useCopy } from '../i18n/locale';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
@@ -208,12 +209,6 @@ export default function GameTable({
             completed ? text('Last completed trick') : text('Current trick')
           }
         >
-          {!plays.length && (
-            <div className="table-watermark" aria-hidden="true">
-              <span>♠</span>
-              <small>OMI</small>
-            </div>
-          )}
           {plays.map((play) => (
             <div
               className={`thrown-card thrown-${positions[relative(play.seat, snapshot.you.seat)]} ${live?.event.kind === 'card-played' && cardKey(live.event.card) === cardKey(play.card) ? 'animate-play' : ''}`}
@@ -398,30 +393,37 @@ export default function GameTable({
           <p>
             {final?.reason === 'loan_loss' ? (
               <>
-                <span lang="si">ණයටත් පැරදුණා!</span> · The losing team couldn’t
-                cover the kata kola transfer. 😂
+                <span lang="si">ණයටත් පැරදුණා!</span> ·{' '}
+                {text('The losing team couldn’t cover the kata kola transfer.')}{' '}
+                😂
               </>
             ) : final?.reason === 'ranked_forfeit' ? (
-              'A ranked player’s reconnection period expired.'
+              text('A ranked player’s reconnection period expired.')
             ) : final?.reason === 'double_forfeit' ? (
-              'Players on both teams reached the reconnection deadline together.'
+              text(
+                'Players on both teams reached the reconnection deadline together.',
+              )
             ) : snapshot.result?.outcome === 'seporu' ? (
-              'සෙපෝරු · Four tricks each. Sepuru applies to the next settlement.'
+              text(
+                'සෙපෝරු · Four tricks each. Sepuru applies to the next settlement.',
+              )
             ) : snapshot.result?.outcome === 'kapothi' ? (
-              'කපෝති · All eight tricks. Three kata kola owed.'
+              text('කපෝති · All eight tricks. Three kata kola owed.')
             ) : snapshot.result?.outcome === 'baldu' ? (
-              'බාල්දුයි · Correct accusation. The hand ends with a three kata kola obligation.'
+              text(
+                'බාල්දුයි · Correct accusation. The hand ends with a three kata kola obligation.',
+              )
             ) : (
               `${snapshot.result?.tricks[snapshot.you.team] ?? 0} tricks for your team. The round score is settled.`
             )}
           </p>
           <div className="result-scores">
             <span>
-              Your team{' '}
+              {text('Your team')}{' '}
               <strong>{snapshot.score.totals[snapshot.you.team]}</strong>
             </span>
             <span>
-              Their team{' '}
+              {text('Their team')}{' '}
               <strong>
                 {snapshot.score.totals[snapshot.you.team === 0 ? 1 : 0]}
               </strong>

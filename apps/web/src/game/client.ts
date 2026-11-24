@@ -17,7 +17,12 @@ export type GameAction = ClientCommand extends infer T
     ? Pick<T, 'type' | 'payload'>
     : never
   : never;
-type SavedTable = { roomId: string; code: string; displayName: string };
+type SavedTable = {
+  roomId: string;
+  code: string;
+  displayName: string;
+  seatStatus?: RoomDescriptor['seatStatus'];
+};
 export type View =
   'home' | 'multiplayer' | 'friends' | 'create' | 'join' | 'online' | 'room';
 const views: readonly View[] = [
@@ -77,6 +82,8 @@ export function friendlyError(code: string, type?: string): string {
       return 'This table is no longer available for a rematch.';
     case 'REMATCH_WAITING':
       return 'Waiting for everyone to reconnect and accept.';
+    case 'MATCH_IN_PROGRESS':
+      return 'This match is still in progress. Return to your seat to continue.';
     case 'MATCH_COMPLETE':
       return 'This match has ended.';
     case 'ROUND_NOT_SETTLED':
@@ -212,12 +219,7 @@ export class GameClient {
   start = async () => {
     this.stopped = false;
     const saved = this.store.getState().saved;
-    if (
-      saved &&
-      (window.history.state?.view === 'room' ||
-        this.store.getState().inviteCode === saved.code)
-    )
-      await this.resume();
+    if (saved && window.history.state?.view === 'room') await this.resume();
   };
   adoptAccount = (
     profile: PublicProfile,
@@ -240,6 +242,7 @@ export class GameClient {
             roomId: room.roomId,
             code: room.code,
             displayName: identity.displayName,
+            seatStatus: room.seatStatus,
           }
         : null,
     );
@@ -287,6 +290,18 @@ export class GameClient {
       if (this.store.getState().view !== 'room') void this.resume(false);
       return;
     }
+    const { view: previous, saved, snapshot } = this.store.getState();
+    if (previous === 'room' && saved && snapshot)
+      this.save({
+        ...saved,
+        seatStatus: snapshot.score.final
+          ? 'completed'
+          : !snapshot.game
+            ? 'lobby'
+            : snapshot.ranked
+              ? 'ranked'
+              : 'casual',
+      });
     this.stop();
     this.stopped = false;
     this.store.setState({
@@ -351,7 +366,26 @@ export class GameClient {
     this.store.setState({ leaveRequest: null });
     if (request?.back) window.history.forward();
   };
-  enter = async (displayName: string, code?: string) => {
+  releaseSavedSeat = async (csrf?: string) => {
+    const { saved, busy } = this.store.getState();
+    if (!saved || busy) return;
+    const epoch = this.epoch;
+    this.store.setState({ busy: true, error: null });
+    try {
+      await api.release(saved.roomId, csrf);
+      if (this.epoch !== epoch) return;
+      this.save(null);
+      this.store.setState({ snapshot: null });
+    } catch (error) {
+      if (this.epoch === epoch)
+        this.store.setState({
+          error: { code: error instanceof ApiError ? error.code : 'NETWORK' },
+        });
+    } finally {
+      if (this.epoch === epoch) this.store.setState({ busy: false });
+    }
+  };
+  enter = async (displayName: string, code?: string, csrf?: string) => {
     if (this.store.getState().busy) return;
     const epoch = ++this.epoch;
     this.stopped = false;
@@ -361,6 +395,12 @@ export class GameClient {
     this.store.setState({ busy: true, error: null });
     try {
       const identity = await api.session(displayName.trim(), signal);
+      const saved = this.store.getState().saved;
+      if (saved?.seatStatus === 'completed') {
+        await api.release(saved.roomId, csrf, signal);
+        if (this.stopped || epoch !== this.epoch) return;
+        this.save(null);
+      }
       let room;
       if (code !== undefined) {
         for (let attempt = 0; ; attempt++) {
@@ -395,6 +435,7 @@ export class GameClient {
         roomId: room.roomId,
         code: room.code,
         displayName: identity.displayName,
+        seatStatus: 'lobby',
       });
       this.rememberView('room');
       this.retries = 0;
@@ -440,6 +481,16 @@ export class GameClient {
       const snapshot = await api.snapshot(saved.roomId, this.controller.signal);
       if (this.stopped || epoch !== this.epoch) return;
       this.store.setState({ identity, snapshot, busy: false });
+      this.save({
+        ...saved,
+        seatStatus: snapshot.score.final
+          ? 'completed'
+          : !snapshot.game
+            ? 'lobby'
+            : snapshot.ranked
+              ? 'ranked'
+              : 'casual',
+      });
       if (history && window.history.state?.view !== 'room')
         this.rememberView('room');
       this.retries = 0;

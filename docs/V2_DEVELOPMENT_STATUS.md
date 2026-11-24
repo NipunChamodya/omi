@@ -2,6 +2,22 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.8 Tropical Adventure (incomplete)
+
+- Home previously used one action for both gameplay discovery and Resume. Play now opens a separate mode picker. The picker displays the authorized seat and status, and Resume remains explicit. Join invite URLs no longer auto-resume merely because their code matches a stored seat. The ranked queue rejects existing casual seats while preserving reconnection to assigned ranked games.
+- Added the authenticated, exact-Origin `POST /rooms/release` flow. Signed-in requests require CSRF. It operates in the room queue, permits release of unstarted and completed seats, persists a retained casual lobby before publishing its new host/seats, and disbands an unstarted ranked lobby without changing game results. A retry bound to an old room cannot affect a current seat in a different room. Unfinished match release still follows existing disconnect and reconnection rules.
+- The board has an original vector felt inlay, carved-rim treatment, flanking island illustration, framed avatars and clearer score/trump plates. The optional Tropical deck adds original mirrored court figures, numbered and ace faces with white backgrounds, and a teal-and-gold back. Classic and Royal remain available. New deck tests exercise each of the 32 suit/rank identities independently.
+- The screen inventory records redesigned, retained and deferred surfaces in [V2.8 screen inventory](V2_8_SCREEN_INVENTORY.md). The release remains incomplete on all-screen visual acceptance, full Sinhala and reviewed Tamil, active-match permanent release, authorized local audio sharing, complete-match browser coverage, physical devices and the 1,200-case target.
+
+### V2.8 verification
+
+- The locally generated inventory contains 303 distinct passed cases (269 Vitest, 15 infrastructure, 19 browser). Focused security and browser repeats are counted once. The illustrated mode panel first overflowed at 320 px in both engines, then passed both 320 and 1280 after its artwork was constrained to the grid column.
+- Build, the 94,794-byte compressed entry gate, lint, and TypeScript passed. A single-shot Chromium loopback sample measured Home artwork decode at 256 ms on the 320 px viewport and 109 ms on the 1280 px viewport, with observed layout-shift values of 0 and 0.162. These are local samples, and the desktop shift warrants further work.
+
+- Started clean on `dev` at `8e2fe87`. A private checkpoint of 275 tracked and non-ignored untracked worktree files was compared file by file and checksummed. The checkout remains local and uncommitted.
+- 269 Vitest tests passed, including 112 in the focused defensive selection. Fifteen infrastructure tests passed. Chromium and Firefox covered 320 px play, avatar editing, ranked matching, artwork, safe saved-seat release, PWA and music. Chromium also passed the four-peer synthetic voice check. An initial Firefox layout check failed to find the Home heading during a concurrent rebuild and passed against the stable build. An initial contract regression exposed an extra field in ranked assignment recovery, corrected by limiting seat status to account bootstrap.
+- The eight-room / 32-client SQLite loopback completed 320 actions. Action p50/p95/p99 measured 1.96/6.49/9.03 ms, with 5.1% average combined CPU and 203.7 MiB peak combined RSS. This does not validate production capacity or browser memory on physical phones.
+
 ## V2.7 Tropical Adventure
 
 - Home and table entry now use original vector artwork for the island, custom OMI mark and card guide. The island depicts sea, mountains, tea terraces, paddy fields, a waterfall and coconut palms. Artwork loads as same-origin SVG files without loosening the Content Security Policy. The Home and mode-picker code and styles are loaded on demand.

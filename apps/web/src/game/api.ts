@@ -18,6 +18,7 @@ async function post<T>(
   path: string,
   payload: object,
   signal?: AbortSignal,
+  csrf?: string,
 ): Promise<T> {
   // Reuse the same body/action ID after uncertain HTTP delivery; never manufacture a second mutation.
   for (let attempt = 0; ; attempt++) {
@@ -30,7 +31,10 @@ async function post<T>(
       const response = await fetch(`${apiBase}${path}`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf && { 'x-csrf-token': csrf }),
+        },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
@@ -55,6 +59,8 @@ async function post<T>(
   }
 }
 export const api = {
+  release: (roomId: string, csrf?: string, signal?: AbortSignal) =>
+    post<{ ok: true }>('/rooms/release', { roomId }, signal, csrf),
   session: (displayName: string, signal?: AbortSignal) =>
     post<GuestIdentity>('/transport/session', { displayName }, signal),
   create: (actorId: string, actionId: string, signal?: AbortSignal) =>

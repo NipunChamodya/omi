@@ -279,6 +279,19 @@ const sinhala = {
   'An eight-character table code': 'අක්ෂර අටක මේස කේතයක්',
   'Finding your seat…': 'ඔබේ අසුන සොයමින්…',
   Settings: 'සැකසුම්',
+  'Choose how to play': 'ක්\u200dරීඩා කරන ආකාරය තෝරන්න',
+  'Create Private Table': 'පෞද්ගලික මේසයක් සාදන්න',
+  'Join Table with Code': 'කේතයකින් මේසයට එක්වන්න',
+  'Ranked Match': 'ශ්\u200dරේණිගත තරගය',
+  'Match complete': 'තරගය අවසන්',
+  'Waiting lobby': 'ක්\u200dරීඩකයන් බලාපොරොත්තුවෙන්',
+  'Ranked match in progress': 'ශ්\u200dරේණිගත තරගය පැවැත්වේ',
+  'Casual match in progress': 'සාමාන්\u200dය තරගය පැවැත්වේ',
+  'Check your saved table': 'ඔබේ වෙන් කළ මේසය බලන්න',
+  'Release this seat and make it available for a new game?':
+    'නව තරගයකට එක්වීමට මෙම අසුන අත්හරින්නද?',
+  'Keep my seat': 'මගේ අසුන තබාගන්න',
+  'Release table seat': 'අසුන අත්හරින්න',
 } as const;
 
 export function translate(language: 'en' | 'si', message: string): string {

@@ -160,7 +160,7 @@ test('direct Join Back returns to the mode picker and then Home', async ({
   await expect(page.getByLabel('Table code')).toBeVisible();
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Multiplayer' }),
+    page.getByRole('heading', { name: 'Choose how to play' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(
@@ -186,7 +186,7 @@ test('repeated Settings Back presses close one history entry', async ({
     });
   await expect(settings).not.toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Multiplayer' }),
+    page.getByRole('heading', { name: 'Choose how to play' }),
   ).toBeVisible();
 });
 
@@ -214,4 +214,78 @@ test('saved lobby exposes Create and Join guidance and can resume the same code'
   await expect(page.getByLabel('Table code')).toHaveCount(0);
   await recovery.getByRole('button', { name: 'Resume table' }).click();
   await expect(page.locator('.invite-box strong')).toHaveText(code);
+});
+
+test('Play Online opens mode selection with a saved lobby and releases it only on confirmation', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Your name').fill('Island online');
+  await page.getByRole('button', { name: /Create a table/ }).click();
+  const oldCode = await page.locator('.invite-box strong').innerText();
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Back', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Return home and keep my seat' })
+    .click();
+  await page.getByRole('button', { name: 'Play Online', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Choose how to play' }),
+  ).toBeVisible();
+  await expect(page.getByText(oldCode, { exact: true })).toBeVisible();
+  await expect(page.locator('.lobby')).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Choose how to play' }),
+  ).toBeVisible();
+  const release = page.getByRole('button', { name: 'Release table seat' });
+  await release.click();
+  await page.getByRole('button', { name: 'Keep my seat' }).click();
+  await expect(page.getByText(oldCode, { exact: true })).toBeVisible();
+  await release.click();
+  await release.click();
+  await expect(page.getByText(oldCode, { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Create Private Table' }).click();
+  await page.getByRole('button', { name: /Create a table/ }).click();
+  await expect(page.locator('.invite-box strong')).not.toHaveText(oldCode);
+});
+
+test('fresh Play Online shows illustrated and actionable modes at mobile and desktop widths', async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play Online', exact: true }).click();
+  const modes = page.getByRole('region', { name: 'Choose how to play' });
+  for (const label of [
+    'Create Private Table',
+    'Join Table with Code',
+    'Play with Friends',
+    'Ranked Match',
+  ])
+    await expect(modes.getByRole('button', { name: label })).toBeEnabled();
+  await expect(
+    page.getByRole('region', { name: 'Your seat is saved.' }),
+  ).toHaveCount(0);
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 850 });
+    await expect
+      .poll(() =>
+        page
+          .locator('.mode-postcard__island')
+          .evaluate(
+            (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
+          ),
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    await page.screenshot({
+      path: info.outputPath(`modes-${width}.png`),
+      fullPage: true,
+    });
+  }
 });

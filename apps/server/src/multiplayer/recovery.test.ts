@@ -528,3 +528,68 @@ it('replays committed HTTP create and join descriptors across restart', async ()
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+it('releases a lobby host atomically, transfers ownership and persists remaining seats on restart', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'omi-release-'));
+  const file = join(directory, 'rooms.sqlite');
+  let repo = new SqliteAccounts(file);
+  const open = () =>
+    new RoomService(
+      () => 1,
+      () => true,
+      DEFAULT_LIMITS,
+      undefined,
+      repo.matchStorage,
+    );
+  let rooms = open();
+  const host = {
+    actorId: randomUUID(),
+    displayName: 'Host',
+    expiresAt: 1000,
+    tokenHash: 'host',
+  };
+  const guest = {
+    ...host,
+    actorId: randomUUID(),
+    displayName: 'Guest',
+    tokenHash: 'guest',
+  };
+  const create = () => ({
+    actorId: host.actorId,
+    actionId: randomUUID(),
+    expectedVersion: 0 as const,
+  });
+  try {
+    const room = rooms.create(host, create());
+    await rooms.join(guest, {
+      actorId: guest.actorId,
+      actionId: randomUUID(),
+      roomId: room.roomId,
+      code: room.code,
+      expectedVersion: room.version,
+    });
+    await Promise.all([
+      rooms.releaseSeat(host, room.roomId),
+      rooms.releaseSeat(host, room.roomId),
+    ]);
+    expect(rooms.forActor(host.actorId)).toBeNull();
+    const next = rooms.create(host, create());
+    expect(next.roomId).not.toBe(room.roomId);
+    await rooms.releaseSeat(host, room.roomId);
+    expect(rooms.forActor(host.actorId)?.roomId).toBe(next.roomId);
+    rooms.stop();
+    repo.close();
+    repo = new SqliteAccounts(file);
+    rooms = open();
+    const recovered = await rooms.getSnapshot(room.roomId, guest);
+    expect(recovered.hostId).toBe(guest.actorId);
+    expect(recovered.you.seat).toBe(0);
+    expect(recovered.members).toHaveLength(1);
+    await rooms.releaseSeat(guest, room.roomId);
+    expect(rooms.forActor(guest.actorId)).toBeNull();
+  } finally {
+    rooms.stop();
+    repo.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

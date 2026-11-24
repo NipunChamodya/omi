@@ -199,9 +199,85 @@ export class RoomService {
   statistics(actorId: string) {
     return this.storage?.statistics(actorId);
   }
-  forActor(actorId: string): RoomDescriptor | null {
+  forActor(actorId: string, withStatus = false): RoomDescriptor | null {
     const room = this.rooms.get(this.memberships.get(actorId) ?? '');
-    return room ? this.descriptor(room) : null;
+    if (!room) return null;
+    const descriptor = this.descriptor(room);
+    if (!withStatus) return descriptor;
+    return {
+      ...descriptor,
+      seatStatus: room.ledger.final
+        ? 'completed'
+        : !room.round
+          ? 'lobby'
+          : room.ranked
+            ? 'ranked'
+            : 'casual',
+    };
+  }
+  async releaseSeat(identity: Identity, roomId: string): Promise<void> {
+    this.checkIdentity(identity, identity.actorId);
+    const actor = identity.actorId;
+    if (this.memberships.get(actor) !== roomId) return;
+    const { room } = this.authorize(roomId, identity);
+    await room.queue.run(() => {
+      this.checkIdentity(identity, actor);
+      if (this.memberships.get(actor) !== roomId) return;
+      if (room.round && !room.ledger.final)
+        throw new RoomError('MATCH_IN_PROGRESS', 409);
+
+      const remaining = room.members.filter(
+        (member) => member.actorId !== actor,
+      );
+      const nextHost = remaining.find((member) => !member.bot);
+      const disband = !room.round && (room.ranked || !nextHost);
+      const departing = disband
+        ? room.members.map((member) => member.actorId)
+        : [actor];
+      if (disband) {
+        this.storage?.archive(room.matchId ?? room.id);
+        this.rooms.delete(room.id);
+        this.codes.delete(room.code);
+      } else {
+        const draft: Room = {
+          ...room,
+          version: room.version + 1,
+          lastActive: this.now(),
+          rematchVotes: [],
+          members: room.round
+            ? room.members.map((member) =>
+                member.actorId === actor
+                  ? { ...member, departed: true }
+                  : member,
+              )
+            : remaining.map((member, seat) => ({
+                ...member,
+                seat: seat as Seat,
+                ready: false,
+              })),
+        };
+        if (!room.round) {
+          if (room.hostId === actor) draft.hostId = nextHost!.actorId;
+          if (room.hostId === actor || room.partnerId === actor)
+            delete draft.partnerId;
+          this.seatPartnership(draft);
+        }
+        this.storage?.save(storedMatch(draft));
+        Object.assign(room, draft);
+      }
+      for (const id of departing) {
+        this.memberships.delete(id);
+        const peer = room.peers.get(id);
+        room.peers.delete(id);
+        this.onPeerDisconnect(room.id, id);
+        peer?.socket.close(1000, 'Seat released');
+      }
+      if (!disband)
+        for (const member of room.members) {
+          const peer = room.peers.get(member.actorId);
+          if (peer) this.send(peer, snapshot(room, member, null, true));
+        }
+    });
   }
   disconnectSession(hash: string): void {
     this.onSessionDisconnect(hash);

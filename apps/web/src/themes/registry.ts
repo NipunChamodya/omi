@@ -1,3 +1,5 @@
+import tropicalCss from './tropical-cards.css?url';
+import tropicalBack from './artwork/tropical-back.svg?no-inline';
 import classicCss from './classic.css?url';
 import royalCss from './royal.css?url';
 import classicBack from './artwork/classic-back.svg?no-inline';
@@ -17,6 +19,13 @@ export const themes = [
     description: 'White faces with a midnight and gold crown back.',
     css: royalCss,
     back: royalBack,
+  },
+  {
+    id: 'tropical',
+    name: 'Tropical Adventure',
+    description: 'Illustrated island courts and a teal-and-gold back.',
+    css: tropicalCss,
+    back: tropicalBack,
   },
 ] as const;
 export type ThemeId = (typeof themes)[number]['id'];

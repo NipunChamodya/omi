@@ -1,0 +1,62 @@
+.playing-room .felt-table {
+  background: #174c43 url('../art/table-inlay.svg?no-inline') center / 100% 100%;
+  border-color: #d18749;
+  box-shadow:
+    inset 0 0 0 3px #fbcc79,
+    inset 0 0 0 8px #935734,
+    inset 0 0 0 10px #d59154,
+    inset 0 0 22px 11px #11262494,
+    0 6px #542f2b,
+    0 9px 18px #081f2599;
+}
+.playing-room .scoreboard {
+  background: #24485d;
+  border-color: #cab07a;
+  box-shadow:
+    inset 0 1px #fff2d066,
+    0 3px #162f3e;
+}
+.playing-room .scoreboard strong {
+  color: #ffe26d;
+  text-shadow: 0 2px #193a45;
+}
+.playing-room .trump-badge {
+  background: #fff2d0;
+  color: #24485d;
+  border-radius: 10px;
+}
+.playing-room .trump-badge :is(.eyebrow, small, strong) {
+  color: #24485d;
+  text-shadow: none;
+}
+.playing-room .trump-badge strong.red-suit {
+  color: #b51643;
+}
+.playing-room .table-player .avatar {
+  box-shadow:
+    0 0 0 2px #e3a35d,
+    0 3px #885231;
+}
+.playing-room .table-player.active .avatar {
+  box-shadow:
+    0 0 0 2px #fff2d0,
+    0 0 0 4px #ffd044,
+    0 0 12px #facb6c88;
+}
+.playing-room .player-name {
+  background: #173b45e8;
+  border-radius: 8px;
+  padding-inline: 4px;
+}
+
+.playing-room {
+  background:
+    linear-gradient(#122e36df, #17463de8),
+    url('../art/tropical-island.svg?no-inline') center top / cover;
+}
+.playing-room :is(.results, .round-summary, .result-panel) {
+  border-color: #d6a65c;
+  box-shadow:
+    inset 0 1px #fff2d055,
+    0 4px #274a48;
+}

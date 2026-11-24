@@ -1,0 +1,24 @@
+:root[data-card-theme='tropical'] .card-face {
+  background: #fff;
+  color: #172c3b;
+}
+:root[data-card-theme='tropical'] .card-face.red {
+  color: #b51643;
+}
+:root[data-card-theme='tropical'] .card-face::after {
+  position: absolute;
+  inset: 3%;
+  border: 1px solid #dcad66;
+  border-radius: 10%;
+  pointer-events: none;
+  content: '';
+}
+:root[data-card-theme='tropical'] .card-court {
+  position: absolute;
+  inset: 11% 20%;
+  width: 60%;
+  height: 78%;
+}
+:root[data-card-theme='tropical'] .card-face--ace .card-pip {
+  filter: drop-shadow(0 1px #edb752);
+}

@@ -146,8 +146,14 @@ export class Matchmaking {
       }
     });
     if (existing) {
-      this.send(entry, { type: 'matched', room: existing });
-      socket.close(1000, 'Table assigned');
+      const { room } = this.rooms.authorize(existing.roomId, identity);
+      if (!room.ranked || room.ledger.final) {
+        this.send(entry, { type: 'error', code: 'ALREADY_IN_ROOM' });
+        socket.close(1000, 'Seat already held');
+      } else {
+        this.send(entry, { type: 'matched', room: existing });
+        socket.close(1000, 'Table assigned');
+      }
       return;
     }
     this.waiting.set(identity.actorId, entry);

@@ -86,6 +86,7 @@ export type RoomDescriptor = Readonly<{
   version: number;
   memberCount: number;
   invitePath: string;
+  seatStatus?: 'lobby' | 'casual' | 'ranked' | 'completed';
 }>;
 export type GuestIdentity = Readonly<{
   actorId: string;

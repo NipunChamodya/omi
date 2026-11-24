@@ -960,3 +960,27 @@ it('accepts a private report from a protected player and requires membership and
   expect((await send(report)).statusCode).toBe(202);
   expect((await send(report)).statusCode).toBe(429);
 });
+
+it('requires a valid account CSRF token to release a saved lobby seat', async () => {
+  const host = await login();
+  const actorId = host.session.user!.id;
+  const room = (
+    await post(
+      '/rooms',
+      { actorId, actionId: randomUUID(), expectedVersion: 0 },
+      host.cookie,
+    )
+  ).json<RoomDescriptor>();
+  const body = { roomId: room.roomId };
+  expect((await post('/rooms/release', body, host.cookie)).statusCode).toBe(
+    403,
+  );
+  expect(
+    (await post('/auth/session', {}, host.cookie)).json().room.roomId,
+  ).toBe(room.roomId);
+  expect(
+    (await post('/rooms/release', body, host.cookie, host.session.csrfToken!))
+      .statusCode,
+  ).toBe(200);
+  expect((await post('/auth/session', {}, host.cookie)).json().room).toBeNull();
+});

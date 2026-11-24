@@ -214,3 +214,27 @@ it('rejects forged cancellation fields and binary messages', async () => {
     expect(peer.messages.some((m) => m.type === 'matched')).toBe(false);
   }
 });
+
+it('keeps a seated casual player out of the ranked queue without silently assigning their old table', async () => {
+  const player = account();
+  const room = await app.inject({
+    method: 'POST',
+    url: '/rooms',
+    headers: { origin, cookie: player.cookie },
+    payload: { actorId: player.id, actionId: randomUUID(), expectedVersion: 0 },
+  });
+  expect(room.statusCode).toBe(201);
+  const queue = await connect(player.cookie);
+  await poll(() => queue.messages.length > 0);
+  expect(queue.messages).toEqual([{ type: 'error', code: 'ALREADY_IN_ROOM' }]);
+  const session = await app.inject({
+    method: 'POST',
+    url: '/auth/session',
+    headers: { origin, cookie: player.cookie },
+    payload: {},
+  });
+  expect(session.json().room).toMatchObject({
+    roomId: room.json().roomId,
+    seatStatus: 'lobby',
+  });
+});

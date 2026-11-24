@@ -13,7 +13,7 @@ test('menu and browser back navigate without refreshes or accidental room creati
       creations++;
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Multiplayer', exact: true }).click();
+  await page.getByRole('button', { name: 'Play Online', exact: true }).click();
   await page
     .getByRole('button', { name: 'Play with Friends', exact: true })
     .click();
@@ -25,15 +25,11 @@ test('menu and browser back navigate without refreshes or accidental room creati
   ).toBeVisible();
   await page.getByRole('button', { name: 'Join Room', exact: true }).click();
   await expect(page.getByLabel('Table code')).toBeVisible();
-  await page.getByRole('button', { name: '← Back', exact: true }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Play with Friends', exact: true }),
+    page.getByRole('heading', { name: 'Choose how to play', exact: true }),
   ).toBeVisible();
-  await page.goBack();
-  await expect(
-    page.getByRole('heading', { name: 'Multiplayer', exact: true }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Play Online', exact: true }).click();
+  await page.getByRole('button', { name: 'Ranked Match', exact: true }).click();
   await expect(
     page.getByText('Sign in to join the ranked, human-only queue.'),
   ).toBeVisible();
@@ -67,10 +63,10 @@ test('four distinct OIDC accounts queue, cancel, reconnect and enter one real-pl
         page.getByRole('button', { name: 'My profile' }),
       ).toBeVisible();
       await page
-        .getByRole('button', { name: 'Multiplayer', exact: true })
+        .getByRole('button', { name: 'Play Online', exact: true })
         .click();
       await page
-        .getByRole('button', { name: 'Play Online', exact: true })
+        .getByRole('button', { name: 'Ranked Match', exact: true })
         .click();
       if (i === 0) {
         await page.getByRole('button', { name: 'Find players' }).click();

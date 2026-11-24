@@ -154,6 +154,36 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         ),
     ).toEqual(beforeReload);
     expect(await host.getByTestId('score').innerText()).toBe(beforeScore);
+    await host
+      .getByLabel('Card design', { exact: true })
+      .selectOption('tropical');
+    await expect(host.locator('html')).toHaveAttribute(
+      'data-card-theme',
+      'tropical',
+    );
+    const felt = host.locator('.felt-table');
+    await expect(felt).toBeVisible();
+    const inlay = await felt.evaluate(
+      (node) => getComputedStyle(node).backgroundImage,
+    );
+    expect(inlay).toContain('table-inlay');
+    await host
+      .getByRole('dialog', { name: 'Table settings and voice' })
+      .getByRole('button', { name: 'Back', exact: true })
+      .click();
+    await expect(
+      host.getByRole('dialog', { name: 'Table settings and voice' }),
+    ).not.toBeVisible();
+    await expect(host.getByTestId('hand-card')).toHaveCount(8);
+    await host.screenshot({
+      path: testInfo.outputPath('tropical-board-320.png'),
+      animations: 'disabled',
+      fullPage: true,
+    });
+    await host.getByRole('button', { name: 'Sound, voice & music' }).click();
+    await host.getByText('Card themes', { exact: true }).evaluate((summary) => {
+      (summary.parentElement as HTMLDetailsElement).open = true;
+    });
     await host.getByLabel('Card design', { exact: true }).selectOption('royal');
     await expect(host.locator('html')).toHaveAttribute(
       'data-card-theme',

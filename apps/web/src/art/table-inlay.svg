@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" preserveAspectRatio="none">
+ <defs>
+  <linearGradient id="felt" x2="0" y2="1"><stop stop-color="#266b58"/><stop offset=".57" stop-color="#174c43"/><stop offset="1" stop-color="#123b39"/></linearGradient>
+  <pattern id="weave" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 1h8M1 0v8" stroke="#a3d38d" stroke-opacity=".075" stroke-width="1"/></pattern>
+  <g id="leaf" fill="none" stroke="#b1d7a0" stroke-linecap="round" stroke-width="2">
+   <path d="M0 0q21 12 45 10M4 1Q23-18 47-13 37 5 19 7m0-1Q44 2 58 14 43 24 27 15M1 1q23 4 22 25Q10 23 5 15"/>
+  </g>
+ </defs>
+ <rect width="720" height="480" fill="url(#felt)"/>
+ <rect width="720" height="480" fill="url(#weave)"/>
+ <rect x="26" y="24" width="668" height="432" rx="85" fill="none" stroke="#c8df9e" stroke-opacity=".24" stroke-width="2" stroke-dasharray="4 7"/>
+ <g opacity=".34">
+  <use href="#leaf" transform="translate(47 42) rotate(22)"/><use href="#leaf" transform="translate(673 42) scale(-1 1) rotate(22)"/>
+  <use href="#leaf" transform="translate(47 438) scale(1 -1) rotate(22)"/><use href="#leaf" transform="translate(673 438) scale(-1 -1) rotate(22)"/>
+ </g>
+ <g transform="translate(360 241)" fill="none" stroke="#cfdf9d" opacity=".2">
+  <circle r="72" stroke-width="1.5"/><circle r="64"/><path d="M0-87 87 0 0 87-87 0Z"/>
+  <path d="M0-41c-8 18-34 26-34 43 0 17 20 20 30 7L-12 30h24L4 9c10 13 30 10 30-7C34-15 8-23 0-41Z" fill="#9cc587" stroke="none"/>
+ </g>
+</svg>
