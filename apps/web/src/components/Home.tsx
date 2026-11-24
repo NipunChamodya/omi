@@ -13,6 +13,7 @@ export function Home({
   session,
   authLoading,
   showSponsor,
+  animateOpening,
   onSignIn,
 }: {
   client: GameClient;
@@ -20,6 +21,7 @@ export function Home({
   session: AuthSession | null;
   authLoading: boolean;
   showSponsor: boolean;
+  animateOpening: boolean;
   onSignIn: () => void;
 }) {
   const [tutorial, setTutorial] = useState(false);
@@ -39,7 +41,12 @@ export function Home({
   }
   return (
     <div className="welcome-layout">
-      <section className="welcome-copy" aria-labelledby="welcome-title">
+      <section
+        className={
+          !animateOpening ? 'welcome-copy' : 'welcome-copy opening-hero'
+        }
+        aria-labelledby="welcome-title"
+      >
         <p className="eyebrow">
           <span className="tiny-line" /> {text('A SRI LANKAN TRADITION')}
         </p>
@@ -58,12 +65,21 @@ export function Home({
             <CardFace card={{ rank: 'K', suit: 'spades' }} />
           </div>
           <div className="hero-card middle">
+            <span className="card-mascot">• ᴗ •</span>
             <CardFace card={{ rank: 'A', suit: 'hearts' }} />
           </div>
           <div className="hero-card last">
             <CardFace card={{ rank: 'Q', suit: 'clubs' }} />
           </div>
         </div>
+        {!state.saved && state.view === 'home' && (
+          <button
+            className="button primary play-omi"
+            onClick={() => client.navigate('multiplayer')}
+          >
+            {text('Play OMI')} <span aria-hidden="true">▶</span>
+          </button>
+        )}
         <button
           className="text-button"
           onClick={() => {
@@ -89,8 +105,7 @@ export function Home({
             <p className="eyebrow">{text('WELCOME BACK')}</p>
             <h2 id="entry-title">{text('Your seat is saved.')}</h2>
             <p>
-              Return to table <strong>{state.saved.code}</strong> and pick up
-              where you left off.
+              {text('Table code')} <strong>{state.saved.code}</strong>
             </p>
             {authLoading ? (
               <p role="status">{text('Checking your session…')}</p>
@@ -112,6 +127,16 @@ export function Home({
                   {text('Return to your table')}{' '}
                   <span aria-hidden="true">↗</span>
                 </button>
+                <details className="seated-options">
+                  <summary>
+                    {text('Create a table')} / {text('Join a table')}
+                  </summary>
+                  <p>
+                    {text(
+                      'You have a saved seat. Return to your table and finish or leave the match before taking another seat.',
+                    )}
+                  </p>
+                </details>
               </>
             )}
           </>
@@ -123,7 +148,7 @@ export function Home({
                 onClick={client.back}
                 disabled={state.busy || authLoading}
               >
-                ← Back
+                ← {text('Back')}
               </button>
             )}
             <p className="eyebrow">

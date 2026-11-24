@@ -207,7 +207,7 @@ export default function Profile({
           disabled={busy}
           onClick={() => dialog.current?.close()}
         >
-          ×
+          ← {text('Back')}
         </button>
       </div>
       {error && (
@@ -261,6 +261,16 @@ export default function Profile({
       <section className="photo-editor" aria-labelledby="photo-title">
         <h3 id="photo-title">{text('Profile photo')}</h3>
         <p>{text('Choose from your gallery, then frame it your way.')}</p>
+        {session.avatarUploadsEnabled && (
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy}
+            onClick={() => fileInput.current?.click()}
+          >
+            {text('Edit avatar')}
+          </button>
+        )}
         <input
           ref={fileInput}
           className="file-input"

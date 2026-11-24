@@ -2865,3 +2865,152 @@ input {
   width: 100%;
   min-height: 44px;
 }
+
+/* Menu palette stays outside the card table so cards and seat geometry keep their dimensions. */
+.game-menu {
+  color: #183c38;
+  background:
+    radial-gradient(ellipse at 20% 90%, #9be4b5 0%, transparent 52%),
+    radial-gradient(ellipse at 91% 72%, #f6d9a0 0%, transparent 43%),
+    linear-gradient(165deg, #acdfff, #eaf8eb 58%, #c0e4a9);
+}
+.game-menu .app-header,
+.game-menu .app-footer {
+  color: #254c44;
+  background: transparent;
+}
+.game-menu .welcome-copy h1,
+.game-menu .entry-panel h2,
+.game-menu .welcome-copy .text-button {
+  color: #183c38;
+}
+.game-menu .welcome-copy h1 em {
+  color: #843a82;
+}
+.game-menu
+  :is(
+    .welcome-description,
+    .eyebrow,
+    .table-promise,
+    .quiet-note,
+    .account-welcome,
+    .divider,
+    .entry-panel > p,
+    .entry-form label
+  ) {
+  color: #365a50;
+}
+.game-menu :is(.entry-panel, .multiplayer-menu) {
+  border: 2px solid #fff;
+  border-radius: 30px;
+  background: #fff9ee;
+  box-shadow:
+    0 10px 0 #36946530,
+    0 20px 40px #20534224;
+}
+.game-menu .multiplayer-menu {
+  color: #214940;
+}
+.game-menu .entry-form input {
+  color: #17382f;
+  background: white;
+  border-color: #83ad9b;
+}
+.game-menu .entry-form input::placeholder {
+  color: #57786a;
+}
+.game-menu .button.primary {
+  color: #163a2c;
+  background: linear-gradient(#ffe789, #ffd052);
+  border-color: #e6af39;
+  box-shadow:
+    inset 0 2px #fff8,
+    0 4px #d49b36;
+}
+.game-menu .button.secondary {
+  color: #22463d;
+  background: linear-gradient(#fff, #e6f4ef);
+  border-color: #88baa9;
+}
+.game-dock {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px auto;
+  padding: 0 12px;
+}
+.game-dock .button {
+  min-height: 44px;
+  width: auto;
+  overflow-wrap: anywhere;
+}
+.card-mascot {
+  position: absolute;
+  z-index: 2;
+  bottom: 19%;
+  left: 13%;
+  right: 13%;
+  border-radius: 20px;
+  padding: 3px 0;
+  color: #6c3260;
+  background: #ffd7dc;
+  text-align: center;
+  font-weight: bold;
+}
+.hero-card.middle {
+  position: absolute;
+}
+.opening-hero .hero-cards {
+  animation: menu-arrival 1.3s both;
+}
+@keyframes menu-arrival {
+  from {
+    opacity: 0.15;
+    translate: 0 14px;
+    scale: 0.86;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .opening-hero .hero-cards {
+    animation: none;
+  }
+}
+.data-saver .opening-hero .hero-cards {
+  animation: none;
+}
+.lobby .lobby-seat {
+  border-radius: 18px;
+}
+.lobby .invite-box {
+  border-radius: 22px;
+}
+.table-utilities[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: min(85dvh, 720px);
+  width: min(680px, calc(100% - 24px));
+  overflow: auto;
+  padding: 16px;
+  border-radius: 24px;
+  color: #f9f3e5;
+  background: #154339;
+}
+
+.game-menu .play-omi {
+  display: block;
+  min-height: 48px;
+  width: min(270px, 100%);
+  margin: 12px 0;
+}
+.table-utilities.lobby-utilities[open] {
+  position: static;
+  max-height: none;
+  width: min(760px, 100%);
+}

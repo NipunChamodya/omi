@@ -136,7 +136,7 @@ test('four mobile friends create, join, deal, play a round and resume after relo
       );
     const beforeScore = await host.getByTestId('score').innerText();
     await host
-      .getByRole('button', { name: 'Sound & tools', exact: true })
+      .getByRole('button', { name: 'Sound, voice & music', exact: true })
       .click();
     await host.getByText('Card themes', { exact: true }).click();
     await host
@@ -159,9 +159,7 @@ test('four mobile friends create, join, deal, play a round and resume after relo
       'data-card-theme',
       'royal',
     );
-    await host
-      .getByRole('button', { name: 'Back to game', exact: true })
-      .click();
+    await host.getByRole('button', { name: 'Back', exact: true }).click();
     await host.getByRole('button', { name: '← Home', exact: true }).click();
     await expect(
       host.getByRole('dialog', { name: 'Return from your table?' }),

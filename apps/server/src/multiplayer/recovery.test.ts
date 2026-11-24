@@ -493,7 +493,7 @@ it('replays committed HTTP create and join descriptors across restart', async ()
   const create = {
     actorId: host.actorId,
     actionId: randomUUID(),
-    expectedVersion: 0,
+    expectedVersion: 0 as const,
   };
   try {
     const room = rooms.create(host, create);

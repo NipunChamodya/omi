@@ -1,3 +1,4 @@
+import { useMediaCopy } from '../i18n/mediaCopy';
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Member } from '@omi/shared';
@@ -18,6 +19,7 @@ export default function VoicePanel({
   blockedActorIds?: readonly string[];
 }) {
   const [client] = useState(() => new VoiceClient(roomId, actorId));
+  const media = useMediaCopy();
   const state = useStore(client.store);
   const volume = useSoundPreferences((state) => state.voice);
   useEffect(() => {
@@ -34,19 +36,19 @@ export default function VoicePanel({
     state.status,
   );
   return (
-    <section className="voice-panel" aria-label="Room voice">
+    <section className="voice-panel" aria-label={media('Room voice')}>
       <div className="voice-heading">
-        <strong>At the table · Voice</strong>
+        <strong>{media('At the table · Voice')}</strong>
         <span role="status">
           {state.status === 'off'
-            ? 'Microphone off'
+            ? media('Microphone off')
             : state.status === 'joining'
-              ? 'Connecting voice…'
+              ? media('Connecting voice…')
               : state.status === 'reconnecting'
-                ? 'Reconnecting voice…'
+                ? media('Reconnecting voice…')
                 : state.status === 'connected'
-                  ? 'Voice connected'
-                  : 'Voice unavailable'}
+                  ? media('Voice connected')
+                  : media('Voice unavailable')}
         </span>
       </div>
       <div className="voice-controls">
@@ -56,7 +58,7 @@ export default function VoicePanel({
             disabled={!online}
             onClick={() => void client.join()}
           >
-            Join voice
+            {media('Join voice')}
           </button>
         ) : (
           <>
@@ -66,10 +68,12 @@ export default function VoicePanel({
               disabled={state.status !== 'connected'}
               onClick={() => client.setMuted(!state.muted)}
             >
-              {state.muted ? 'Unmute microphone' : 'Mute microphone'}
+              {state.muted
+                ? media('Unmute microphone')
+                : media('Mute microphone')}
             </button>
             <button className="text-button" onClick={client.leave}>
-              Leave voice
+              {media('Leave voice')}
             </button>
           </>
         )}
@@ -78,7 +82,7 @@ export default function VoicePanel({
             className="secondary-button"
             onClick={() => void client.resumePlayback()}
           >
-            Enable voice playback
+            {media('Enable voice playback')}
           </button>
         )}
       </div>
@@ -93,16 +97,16 @@ export default function VoicePanel({
             <span>
               You ·{' '}
               {state.muted
-                ? 'Muted'
+                ? media('Muted')
                 : state.speaking
-                  ? 'Speaking'
-                  : 'Listening'}
+                  ? media('Speaking')
+                  : media('Listening')}
             </span>
           </li>
           {state.peers.map((peer) => {
             const name =
               members.find((member) => member.actorId === peer.actorId)
-                ?.displayName ?? 'Player';
+                ?.displayName ?? media('Player');
             return (
               <li
                 key={peer.actorId}
@@ -116,17 +120,17 @@ export default function VoicePanel({
                 <span>
                   {name} ·{' '}
                   {blockedActorIds.includes(peer.actorId)
-                    ? 'Blocked'
+                    ? media('Blocked')
                     : peer.muted
-                      ? 'Muted'
+                      ? media('Muted')
                       : peer.speaking
-                        ? 'Speaking'
+                        ? media('Speaking')
                         : peer.connection === 'connected'
-                          ? 'Listening'
-                          : 'Connecting'}
+                          ? media('Listening')
+                          : media('Connecting')}
                 </span>
                 <label className="voice-volume">
-                  Volume for {name}
+                  {media('Volume for')} {name}
                   <input
                     disabled={blockedActorIds.includes(peer.actorId)}
                     type="range"
@@ -145,9 +149,9 @@ export default function VoicePanel({
         </ul>
       )}
       <p className="voice-note">
-        Opt-in microphone. Audio is not recorded.
+        {media('Opt-in microphone. Audio is not recorded.')}
         {active && !state.relayAvailable
-          ? ' Direct connections only; some networks need TURN.'
+          ? ' ' + media('Direct connections only; some networks need TURN.')
           : ''}
       </p>
     </section>

@@ -211,7 +211,12 @@ export class GameClient {
   start = async () => {
     this.stopped = false;
     const saved = this.store.getState().saved;
-    if (saved) await this.resume();
+    if (
+      saved &&
+      (window.history.state?.view === 'room' ||
+        this.store.getState().inviteCode === saved.code)
+    )
+      await this.resume();
   };
   adoptAccount = (
     profile: PublicProfile,
@@ -287,7 +292,13 @@ export class GameClient {
   }
   navigate = (view: View, back = false) => {
     const state = this.store.getState();
-    if (state.view === 'room' && view !== 'room' && state.snapshot?.game) {
+    if (state.view === view) return;
+    if (
+      state.view === 'room' &&
+      view !== 'room' &&
+      state.snapshot &&
+      !state.snapshot.score.final
+    ) {
       this.store.setState({ leaveRequest: { view, back } });
       return;
     }
@@ -295,11 +306,16 @@ export class GameClient {
   };
   home = () => this.navigate('home');
   back = () => {
+    if (this.store.getState().view === 'home') return;
     if (window.history.state?.omi && window.history.state.index > 0)
       window.history.back();
     else
       this.navigate(
-        this.store.getState().view === 'multiplayer' ? 'home' : 'multiplayer',
+        ['create', 'join', 'friends', 'online'].includes(
+          this.store.getState().view,
+        )
+          ? 'multiplayer'
+          : 'home',
       );
   };
   onPopState = (event: PopStateEvent) => {

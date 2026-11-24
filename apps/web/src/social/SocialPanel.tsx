@@ -1,3 +1,4 @@
+import { useMediaCopy } from '../i18n/mediaCopy';
 import { useState } from 'react';
 import { useStore } from 'zustand';
 import { musicTracks, quickPhrases, reactions } from '@omi/shared';
@@ -10,6 +11,7 @@ export default function SocialPanel({
   client: SocialClient;
   members: readonly Member[];
 }) {
+  const media = useMediaCopy();
   const state = useStore(client.store);
   const [draft, setDraft] = useState('');
   const [reportId, setReportId] = useState<string | null>(null);
@@ -20,9 +22,9 @@ export default function SocialPanel({
   const prefs = state.preferences;
   const name = (id: string) =>
     id === client.actorId
-      ? 'You'
+      ? media('You')
       : (members.find((member) => member.actorId === id)?.displayName ??
-        'Player');
+        media('Player'));
   const host = state.hostId === client.actorId;
   const music = state.music;
   const duration =
@@ -34,7 +36,7 @@ export default function SocialPanel({
     >
       <details>
         <summary>
-          Friends, chat & music{' '}
+          {media('Friends, chat & music')}{' '}
           <span className="social-connection">
             {enabled ? 'Connected' : 'Offline'}
           </span>
@@ -194,12 +196,12 @@ export default function SocialPanel({
             />
           </label>
         </section>
-        <section aria-label="Shared music">
-          <h3>Shared music</h3>
+        <section aria-label={media('Shared music')}>
+          <h3>{media('Shared music')}</h3>
           <p>
             {musicTracks.find((track) => track.id === music?.trackId)?.title ??
-              'Loading music state…'}{' '}
-            · {music?.playing ? 'Playing' : 'Paused'}
+              media('Loading music state…')}{' '}
+            · {music?.playing ? media('Playing') : media('Paused')}
           </p>
           <button
             className="secondary-button"
@@ -211,11 +213,11 @@ export default function SocialPanel({
             }
           >
             {state.musicEnabled
-              ? 'Disable music locally'
-              : 'Enable music locally'}
+              ? media('Disable music locally')
+              : media('Enable music locally')}
           </button>
           <label>
-            Music volume
+            {media('Music volume')}
             <input
               type="range"
               min="0"
@@ -230,7 +232,7 @@ export default function SocialPanel({
           {host && music ? (
             <div className="music-host-controls">
               <label>
-                Shared track
+                {media('Shared track')}
                 <select
                   value={music.trackId}
                   disabled={!enabled || state.pending}
@@ -265,10 +267,12 @@ export default function SocialPanel({
                   })
                 }
               >
-                {music.playing ? 'Pause shared music' : 'Play shared music'}
+                {music.playing
+                  ? media('Pause shared music')
+                  : media('Play shared music')}
               </button>
               <label>
-                Shared playback position
+                {media('Shared playback position')}
                 <input
                   type="range"
                   min="0"
@@ -293,7 +297,7 @@ export default function SocialPanel({
                   setSeek(null);
                 }}
               >
-                Set shared position
+                {media('Set shared position')}
               </button>
             </div>
           ) : (

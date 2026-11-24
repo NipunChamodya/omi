@@ -380,7 +380,7 @@ test('four real peer connections carry audio, mute, recover and stop without pla
         ),
       ).toBe(true);
       await pages[i]!.getByRole('button', {
-        name: 'Sound & tools',
+        name: 'Sound, voice & music',
         exact: true,
       }).click();
       await expect(

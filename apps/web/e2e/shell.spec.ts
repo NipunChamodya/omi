@@ -56,6 +56,7 @@ test('Sinhala join labels fit a narrow screen and survive reload', async ({
 }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto('/');
+  await page.getByRole('button', { name: 'Settings & install' }).click();
   await page.getByRole('combobox', { name: /Language/ }).selectOption('si');
   await expect(page.locator('html')).toHaveAttribute('lang', 'si');
   await page.reload();
@@ -66,4 +67,45 @@ test('Sinhala join labels fit a narrow screen and survive reload', async ({
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test('browser Back closes settings before leaving the join screen', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto('/');
+  await page.getByRole('button', { name: /Join a table/ }).click();
+  await expect(page.getByLabel('Table code')).toBeVisible();
+  await page.getByRole('button', { name: 'Settings & install' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Game settings' }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole('dialog', { name: 'Game settings' }),
+  ).not.toBeVisible();
+  await expect(page.getByLabel('Table code')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByLabel('Table code')).not.toBeVisible();
+});
+
+test('iPhone install guide shows the Safari Share steps', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    userAgent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Settings & install' }).click();
+    await page.getByText('Install & data settings', { exact: true }).click();
+    await expect(
+      page.getByText('Share → Add to Home Screen → Add'),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+  }
 });

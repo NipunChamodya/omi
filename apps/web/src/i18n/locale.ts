@@ -248,6 +248,27 @@ const sinhala = {
   'Your report was sent privately.': 'ඔබේ වාර්තාව පෞද්ගලිකව යවා ඇත.',
   'Could not send your report. Try again later.':
     'වාර්තාව යැවීමට නොහැකි විය. පසුව නැවත උත්සාහ කරන්න.',
+  'Your seat is saved. You can return to this table.':
+    'ඔබේ අසුන වෙන් කර ඇත. මෙම මේසයට ආපසු යා හැක.',
+  'Back to profile': 'පැතිකඩට ආපසු',
+  'Play OMI': 'ඕමි ක්‍රීඩා කරන්න',
+  'Edit avatar': 'පැතිකඩ රූපය වෙනස් කරන්න',
+  'Game menu': 'ක්‍රීඩා මෙනුව',
+  'Profile & friends': 'පැතිකඩ සහ යහළුවෝ',
+  'Settings & install': 'සැකසුම් සහ ස්ථාපනය',
+  'Sound, voice & music': 'ශබ්ද, හඬ සහ සංගීතය',
+  'Leaving a ranked game starts the reconnect timer. If it expires, your team forfeits.':
+    'ශ්‍රේණිගත තරගයෙන් පිටවූ විට නැවත එක්වීමට කාලය ගණන් ගැනේ. කාලය අවසන් වුවහොත් ඔබේ පිල පරදියි.',
+  'You have a saved seat. Return to your table and finish or leave the match before taking another seat.':
+    'ඔබට වෙන් කළ අසුනක් තිබේ. වෙනත් අසුනක් ගැනීමට පෙර එම මේසයට ආපසු ගොස් තරගය අවසන් කරන්න හෝ තරගයෙන් ඉවත් වන්න.',
+  'Share → Add to Home Screen → Add':
+    'බෙදාගන්න → මුල් තිරයට එක් කරන්න → එක් කරන්න',
+  'Open OMI in Safari, then follow these steps.':
+    'Safari හි ඕමි විවෘත කර මෙම පියවර අනුගමනය කරන්න.',
+  'This browser does not offer an install prompt. Check its menu for installation options.':
+    'මෙම බ්‍රවුසරයෙන් ස්ථාපන ඉල්ලීමක් නොපෙන්වයි. එහි මෙනුවේ ස්ථාපන විකල්ප බලන්න.',
+  'Voice and shared music are unavailable at this table.':
+    'මෙම මේසයේ හඬ සහ හවුල් සංගීතය ලබා ගත නොහැක.',
 } as const;
 
 export function translate(language: 'en' | 'si', message: string): string {

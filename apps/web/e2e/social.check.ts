@@ -266,6 +266,7 @@ test('four friends exchange safe social content and synchronize real opt-in musi
       fullPage: true,
     });
     await host.getByRole('link', { name: 'OMI home' }).click();
+    await host.getByRole('button', { name: 'Return home and keep my seat' }).click();
     await expect(host.locator('audio[data-social-music]')).toHaveCount(0);
   } finally {
     await Promise.all(contexts.map((context) => context.close()));

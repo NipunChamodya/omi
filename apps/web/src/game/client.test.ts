@@ -143,6 +143,11 @@ it('ignores a delayed reconnect read after navigation home', async () => {
   socket.close(1006);
   await vi.advanceTimersByTimeAsync(500);
   client.home();
+  expect(client.store.getState().leaveRequest).toEqual({
+    view: 'home',
+    back: false,
+  });
+  client.confirmLeave();
   resolve({ ...state(), version: 4 });
   await vi.advanceTimersByTimeAsync(1);
   expect(client.store.getState().view).toBe('home');
@@ -232,4 +237,22 @@ it('confirms leaving an active table while preserving its identity, saved seat a
   expect(client.store.getState().snapshot).toBe(snapshot);
   expect(client.store.getState().saved?.roomId).toBe(state().roomId);
   expect(api.create).toHaveBeenCalledTimes(1);
+});
+
+it('keeps a lobby open when the player cancels leaving', async () => {
+  await client.enter('Nipun');
+  MockSocket.instances[0]!.message(state());
+  client.home();
+  expect(client.store.getState().leaveRequest?.view).toBe('home');
+  client.cancelLeave();
+  expect(client.store.getState().view).toBe('room');
+  expect(client.store.getState().saved).not.toBeNull();
+  expect(client.store.getState().leaveRequest).toBeNull();
+});
+
+it('does not create a navigation loop when Back is pressed at Home', () => {
+  const before = window.location.href;
+  client.back();
+  expect(window.location.href).toBe(before);
+  expect(client.store.getState().view).toBe('home');
 });

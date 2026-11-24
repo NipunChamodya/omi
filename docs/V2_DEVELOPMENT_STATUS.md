@@ -2,6 +2,21 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.6 changes
+
+- The Home and multiplayer menus use a brighter palette, rounded panels, a CSS card mascot, a large Play OMI button and a menu dock. The opening animation is decorative, observes reduced-motion and Data Saver preferences, and is suppressed when restoring an active table. Gameplay grid, card rendering, drag behavior, and server rules were preserved.
+- Settings and profiles participate in browser history. Settings opens as a dialog from the menu and during play. Lobby tools remain available inline. Exiting a lobby or active game requires confirmation and leaves the authoritative seat recoverable. Ranked games explain the existing reconnection deadline and forfeit. Home shows the saved seat with Create/Join guidance. Releasing an unfinished seat is still governed by the existing server lifecycle.
+- Profile photo editing has an explicit picker action when a configured server permits uploads. Voice and music share a discoverable table control and preserve existing permission gates and listener opt-in. Music currently uses the curated bundled tracks. User-selected media ingestion and sharing are not implemented.
+- Install uses a captured native prompt on supporting browsers, an iPhone/iPad Safari Share guide, and suppression in standalone mode. Service-worker update and offline notices stay visible outside Settings. Added Sinhala strings for navigation, installation, voice controls and synchronized music. Remaining English includes parts of game announcements, profile statistics, and secondary social messages.
+- From clean `dev` at `5d80e4d`, verified a non-destructive checkpoint of 269 tracked and untracked project files. No server changes or live deployments were made.
+
+### V2.6 verification
+
+- The final Vitest run passed 234 unit/integration tests. The focused defensive suite passed 109 of those cases and the infrastructure suite passed 15 tests. TypeScript, lint, production build and the bundle gate passed. The compressed entry totaled 96,572 bytes.
+- Thirteen distinct browser scenarios passed across the selected shell, gameplay, avatar, PWA, shared-media and voice runs, counting different viewport cases and counting cross-browser reruns once. Initial gameplay, PWA and music checks failed around changed settings visibility and the lobby-leave confirmation. The corrected flows passed on Chromium and Firefox. The four-peer voice check passed on Chromium with synthetic microphone input.
+- A disk-backed loopback benchmark served eight rooms and 32 clients, completed 320 actions and eight reconnects, and measured action p50/p95/p99 of 2.19/5.95/6.71 ms, 4.7% average combined CPU and 187.1 MiB peak combined RSS. Cloud and physical-device results remain unverified.
+- The 1,200-case target was not met. Major gaps include full-match and rematch browser journeys, broader Sinhala coverage, mobile hardware and installed-PWA acceptance, Internet relay tests, and overload scenarios beyond the loopback harness.
+
 ## V2.5 changes
 
 - Signed-in table members can report another human player without opening chat or voice. The report collects a reason category, the two internal account or seat IDs, table and timestamp. It stores no free text, chat transcript, audio or cards. The existing moderator workflow sees the report. The route requires exact Origin, session, CSRF and room membership, limits submissions per account and deduplicates the same target within a match generation.

@@ -1,4 +1,5 @@
 import { useCopy } from '../i18n/locale';
+import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { useDataSaver } from './preferences';
 interface InstallPrompt extends Event {
@@ -12,6 +13,15 @@ export function PwaControls() {
   const [offline, setOffline] = useState(!navigator.onLine);
   const [update, setUpdate] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [standalone, setStandalone] = useState(() =>
+    Boolean(
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone,
+    ),
+  );
+  const apple =
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   useEffect(() => {
     document.documentElement.classList.toggle('data-saver', saver.enabled);
   }, [saver.enabled]);
@@ -22,7 +32,10 @@ export function PwaControls() {
       event.preventDefault();
       setInstall(event as InstallPrompt);
     };
-    const installed = () => setInstall(null);
+    const installed = () => {
+      setInstall(null);
+      setStandalone(true);
+    };
     window.addEventListener('online', online);
     window.addEventListener('offline', disconnected);
     window.addEventListener('beforeinstallprompt', prompt);
@@ -67,6 +80,24 @@ export function PwaControls() {
       window.removeEventListener('appinstalled', installed);
     };
   }, []);
+  const messages = (
+    <>
+      {offline && (
+        <p role="status">
+          You’re offline. Reconnect to continue; game actions require the
+          server.
+        </p>
+      )}
+      {update && (
+        <p role="status">
+          An OMI update is ready. After your game, close all OMI tabs and app
+          windows, then reopen.
+        </p>
+      )}
+    </>
+  );
+  const messageHost =
+    offline || update ? document.getElementById('pwa-messages') : null;
   return (
     <aside className="pwa-controls" aria-label={text('App settings')}>
       <label>
@@ -85,7 +116,7 @@ export function PwaControls() {
             : 'Standard Mode: normal visuals. Music and effects still require your permission.'}{' '}
           Gameplay checks and voice controls stay active.
         </p>
-        {install ? (
+        {standalone ? null : install ? (
           <button
             onClick={() => {
               void install
@@ -97,11 +128,18 @@ export function PwaControls() {
           >
             {text('Install OMI')}
           </button>
+        ) : apple ? (
+          <div>
+            <p>{text('Open OMI in Safari, then follow these steps.')}</p>
+            <p>
+              <strong>{text('Share → Add to Home Screen → Add')}</strong>
+            </p>
+          </div>
         ) : (
           <p>
-            To install, use your browser’s install menu. On iPhone or iPad, open
-            in Safari, tap Share, then Add to Home Screen. Installation options
-            vary by browser; HTTPS is required outside localhost.
+            {text(
+              'This browser does not offer an install prompt. Check its menu for installation options.',
+            )}
           </p>
         )}
         {failed && (
@@ -112,18 +150,8 @@ export function PwaControls() {
           </p>
         )}
       </details>
-      {offline && (
-        <p role="status">
-          You’re offline. Reconnect to continue; game actions require the
-          server.
-        </p>
-      )}
-      {update && (
-        <p role="status">
-          An OMI update is ready. After your game, close all OMI tabs and app
-          windows, then reopen.
-        </p>
-      )}
+      {(offline || update) &&
+        (messageHost ? createPortal(messages, messageHost) : messages)}
     </aside>
   );
 }

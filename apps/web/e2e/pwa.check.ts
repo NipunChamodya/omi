@@ -168,13 +168,19 @@ test('manifest, icons and persisted data saver work at narrow mobile widths', as
     expect(bytes.readUInt32BE(16)).toBe(Number(icon.sizes.split('x')[0]));
   }
   expect((await request.get('/icons/apple-touch-icon.png')).ok()).toBe(true);
+  const openSettings = () =>
+    page.getByRole('button', { name: 'Settings & install' }).click();
+  await openSettings();
   const saver = page.getByRole('checkbox', { name: 'Data Saver Mode' });
   await saver.check();
   await expect(page.locator('html')).toHaveClass(/data-saver/);
   await page.reload();
+  await openSettings();
   await expect(saver).toBeChecked();
   await page.getByText('Install & data settings', { exact: true }).click();
-  await expect(page.getByText(/On iPhone or iPad/)).toBeVisible();
+  await expect(
+    page.getByText(/browser does not offer an install prompt/),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -183,5 +189,6 @@ test('manifest, icons and persisted data saver work at narrow mobile widths', as
   await saver.uncheck();
   await expect(page.locator('html')).not.toHaveClass(/data-saver/);
   await page.reload();
+  await openSettings();
   await expect(saver).not.toBeChecked();
 });

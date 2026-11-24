@@ -36,30 +36,41 @@ export function App({ client: supplied }: { client?: GameClient }) {
   const tools = useRef<HTMLDialogElement>(null);
   const leaving = useRef<HTMLDialogElement>(null);
   const playing = state.view === 'room' && !!state.snapshot?.game;
+  const overlay = useRef<'profile' | 'settings' | null>(null);
+  function openOverlay(panel: 'profile' | 'settings') {
+    if (overlay.current) return;
+    const current = window.history.state;
+    window.history.pushState({ ...current, omiOverlay: panel }, '');
+    overlay.current = panel;
+    if (panel === 'profile') setProfileOpen(true);
+    else setToolsOpen(true);
+  }
+  function closeOverlay() {
+    if (overlay.current && window.history.state?.omiOverlay === overlay.current)
+      window.history.back();
+  }
   useEffect(() => {
     const dialog = tools.current;
     if (!dialog) return;
-    if (!playing) {
+    if (state.view === 'room' && !playing) {
       if (dialog.open) dialog.close?.();
       dialog.removeAttribute('data-modal');
       dialog.setAttribute('open', '');
-    } else {
-      if (dialog.open && !dialog.hasAttribute('data-modal')) {
-        dialog.close?.();
-        dialog.removeAttribute('open');
-      }
-      if (toolsOpen && !dialog.open) {
-        if (dialog.showModal) dialog.showModal();
-        else dialog.setAttribute('open', '');
-        dialog.setAttribute('data-modal', 'true');
-      }
-      if (!toolsOpen && dialog.open) {
-        dialog.close?.();
-        dialog.removeAttribute('open');
-        dialog.removeAttribute('data-modal');
-      }
+      return;
     }
-  }, [playing, toolsOpen]);
+    if (dialog.open && !dialog.hasAttribute('data-modal'))
+      dialog.removeAttribute('open');
+    if (toolsOpen && !dialog.open) {
+      if (dialog.showModal) dialog.showModal();
+      else dialog.setAttribute('open', '');
+      dialog.setAttribute('data-modal', '');
+    }
+    if (!toolsOpen && dialog.open) {
+      dialog.close?.();
+      dialog.removeAttribute('open');
+      dialog.removeAttribute('data-modal');
+    }
+  }, [toolsOpen, state.view, playing]);
   useEffect(() => {
     const dialog = leaving.current;
     if (state.leaveRequest && dialog && !dialog.open) {
@@ -79,10 +90,19 @@ export function App({ client: supplied }: { client?: GameClient }) {
         event.returnValue = '';
       }
     };
-    window.addEventListener('popstate', client.onPopState);
+    const onPop = (event: PopStateEvent) => {
+      if (overlay.current || event.state?.omiOverlay) {
+        overlay.current = event.state?.omiOverlay ?? null;
+        setProfileOpen(overlay.current === 'profile');
+        setToolsOpen(overlay.current === 'settings');
+        return;
+      }
+      client.onPopState(event);
+    };
+    window.addEventListener('popstate', onPop);
     window.addEventListener('beforeunload', unload);
     return () => {
-      window.removeEventListener('popstate', client.onPopState);
+      window.removeEventListener('popstate', onPop);
       window.removeEventListener('beforeunload', unload);
     };
   }, [client]);
@@ -114,6 +134,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
   async function logout() {
     await authApi.logout(auth?.csrfToken ?? '');
     client.forgetIdentity();
+    overlay.current = null;
     setProfileOpen(false);
     await refreshAuth();
   }
@@ -189,7 +210,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
   const online = state.connection === 'online';
   return (
     <div
-      className={`app-shell ${state.view === 'room' && state.snapshot?.game ? 'playing-room' : ''}`}
+      className={`app-shell ${state.view === 'room' ? '' : 'game-menu'} ${state.view === 'room' && state.snapshot?.game ? 'playing-room' : ''}`}
     >
       <a className="skip-link" href="#main">
         {text('Skip to content')}
@@ -219,7 +240,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
               className="profile-button"
               aria-label={text('My profile')}
               onClick={() => {
-                setProfileOpen(true);
+                openOverlay('profile');
                 void refreshAuth().catch(() => undefined);
               }}
             >
@@ -240,6 +261,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
         className={state.view === 'room' ? 'room-main' : 'welcome-main'}
       >
         <div className="feedback-stack">
+          <div id="pwa-messages" />
           {authError && (
             <div className="feedback error" role="alert">
               <p>{translate(language, authError)}</p>
@@ -289,12 +311,13 @@ export function App({ client: supplied }: { client?: GameClient }) {
               <button
                 className="text-button"
                 onClick={() => {
-                  setToolsOpen(true);
+                  if (playing) openOverlay('settings');
+                  else tools.current?.scrollIntoView?.({ block: 'start' });
                   const panel = document.getElementById('table-sound-settings');
                   if (panel instanceof HTMLDetailsElement) panel.open = true;
                 }}
               >
-                {text('Sound & tools')}
+                {text('Sound, voice & music')}
               </button>
               {auth?.csrfToken && state.snapshot && (
                 <Suspense fallback={null}>
@@ -372,33 +395,48 @@ export function App({ client: supplied }: { client?: GameClient }) {
             state={state}
             session={auth}
             authLoading={authLoading}
+            animateOpening={opening && !auth?.room && !authLoading}
             showSponsor={sponsorEligible && showSponsor}
             onSignIn={() => void signIn()}
           />
         )}
       </main>
+      {state.view !== 'room' && (
+        <nav className="game-dock" aria-label={text('Game menu')}>
+          <button className="button secondary" onClick={client.home}>
+            {text('Home')}
+          </button>
+          {auth?.user && (
+            <button
+              className="button secondary"
+              onClick={() => openOverlay('profile')}
+            >
+              {text('Profile & friends')}
+            </button>
+          )}
+          <button
+            className="button secondary"
+            onClick={() => openOverlay('settings')}
+          >
+            {text('Settings & install')}
+          </button>
+        </nav>
+      )}
       <dialog
         ref={tools}
-        className="table-utilities"
+        className={`table-utilities ${state.view === 'room' && !playing ? 'lobby-utilities' : ''}`}
         aria-label={
           playing ? text('Table settings and voice') : text('Game settings')
         }
-        onClick={(event) => {
-          if (playing && (event.target as Element).closest('a[href="#main"]')) {
-            event.preventDefault();
-            setToolsOpen(false);
-            document.getElementById('main')?.focus();
-          }
+        onCancel={(event) => {
+          event.preventDefault();
+          closeOverlay();
         }}
-        onCancel={() => setToolsOpen(false)}
-        onClose={() => setToolsOpen(false)}
       >
-        {playing && (
-          <button
-            className="button secondary"
-            onClick={() => setToolsOpen(false)}
-          >
-            {text('Back to game')}
+        {(playing || state.view !== 'room') && (
+          <button className="button secondary" onClick={closeOverlay}>
+            <span aria-hidden="true">← </span>
+            {text('Back')}
           </button>
         )}
         <label>
@@ -418,6 +456,15 @@ export function App({ client: supplied }: { client?: GameClient }) {
         <PwaControls />
         <ThemeControls />
         <SoundSettings />
+        {state.snapshot &&
+          (state.snapshot.ranked ||
+            auth?.privateCommunicationAllowed === false ||
+            (!auth?.user && auth?.guestCommunicationAllowed === false)) && (
+            <p>
+              {text('Voice and shared music are unavailable at this table.')}
+            </p>
+          )}
+
         {state.view === 'room' &&
           state.snapshot &&
           !state.snapshot.ranked &&
@@ -447,8 +494,11 @@ export function App({ client: supplied }: { client?: GameClient }) {
       >
         <h2 id="leave-title">{text('Return from your table?')}</h2>
         <p>
-          Your seat, hand and scores stay at the server. Your friends will see
-          you disconnect. You can return to this table.
+          {text(
+            state.snapshot?.ranked && state.snapshot.game
+              ? 'Leaving a ranked game starts the reconnect timer. If it expires, your team forfeits.'
+              : 'Your seat is saved. You can return to this table.',
+          )}
         </p>
         <button className="button primary" onClick={client.cancelLeave}>
           {text('Keep playing')}
@@ -467,7 +517,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
         >
           <Profile
             session={auth}
-            onClose={() => setProfileOpen(false)}
+            onClose={closeOverlay}
             onUpdate={updatedProfile}
             onRefresh={refreshAuth}
             onLogout={logout}
@@ -479,6 +529,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
               state.snapshot.hostId === state.snapshot.you.actorId
             }
             onRoom={(room) => {
+              overlay.current = null;
               setProfileOpen(false);
               client.acceptMatch(room);
             }}
