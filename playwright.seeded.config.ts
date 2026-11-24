@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   ...config,
-  testMatch: '**/seeded-match.check.ts',
+  testMatch: ['**/seeded-match.check.ts', '**/full-interface.check.ts'],
   workers: 1,
   outputDir: './.remote-testing/seeded-match-results',
 });

@@ -70,6 +70,11 @@ export class VoiceClient {
   constructor(
     readonly roomId: string,
     readonly actorId: string,
+    private readonly music?: {
+      hostId: string;
+      capture: () => MediaStream | null;
+      track?: () => VoiceParticipant['track'];
+    },
   ) {}
   private peerStates() {
     this.store.setState({
@@ -128,7 +133,7 @@ export class VoiceClient {
     });
     if (
       !window.isSecureContext ||
-      !navigator.mediaDevices?.getUserMedia ||
+      (!this.music && !navigator.mediaDevices?.getUserMedia) ||
       !window.RTCPeerConnection
     ) {
       this.fail(
@@ -143,27 +148,29 @@ export class VoiceClient {
       const config = await this.configuration(request.signal);
       if (epoch !== this.epoch || !this.wanted) return;
       // Exactly one shared microphone track feeds the three outgoing peer connections.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
+      const stream = this.music
+        ? this.music.capture()
+        : await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          });
       if (epoch !== this.epoch || !this.wanted) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream?.getTracks().forEach((track) => track.stop());
         return;
       }
       this.config = config;
       this.stream = stream;
-      for (const track of stream.getAudioTracks()) {
+      for (const track of stream?.getAudioTracks() ?? []) {
         track.enabled = !this.store.getState().muted;
         track.onended = () =>
           this.fail('The microphone disconnected. Join voice again to retry.');
       }
       this.audioContext();
-      if (this.context) {
+      if (this.context && stream) {
         this.localSource = this.context.createMediaStreamSource(stream);
         this.localAnalyser = this.context.createAnalyser();
         this.localAnalyser.fftSize = 2048;
@@ -172,7 +179,7 @@ export class VoiceClient {
       this.store.setState({ relayAvailable: config.relayAvailable });
       this.meterTimer = setInterval(() => this.meters(), 150);
       const url = new URL(
-        `${apiBase}/rooms/${encodeURIComponent(this.roomId)}/voice/ws`,
+        `${apiBase}/rooms/${encodeURIComponent(this.roomId)}/${this.music ? 'music' : 'voice'}/ws`,
         window.location.origin,
       );
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -253,6 +260,7 @@ export class VoiceClient {
   private transmit(
     command:
       | { type: 'mute'; payload: { muted: boolean } }
+      | { type: 'track'; payload: NonNullable<VoiceParticipant['track']> }
       | {
           type: 'signal';
           target: { actorId: string; callId: string };
@@ -297,6 +305,8 @@ export class VoiceClient {
         type: 'mute',
         payload: { muted: this.store.getState().muted },
       });
+      const track = this.music?.track?.();
+      if (track) this.transmit({ type: 'track', payload: track });
       for (const peer of message.peers) this.add(peer);
     } else if (message.type === 'joined') this.add(message.peer);
     else if (message.type === 'updated') {
@@ -327,7 +337,14 @@ export class VoiceClient {
     }
   }
   private add(peer: VoiceParticipant) {
-    if (peer.actorId === this.actorId || !this.stream || !this.config) return;
+    if (peer.actorId === this.actorId || !this.config) return;
+    if (this.music) {
+      if (
+        this.actorId !== this.music.hostId &&
+        peer.actorId !== this.music.hostId
+      )
+        return;
+    } else if (!this.stream) return;
     const existing = this.links.get(peer.actorId);
     if (existing?.peer.callId === peer.callId) return;
     if (this.links.size >= 3 && !existing) return;
@@ -340,6 +357,7 @@ export class VoiceClient {
     const audio = document.createElement('audio');
     audio.autoplay = true;
     audio.hidden = true;
+    if (this.music) audio.dataset.localMusicPeer = peer.actorId;
     audio.setAttribute('playsinline', '');
     audio.volume = this.blocked.has(peer.actorId)
       ? 0
@@ -375,7 +393,13 @@ export class VoiceClient {
     };
     pc.onnegotiationneeded = async () => {
       // Only one side starts a new pair. Later renegotiations still use perfect negotiation.
-      if (!pc.remoteDescription && this.actorId > link.peer.actorId) return;
+      if (
+        !pc.remoteDescription &&
+        (this.music
+          ? this.actorId !== this.music.hostId
+          : this.actorId > link.peer.actorId)
+      )
+        return;
       try {
         link.makingOffer = true;
         await pc.setLocalDescription();
@@ -445,8 +469,16 @@ export class VoiceClient {
       )
         this.retryLink(link);
     };
-    for (const track of this.stream.getAudioTracks())
-      pc.addTrack(track, this.stream);
+    if (this.stream) {
+      for (const track of this.stream.getAudioTracks()) {
+        if (this.music)
+          pc.addTransceiver(track, {
+            direction: 'sendonly',
+            streams: [this.stream],
+          });
+        else pc.addTrack(track, this.stream);
+      }
+    }
     this.peerStates();
     link.retry = setTimeout(() => {
       link.retry = undefined;
@@ -637,7 +669,7 @@ export class VoiceClient {
     for (const actorId of [...this.links.keys()]) this.remove(actorId);
     this.stream?.getTracks().forEach((track) => {
       track.onended = null;
-      track.stop();
+      if (!this.music) track.stop();
     });
     this.stream = null;
     this.localSource?.disconnect();

@@ -1,3 +1,5 @@
+import './adventure-chrome.css';
+import { GameRibbon } from './GameChrome';
 import './adventure-surfaces.css';
 import {
   TurnCountdown,
@@ -64,19 +66,19 @@ function Player({
         />
       </span>
       <strong className="player-name" title={member.displayName}>
-        {local ? 'You' : member.displayName}
+        {local ? text('You') : member.displayName}
       </strong>
       <span className="player-detail">
         {member.disconnectDeadline !== undefined && !snapshot.score.final ? (
           <ReconnectCountdown deadline={member.disconnectDeadline} />
         ) : member.bot ? (
-          'AI bot'
+          text('AI bot')
         ) : local ? (
-          'Your seat'
+          text('Your seat')
         ) : member.team === snapshot.you.team ? (
-          'Teammate'
+          text('Teammate')
         ) : (
-          'Opponent'
+          text('Opponent')
         )}
       </span>
       {active && snapshot.turnClock && (
@@ -85,7 +87,10 @@ function Player({
       {!local && (
         <span
           className="hidden-hand"
-          aria-label={`${snapshot.game!.handCounts[member.seat]} cards face down`}
+          aria-label={text('{count} cards face down').replace(
+            '{count}',
+            String(snapshot.game!.handCounts[member.seat]),
+          )}
         >
           <span className="hidden-card-backs" aria-hidden="true">
             <CardBack />
@@ -230,7 +235,12 @@ export default function GameTable({
         </div>
       </section>
       <div className="round-meta">
-        <span>Round · {game.tricks.length} / 8 tricks</span>
+        <span>
+          {text('Round · {count} / 8 tricks').replace(
+            '{count}',
+            String(game.tricks.length),
+          )}
+        </span>
         <span lang="si">කැට කොල{snapshot.score.carry ? ' · Sepuru' : ''}</span>
       </div>
       <section
@@ -297,20 +307,29 @@ export default function GameTable({
           {!enabled
             ? text('Reconnecting to your table…')
             : game.phase === 'awaiting-cut'
-              ? `${name(cutter)} is cutting the deck.`
+              ? text('{name} is cutting the deck.').replace(
+                  '{name}',
+                  name(cutter),
+                )
               : game.phase === 'awaiting-trump'
                 ? yours
                   ? text('Choose your trump suit.')
-                  : `${name(game.selector)} is choosing trump.`
+                  : text('{name} is choosing trump.').replace(
+                      '{name}',
+                      name(game.selector),
+                    )
                 : game.phase === 'complete'
-                  ? 'Eight tricks. One good game.'
+                  ? text('Eight tricks. One good game.')
                   : game.phase === 'cancelled'
-                    ? 'This round was cancelled.'
+                    ? text('This round was cancelled.')
                     : yours
                       ? game.trick.length
                         ? text('Your turn. Choose a card.')
                         : text('Your lead. Choose a card.')
-                      : `Waiting for ${name(game.turn)}…`}
+                      : text('Waiting for {name}…').replace(
+                          '{name}',
+                          name(game.turn),
+                        )}
         </p>
         {game.tricks.length > 0 && (
           <div className="table-timing-controls">
@@ -411,12 +430,17 @@ export default function GameTable({
       {game.hand.length > 0 &&
         game.phase !== 'complete' &&
         game.phase !== 'cancelled' && (
-          <section className="hand-panel" aria-label="Your hand">
+          <section className="hand-panel" aria-label={text('Your hand')}>
             <div className="hand-heading">
               <h2>{text('Your hand')}</h2>
               <span>
-                {game.hand.length} cards
-                {game.phase === 'playing' ? ' · Hold & drag, or select' : ''}
+                {text('{count} cards').replace(
+                  '{count}',
+                  String(game.hand.length),
+                )}
+                {game.phase === 'playing'
+                  ? text(' · Hold & drag, or select')
+                  : ''}
               </span>
             </div>
             <div className={`hand-grid hand-fan hand-${game.hand.length}`}>
@@ -471,9 +495,38 @@ export default function GameTable({
         <section
           className={`result-panel ${final?.reason === 'loan_loss' && live ? 'loan-loss' : ''}`}
           aria-labelledby="result-title"
+          tabIndex={0}
         >
-          <p className="eyebrow">BACK AROUND THE TABLE</p>
-          <h2 id="result-title">
+          <div
+            className={`result-medallion ${final && final.winner !== snapshot.you.team ? 'result-medallion--defeat' : ''}`}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 64 64" width="56" height="56" fill="none">
+              <path
+                d="M20 14H10v9c0 9 8 14 16 13m18-22h10v9c0 9-8 14-16 13"
+                stroke="#8c491d"
+                strokeWidth="4"
+                strokeLinecap="round"
+              />
+              <path
+                d="M19 10h26v14c0 9-5 16-13 16s-13-7-13-16V10Z"
+                fill="#ffd044"
+                stroke="#8c491d"
+                strokeWidth="3"
+              />
+              <path
+                d="M32 40v10m-10 5h20"
+                stroke="#8c491d"
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
+              <path
+                d="m32 16 2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5l2-5Z"
+                fill="#fff2d0"
+              />
+            </svg>
+          </div>
+          <GameRibbon id="result-title">
             {final?.reason === 'double_forfeit'
               ? text('Both teams forfeited')
               : final
@@ -481,7 +534,7 @@ export default function GameTable({
                   ? text('Your team won!')
                   : text('The other team won!')
                 : text('Round complete.')}
-          </h2>
+          </GameRibbon>
           <p>
             {final?.reason === 'loan_loss' ? (
               <>
@@ -506,7 +559,12 @@ export default function GameTable({
                 'බාල්දුයි · Correct accusation. The hand ends with a three kata kola obligation.',
               )
             ) : (
-              `${snapshot.result?.tricks[snapshot.you.team] ?? 0} tricks for your team. The round score is settled.`
+              text(
+                '{count} tricks for your team. The round score is settled.',
+              ).replace(
+                '{count}',
+                String(snapshot.result?.tricks[snapshot.you.team] ?? 0),
+              )
             )}
           </p>
           <div className="result-scores">
@@ -570,9 +628,11 @@ export default function GameTable({
       )}
       {game.phase === 'cancelled' && (
         <section className="result-panel">
-          <h2>Let’s deal again.</h2>
+          <h2>{text('Let’s deal again.')}</h2>
           <p>
-            The no-trump report was confirmed. This round has been cancelled.
+            {text(
+              'The no-trump report was confirmed. This round has been cancelled.',
+            )}
           </p>
           {snapshot.hostId === snapshot.you.actorId && (
             <button

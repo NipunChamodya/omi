@@ -1,3 +1,5 @@
+import { GameRibbon } from '../components/GameChrome';
+import '../components/adventure-chrome.css';
 import '../components/adventure-surfaces.css';
 import { useCopy } from '../i18n/locale';
 import { ModerationPanel } from './ModerationPanel';
@@ -106,7 +108,7 @@ export default function Profile({
       <div className="profile-heading">
         <div>
           <p className="eyebrow">{text('YOUR PLACE AT THE TABLE')}</p>
-          <h2 id="profile-title">{text('Your profile')}</h2>
+          <GameRibbon id="profile-title">{text('Your profile')}</GameRibbon>
           {stats && (
             <section
               aria-label={text('Match statistics')}

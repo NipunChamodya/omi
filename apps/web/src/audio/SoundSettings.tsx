@@ -1,12 +1,14 @@
+import { useCopy } from '../i18n/locale';
 import { changeSoundPreferences, useSoundPreferences } from './preferences';
 import { gameAudio } from './gameAudio';
 export function SoundSettings() {
+  const text = useCopy();
   const prefs = useSoundPreferences();
   return (
     <details className="sound-settings" id="table-sound-settings">
-      <summary>Sound &amp; motion</summary>
+      <summary>{text('Sound & motion')}</summary>
       <div className="sound-settings-body">
-        <p>Quiet by default. Voice has its own volume.</p>
+        <p>{text('Quiet by default. Voice has its own volume.')}</p>
         {(
           [
             ['enabled', 'Master sound'],
@@ -25,7 +27,7 @@ export function SoundSettings() {
                 void gameAudio.unlock();
               }}
             />
-            {label}
+            {text(label)}
           </label>
         ))}
         {(
@@ -35,7 +37,7 @@ export function SoundSettings() {
           ] as const
         ).map(([key, label]) => (
           <label key={key}>
-            {label}
+            {text(label)}
             <input
               type="range"
               min="0"
@@ -49,7 +51,7 @@ export function SoundSettings() {
           </label>
         ))}
         <label>
-          Shuffle duration
+          {text('Shuffle duration')}
           <input
             type="range"
             min="400"
@@ -60,13 +62,15 @@ export function SoundSettings() {
               changeSoundPreferences({ motionMs: Number(event.target.value) })
             }
           />
-          <output>{(prefs.motionMs / 1000).toFixed(1)} seconds</output>
+          <output>
+            {(prefs.motionMs / 1000).toFixed(1)} {text('seconds')}
+          </output>
         </label>
         <p>
-          Reduced motion follows your device settings. Ambience is optional and
-          stops when the tab is hidden.
+          {text(
+            'Reduced motion follows your device settings. Ambience stops when the tab is hidden.',
+          )}
         </p>
-        <a href="#main">Back to table</a>
       </div>
     </details>
   );

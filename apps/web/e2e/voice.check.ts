@@ -1,6 +1,7 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
-test('four real peer connections carry audio, mute, recover and stop without playing a card', async ({
+test('four peers carry live voice, recover, mix bundled music and keep playing cards', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -103,6 +104,7 @@ test('four real peer connections carry audio, mute, recover and stop without pla
       await pages[i]!.getByRole('button', { name: /Join table/ }).click();
     }
     for (const page of pages) {
+      await page.getByRole('button', { name: 'Sound, voice & music' }).click();
       await expect(
         page.getByRole('region', { name: 'Room voice' }),
       ).toBeVisible();
@@ -159,6 +161,23 @@ test('four real peer connections carry audio, mute, recover and stop without pla
         )
         .toBe(3);
     }
+    const talker = pages[0]!;
+    const sending = () =>
+      talker.evaluate(() =>
+        (window as unknown as { __voiceStreams: MediaStream[] }).__voiceStreams
+          .at(-1)!
+          .getAudioTracks()
+          .some((track) => track.enabled),
+      );
+    await talker.getByRole('checkbox', { name: 'Push to talk' }).check();
+    expect(await sending()).toBe(false);
+    await talker.getByRole('button', { name: 'Hold to talk' }).focus();
+    await talker.keyboard.down('Space');
+    expect(await sending()).toBe(true);
+    await talker.keyboard.up('Space');
+    expect(await sending()).toBe(false);
+    await talker.getByRole('checkbox', { name: 'Push to talk' }).uncheck();
+    await talker.getByRole('button', { name: 'Unmute microphone' }).click();
     if (testInfo.project.name.includes('relay')) {
       for (const page of pages) {
         expect(
@@ -339,6 +358,131 @@ test('four real peer connections carry audio, mute, recover and stop without pla
       await expect(
         page.locator('[data-voice-peer][data-connection="connected"]'),
       ).toHaveCount(3, { timeout: 25_000 });
+    for (const page of pages) {
+      const social = page.locator('.social-panel > details');
+      if (!(await social.getAttribute('open')))
+        await social.locator('> summary').click();
+      const player = page.getByRole('region', { name: 'Shared music' });
+      await page.bringToFront();
+      await player
+        .getByRole('button', { name: 'Enable music locally' })
+        .click();
+    }
+    await pages[0]!.getByRole('button', { name: 'Play shared music' }).click();
+    for (const page of pages) {
+      await expect
+        .poll(() =>
+          page
+            .locator('audio[data-social-music]')
+            .evaluate((element) => (element as HTMLAudioElement).paused),
+        )
+        .toBe(false);
+    }
+    const host = pages[0]!;
+    const musicPanels = pages.map((page) =>
+      page.getByRole('region', { name: 'Local table music' }),
+    );
+    for (const panel of musicPanels)
+      await panel.getByText('Local table music', { exact: true }).click();
+    const hostMusic = musicPanels[0]!;
+    const tone = await readFile('.remote-testing/synthetic-voice.wav');
+    const fixture = Buffer.concat([
+      tone,
+      ...Array.from({ length: 5 }, () => tone.subarray(44)),
+    ]);
+    fixture.writeUInt32LE(fixture.length - 8, 4);
+    fixture.writeUInt32LE(fixture.length - 44, 40);
+    await hostMusic.getByLabel('Choose a music file').setInputFiles({
+      name: 'authorized-test-tone.wav',
+      mimeType: 'audio/wav',
+      buffer: fixture,
+    });
+    await expect(
+      hostMusic.getByRole('button', { name: 'Start sharing file' }),
+    ).toBeDisabled();
+    await hostMusic
+      .getByLabel('I have permission to share this audio.')
+      .check();
+    await host.bringToFront();
+    await hostMusic.getByRole('button', { name: 'Start sharing file' }).click();
+    for (let i = 1; i < pages.length; i++) {
+      await pages[i]!.bringToFront();
+      await musicPanels[i]!.getByRole('button', {
+        name: 'Listen to shared file',
+      }).click();
+    }
+    await host.bringToFront();
+    await hostMusic
+      .getByRole('button', { name: 'Play file', exact: true })
+      .click();
+    const musicEnergy = (page: Page) =>
+      page.evaluate(async () => {
+        const music = document.querySelector<HTMLAudioElement>(
+          'audio[data-local-music-peer]',
+        );
+        const stream = music?.srcObject as MediaStream | null;
+        if (!stream?.getAudioTracks()[0]) return 0;
+        const context = new AudioContext();
+        try {
+          await context.resume();
+          const source = context.createMediaStreamSource(stream);
+          const analyser = context.createAnalyser();
+          const sink = context.createGain();
+          sink.gain.value = 0;
+          source.connect(analyser).connect(sink).connect(context.destination);
+          const data = new Float32Array(analyser.fftSize);
+          for (let i = 0; i < 4; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 70));
+            analyser.getFloatTimeDomainData(data);
+            const peak = data.reduce(
+              (value, sample) => Math.max(value, Math.abs(sample)),
+              0,
+            );
+            if (peak > 0.005) return peak;
+          }
+          return 0;
+        } finally {
+          await context.close();
+        }
+      });
+    for (const page of pages.slice(1))
+      await expect
+        .poll(() => musicEnergy(page), { timeout: 20_000 })
+        .toBeGreaterThan(0);
+    for (const panel of musicPanels.slice(1))
+      await expect(
+        panel.getByText('authorized-test-tone.wav · 48 s'),
+      ).toBeVisible();
+    await contexts[2]!.setOffline(true);
+    await expect(pages[2]!.locator('audio[data-local-music-peer]')).toHaveCount(
+      0,
+    );
+    await contexts[2]!.setOffline(false);
+    await expect
+      .poll(() => musicEnergy(pages[2]!), { timeout: 20_000 })
+      .toBeGreaterThan(0);
+    await expect(
+      pages[2]!.locator('[data-voice-peer][data-connection="connected"]'),
+    ).toHaveCount(3);
+    await musicPanels[1]!
+      .getByRole('checkbox', { name: 'Mute file music' })
+      .check();
+    await expect
+      .poll(() =>
+        pages[1]!
+          .locator('audio[data-local-music-peer]')
+          .evaluate((element) => (element as HTMLAudioElement).volume),
+      )
+      .toBe(0);
+    await musicPanels[1]!
+      .getByRole('checkbox', { name: 'Mute file music' })
+      .uncheck();
+    await hostMusic
+      .getByRole('button', { name: 'Pause file', exact: true })
+      .click();
+    await hostMusic
+      .getByRole('button', { name: 'Play file', exact: true })
+      .click();
     const streamCounts = await Promise.all(
       pages.map((page) =>
         page.evaluate(
@@ -349,6 +493,9 @@ test('four real peer connections carry audio, mute, recover and stop without pla
       ),
     );
     for (let i = 0; i < pages.length; i++) {
+      await pages[i]!.getByRole('dialog', { name: 'Game settings' })
+        .getByRole('button', { name: 'Back' })
+        .click();
       await pages[i]!.getByRole('button', {
         name: 'Ready to play',
         exact: true,
@@ -387,6 +534,93 @@ test('four real peer connections carry audio, mute, recover and stop without pla
         pages[i]!.locator('[data-voice-peer][data-connection="connected"]'),
       ).toHaveCount(3);
     }
+    for (const page of pages)
+      await page
+        .getByRole('dialog', { name: 'Table settings and voice' })
+        .getByRole('button', { name: 'Back' })
+        .click();
+    const cutter = pages.map((page) =>
+      page.getByRole('button', { name: 'Cut & deal' }),
+    );
+    await expect
+      .poll(async () =>
+        (
+          await Promise.all(cutter.map((control) => control.isVisible()))
+        ).indexOf(true),
+      )
+      .not.toBe(-1);
+    for (const control of cutter) {
+      if (await control.isVisible()) {
+        await control.click();
+        break;
+      }
+    }
+    const trumpChoices = pages.map((page) =>
+      page
+        .getByRole('button', { name: /Trump (spades|hearts|diamonds|clubs)/ })
+        .first(),
+    );
+    await expect
+      .poll(async () =>
+        (
+          await Promise.all(trumpChoices.map((control) => control.isVisible()))
+        ).indexOf(true),
+      )
+      .not.toBe(-1);
+    for (const control of trumpChoices) {
+      if (await control.isVisible()) {
+        await control.click();
+        break;
+      }
+    }
+    await expect
+      .poll(async () =>
+        (
+          await Promise.all(
+            pages.map((page) =>
+              page
+                .getByText('Your lead. Choose a card.', { exact: true })
+                .isVisible(),
+            ),
+          )
+        ).indexOf(true),
+      )
+      .not.toBe(-1);
+    const leader = await Promise.all(
+      pages.map((page) =>
+        page
+          .getByText('Your lead. Choose a card.', { exact: true })
+          .isVisible(),
+      ),
+    );
+    const leaderPage = pages[leader.indexOf(true)];
+    if (!leaderPage) throw new Error('No playing seat after trump selection');
+    await leaderPage.getByTestId('hand-card').last().click();
+    await leaderPage
+      .getByRole('button', { name: 'Play selected card' })
+      .click();
+    await expect(leaderPage.getByTestId('hand-card')).toHaveCount(7);
+    for (const page of pages) {
+      expect(
+        await page
+          .locator('audio[data-social-music]')
+          .evaluate((element) => (element as HTMLAudioElement).paused),
+      ).toBe(false);
+    }
+    for (const page of pages) {
+      await page.getByRole('button', { name: 'Sound, voice & music' }).click();
+      await expect(
+        page.locator('[data-voice-peer][data-connection="connected"]'),
+      ).toHaveCount(3);
+    }
+    for (const page of pages.slice(1))
+      await expect.poll(() => musicEnergy(page)).toBeGreaterThan(0);
+    await pages[1]!.screenshot({
+      path: testInfo.outputPath('local-music-listener.png'),
+    });
+    await hostMusic.getByRole('button', { name: 'Stop file sharing' }).click();
+    for (const page of pages.slice(1))
+      await expect(page.locator('audio[data-local-music-peer]')).toHaveCount(0);
     for (const page of pages)
       await page
         .getByRole('button', { name: 'Leave voice', exact: true })
@@ -504,6 +738,7 @@ test('account logout stops microphone capture and voice without losing the home'
   await page.getByRole('button', { name: 'Continue with Google' }).click();
   await expect(page.getByRole('button', { name: 'My profile' })).toBeVisible();
   await page.getByRole('button', { name: /Create a table/ }).click();
+  await page.getByRole('button', { name: 'Sound, voice & music' }).click();
   await page.getByRole('button', { name: 'Join voice', exact: true }).click();
   await expect(
     page.getByRole('region', { name: 'Room voice' }).getByRole('status'),
@@ -515,6 +750,10 @@ test('account logout stops microphone capture and voice without losing the home'
           .__logoutStreams.length,
     ),
   ).toBe(1);
+  await page
+    .getByRole('dialog', { name: 'Game settings' })
+    .getByRole('button', { name: 'Back' })
+    .click();
   await page.getByRole('button', { name: 'My profile' }).click();
   await page
     .getByRole('dialog', { name: 'Your profile' })

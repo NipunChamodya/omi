@@ -56,6 +56,7 @@ test('four friends exchange safe social content and synchronize real opt-in musi
       await pages[i]!.getByRole('button', { name: /Join table/ }).click();
     }
     for (const page of pages) {
+      await page.getByRole('button', { name: 'Sound, voice & music' }).click();
       await expect(page.locator('.social-connection')).toHaveText('Connected');
       await openSocial(page);
     }
@@ -265,8 +266,14 @@ test('four friends exchange safe social content and synchronize real opt-in musi
       path: info.outputPath('social-320.png'),
       fullPage: true,
     });
+    await host
+      .getByRole('dialog', { name: 'Game settings' })
+      .getByRole('button', { name: 'Back' })
+      .click();
     await host.getByRole('link', { name: 'OMI home' }).click();
-    await host.getByRole('button', { name: 'Return home and keep my seat' }).click();
+    await host
+      .getByRole('button', { name: 'Return home and keep my seat' })
+      .click();
     await expect(host.locator('audio[data-social-music]')).toHaveCount(0);
   } finally {
     await Promise.all(contexts.map((context) => context.close()));

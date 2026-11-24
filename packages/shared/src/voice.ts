@@ -3,6 +3,7 @@ export type VoiceParticipant = {
   actorId: string;
   callId: string;
   muted: boolean;
+  track?: { title: string; seconds: number } | undefined;
 };
 export type VoiceSignal =
   | {
@@ -32,6 +33,7 @@ export type VoiceCommand = {
       payload: VoiceSignal;
     }
   | { type: 'mute'; payload: { muted: boolean } }
+  | { type: 'track'; payload: { title: string; seconds: number } }
 );
 export type VoiceMessage =
   | { type: 'hello'; self: VoiceParticipant; peers: VoiceParticipant[] }

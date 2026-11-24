@@ -326,3 +326,58 @@ it('recovers a newer seat from the server without silently resuming it from an o
   expect(client.store.getState().view).toBe('home');
   expect(client.store.getState().error).toEqual({ code: 'SEAT_CHANGED' });
 });
+
+it('requires the socket snapshot before restoring play and ignores repeated manual retries', async () => {
+  await client.enter('Nipun');
+  const original = MockSocket.instances[0]!;
+  original.message(state());
+  original.close(4001, 'Replaced by reconnect');
+  const recovery = client.retry();
+  void client.retry();
+  await recovery;
+  expect(MockSocket.instances).toHaveLength(2);
+  expect(client.store.getState().connection).toBe('restoring');
+  expect(client.store.getState().snapshot?.version).toBe(1);
+  client.act({ type: 'ready', payload: { ready: true } });
+  const socket = MockSocket.instances[1]!;
+  expect(socket.sent).toHaveLength(0);
+  socket.message({ ...state(), version: 5 });
+  await client.retry();
+  expect(MockSocket.instances).toHaveLength(2);
+  expect(client.store.getState().connection).toBe('online');
+});
+
+it('clears the private table and stops automatic retry when a live session expires', async () => {
+  await client.enter('Nipun');
+  const socket = MockSocket.instances[0]!;
+  socket.message(state());
+  socket.close(1008, 'Session expired');
+  await client.retry();
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(client.store.getState()).toMatchObject({
+    connection: 'expired',
+    saved: null,
+    snapshot: null,
+    pending: false,
+  });
+  expect(MockSocket.instances).toHaveLength(1);
+});
+
+it('rejects room recovery when the server now authenticates a different player', async () => {
+  await client.enter('Nipun');
+  const socket = MockSocket.instances[0]!;
+  socket.message(state());
+  vi.mocked(api.snapshot).mockResolvedValueOnce({
+    ...state(),
+    you: { ...state().you, actorId: '33333333-3333-4333-8333-333333333333' },
+  });
+  socket.close(1006);
+  await vi.advanceTimersByTimeAsync(500);
+  expect(MockSocket.instances).toHaveLength(1);
+  expect(client.store.getState()).toMatchObject({
+    connection: 'expired',
+    error: { code: 'SEAT_CHANGED' },
+    saved: null,
+    snapshot: null,
+  });
+});

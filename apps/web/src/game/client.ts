@@ -11,7 +11,13 @@ import type {
 import { api, ApiError, socketUrl } from './api';
 import { applyEvent } from './reducer';
 export type Connection =
-  'idle' | 'connecting' | 'online' | 'reconnecting' | 'offline' | 'expired';
+  | 'idle'
+  | 'connecting'
+  | 'online'
+  | 'reconnecting'
+  | 'restoring'
+  | 'offline'
+  | 'expired';
 export type GameAction = ClientCommand extends infer T
   ? T extends ClientCommand
     ? Pick<T, 'type' | 'payload'>
@@ -526,6 +532,8 @@ export class GameClient {
     if (!saved) return;
     const epoch = ++this.epoch;
     this.stopped = false;
+    this.recovering = false;
+    clearTimeout(this.retryTimer);
     this.controller?.abort();
     this.controller = new AbortController();
     this.store.setState({
@@ -583,9 +591,9 @@ export class GameClient {
       )
         this.save(null);
       this.store.setState({
-        view: 'home',
+        view: 'room',
         busy: false,
-        connection: 'offline',
+        connection: this.store.getState().saved ? 'offline' : 'expired',
         error: { code: error instanceof ApiError ? error.code : 'NETWORK' },
       });
     }
@@ -615,23 +623,34 @@ export class GameClient {
     if (this.store.getState().view === 'room') void this.retry();
   };
   retry = async () => {
+    const { connection, identity, view } = this.store.getState();
+    if (view !== 'room' || connection !== 'offline') return;
     this.retries = 0;
     this.store.setState({ error: null });
-    if (!this.store.getState().identity) await this.resume();
+    if (!identity) await this.resume();
     else await this.reconnect();
   };
   private async reconnect() {
     if (this.stopped || this.recovering) return;
-    const { saved } = this.store.getState();
+    const { saved, identity } = this.store.getState();
     if (!saved) return;
     const epoch = this.epoch;
     this.recovering = true;
+    this.controller?.abort();
+    const controller = new AbortController();
+    this.controller = controller;
     this.store.setState({ connection: 'reconnecting' });
     try {
-      const snapshot = await api.snapshot(saved.roomId);
+      const snapshot = await api.snapshot(saved.roomId, controller.signal);
       if (this.stopped || epoch !== this.epoch) return;
-      this.store.setState({ snapshot });
-      this.openSocket(saved.roomId);
+      if (
+        snapshot.roomId !== saved.roomId ||
+        snapshot.you.actorId !== identity?.actorId
+      )
+        throw new ApiError('SEAT_CHANGED');
+      // The HTTP read verifies ownership. Only the authenticated socket
+      // snapshot may replace the currently displayed game state.
+      this.openSocket(saved.roomId, 'restoring');
     } catch (error) {
       if (this.stopped || epoch !== this.epoch) return;
       if (
@@ -641,12 +660,16 @@ export class GameClient {
           'SESSION_EXPIRED',
           'ROOM_NOT_FOUND',
           'ROOM_EXPIRED',
+          'ORIGIN_REJECTED',
+          'FORBIDDEN',
+          'SEAT_CHANGED',
         ].includes(error.code)
       ) {
         this.clearPending();
         this.save(null);
         this.store.setState({
           connection: 'expired',
+          snapshot: null,
           error: { code: error.code },
         });
       } else this.scheduleRetry();
@@ -673,7 +696,10 @@ export class GameClient {
       Math.min(500 * 2 ** this.retries++, 8000),
     );
   }
-  private openSocket(roomId: string) {
+  private openSocket(
+    roomId: string,
+    phase: 'connecting' | 'restoring' = 'connecting',
+  ) {
     if (this.stopped) return;
     clearTimeout(this.connectTimer);
     clearTimeout(this.retryTimer);
@@ -685,7 +711,7 @@ export class GameClient {
     this.socket = socket;
     this.syncing = false;
     this.store.setState({
-      connection: this.retries > 0 ? 'reconnecting' : 'connecting',
+      connection: phase,
       presentation: null,
     });
     this.connectTimer = setTimeout(() => socket.close(), 8000);
@@ -715,16 +741,24 @@ export class GameClient {
         this.store.setState({ snapshot: null });
         return;
       }
-      if (event.code === 4001 || event.code === 1008) {
+      if (
+        event.code === 1008 &&
+        ['Session expired', 'Logged out'].includes(event.reason)
+      ) {
+        this.clearPending();
+        this.save(null);
         this.store.setState({
-          connection:
-            event.reason === 'Session expired' ? 'expired' : 'offline',
+          snapshot: null,
+          connection: 'expired',
+          error: { code: 'SESSION_EXPIRED' },
+        });
+      } else if (event.code === 4001 || event.code === 1008) {
+        this.store.setState({
+          connection: 'offline',
           error:
             event.code === 4001
               ? 'This table is open in another tab. Reconnect here to move it back.'
-              : event.reason === 'Session expired'
-                ? { code: 'SESSION_EXPIRED' }
-                : 'Connection paused. Try reconnecting in a few seconds.',
+              : 'Connection paused. Try reconnecting in a few seconds.',
         });
       } else this.scheduleRetry();
     };

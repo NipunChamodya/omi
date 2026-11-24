@@ -189,7 +189,9 @@ it('shows one opening sponsor and removes it when leaving Home', async () => {
 
 it('switches beginner navigation to Sinhala and updates the document language', async () => {
   render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: 'Settings & install' }));
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Settings & install' }),
+  );
   const language = await screen.findByRole('combobox', { name: /Language/ });
   try {
     fireEvent.change(language, { target: { value: 'si' } });

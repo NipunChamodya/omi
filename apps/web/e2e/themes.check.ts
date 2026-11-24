@@ -40,6 +40,7 @@ test('themes load on demand, persist privately, and respect reduced motion and D
     ).flat(),
   );
   expect(cached.some((url) => /royal.*\.css/.test(url))).toBe(false);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByText('Card themes', { exact: true }).click();
   const select = page.getByLabel('Card design', { exact: true });
   await select.selectOption('royal');
@@ -110,6 +111,7 @@ test('themes load on demand, persist privately, and respect reduced motion and D
   } finally {
     await other.close();
   }
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByText('Card themes', { exact: true }).click();
   await select.selectOption('classic');
   await expect(page.locator('html')).toHaveAttribute(
@@ -155,6 +157,7 @@ test('unavailable theme CSS preserves readable cards and offers a retry', async 
 }) => {
   await page.route(/\/assets\/royal-[^/]+\.css$/, (route) => route.abort());
   await page.goto('/');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByText('Card themes', { exact: true }).click();
   await page.getByLabel('Card design', { exact: true }).selectOption('royal');
   await expect(page.getByRole('alert')).toContainText(

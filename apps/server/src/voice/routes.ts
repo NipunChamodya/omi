@@ -39,13 +39,40 @@ export function registerVoice(
       throw new RoomError('GAME_CONNECTION_REQUIRED', 403);
   };
   const voice = new VoiceService(authorize, now, maxRooms);
-  rooms.onPeerDisconnect = (roomId, actorId) =>
+  const music = new VoiceService(
+    authorize,
+    now,
+    maxRooms,
+    (roomId, sender, target, payload) => {
+      const { room } = rooms.authorize(roomId, sender);
+      const sending = room.hostId === sender.actorId;
+      if (sending === (room.hostId === target.actorId)) return false;
+      if (payload.kind !== 'description') return true;
+      // Music is one-way. Reject reverse or bidirectional media before relay.
+      const directions = payload.description.sdp.match(
+        /^a=(sendonly|recvonly|sendrecv|inactive)\r?$/gm,
+      );
+      return (
+        directions?.length === 1 &&
+        directions[0]!.trim() === (sending ? 'a=sendonly' : 'a=recvonly')
+      );
+    },
+    (roomId, sender) =>
+      rooms.authorize(roomId, sender).room.hostId === sender.actorId,
+  );
+  rooms.onPeerDisconnect = (roomId, actorId) => {
     voice.disconnect(roomId, actorId);
-  const timer = setInterval(() => voice.heartbeat(), 30_000);
+    music.disconnect(roomId, actorId);
+  };
+  const timer = setInterval(() => {
+    voice.heartbeat();
+    music.heartbeat();
+  }, 30_000);
   timer.unref();
   api.addHook('preClose', async () => {
     clearInterval(timer);
     voice.stop();
+    music.stop();
   });
   api.post<{ Params: { roomId: string } }>(
     '/rooms/:roomId/voice/config',
@@ -58,22 +85,27 @@ export function registerVoice(
       return iceConfiguration(settings, identity.actorId, now());
     },
   );
-  api.get<{ Params: { roomId: string } }>(
-    '/rooms/:roomId/voice/ws',
-    {
-      websocket: true,
-      preValidation: async (request) => {
-        if (request.url.includes('?'))
-          throw new RoomError('QUERY_NOT_ALLOWED', 400);
-        authorize(roomIdFor(request.params.roomId), identityFor(request));
+  for (const [lane, service] of [
+    ['voice', voice],
+    ['music', music],
+  ] as const) {
+    api.get<{ Params: { roomId: string } }>(
+      `/rooms/:roomId/${lane}/ws`,
+      {
+        websocket: true,
+        preValidation: async (request) => {
+          if (request.url.includes('?'))
+            throw new RoomError('QUERY_NOT_ALLOWED', 400);
+          authorize(roomIdFor(request.params.roomId), identityFor(request));
+        },
       },
-    },
-    (socket, request) => {
-      try {
-        voice.connect(request.params.roomId, identityFor(request), socket);
-      } catch {
-        socket.close(1008, 'Voice unavailable');
-      }
-    },
-  );
+      (socket, request) => {
+        try {
+          service.connect(request.params.roomId, identityFor(request), socket);
+        } catch {
+          socket.close(1008, 'Media unavailable');
+        }
+      },
+    );
+  }
 }

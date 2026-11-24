@@ -56,7 +56,7 @@ test('Google code flow, returning profile, crop/reposition, avatar persistence/r
   const src = await photo.getAttribute('src');
   expect(src).toContain('/avatars/');
   await dialog.getByRole('button', { name: 'Close profile' }).click();
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'My profile' }).click();
   await expect(dialog.getByLabel('Display name')).toHaveValue('නිපුන්');
   await expect(dialog.locator('.profile-current img')).toHaveAttribute(
@@ -154,6 +154,9 @@ test('profile changes reach a live lobby and the same account resumes its seat a
       page.getByRole('button', { name: 'Continue with Google' }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Continue with Google' }).click();
+    const savedSeat = page.getByRole('region', { name: 'Your seat is saved.' });
+    await expect(savedSeat).toContainText(code);
+    await savedSeat.getByRole('button', { name: 'Resume table' }).click();
     await expect(
       page.getByRole('heading', { name: 'Your table is ready.' }),
     ).toBeVisible();

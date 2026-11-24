@@ -309,3 +309,43 @@ it('refuses changed contents under an already acknowledged voice action ID', asy
   await expect.poll(() => v.socket.readyState).toBe(WebSocket.CLOSED);
   expect(g.socket.readyState).toBe(WebSocket.OPEN);
 });
+
+it('relays host-to-listener music only and rejects a listener sending audio', async () => {
+  const host = await player();
+  const listener = await player();
+  const table = await room(host);
+  const preview = (
+    await post('/rooms/preview', listener, { code: table.code })
+  ).json<{ version: number }>();
+  const joined = await post('/rooms/join', listener, {
+    roomId: table.roomId,
+    code: table.code,
+    actorId: listener.actorId,
+    actionId: randomUUID(),
+    expectedVersion: preview.version,
+  });
+  expect(joined.statusCode).toBe(200);
+  await game(table.roomId, host);
+  await game(table.roomId, listener);
+  const path = `/rooms/${table.roomId}/music/ws`;
+  const sending = wire(path, host);
+  const listening = wire(path, listener);
+  const sender = (await sending.wait((m) => m.type === 'hello'))
+    .self as VoiceParticipant;
+  const receiver = (await listening.wait((m) => m.type === 'hello'))
+    .self as VoiceParticipant;
+  const authorized = signal(table.roomId, host, sender, receiver);
+  authorized.payload.description.sdp += 'a=sendonly\r\n';
+  sending.socket.send(JSON.stringify(authorized));
+  await listening.wait((m) => m.type === 'signal');
+  const rejected = signal(table.roomId, listener, receiver, sender);
+  rejected.payload.description.sdp += 'a=sendonly\r\n';
+  const closed = new Promise<number>((resolve) =>
+    listening.socket.once('close', resolve),
+  );
+  listening.socket.send(JSON.stringify(rejected));
+  expect(await closed).toBe(1008);
+  expect(
+    sending.messages.some((m) => (m as VoiceMessage).type === 'signal'),
+  ).toBe(false);
+});

@@ -409,6 +409,75 @@ describe('play and private evidence', () => {
   });
 });
 
+describe('ordinary scoring at the last available tokens', () => {
+  const rules = [
+    { name: 'selector wins', selectorWins: true, carry: 0, amount: 1 },
+    {
+      name: 'selector wins after Sepuru',
+      selectorWins: true,
+      carry: 1,
+      amount: 1,
+    },
+    { name: 'selector loses', selectorWins: false, carry: 0, amount: 2 },
+    {
+      name: 'selector loses after Sepuru',
+      selectorWins: false,
+      carry: 1,
+      amount: 3,
+    },
+  ] as const;
+  const cases = rules.flatMap((rule) =>
+    ([0, 1] as const).flatMap((winner) =>
+      [-1, 0, 1]
+        .map((offset) => rule.amount + offset)
+        .filter((balance) => balance > 0)
+        .map((balance) => ({ ...rule, winner, balance })),
+    ),
+  );
+
+  it.each(cases)(
+    '$name, winning team $winner and paying inventory $balance',
+    ({ selectorWins, carry, amount, winner, balance }) => {
+      const loser = otherTeam(winner);
+      const selector = selectorWins ? winner : loser;
+      const totals = (
+        loser === 0 ? [balance, 20 - balance] : [20 - balance, balance]
+      ) as [number, number];
+      const opening: ScoreLedger = freeze({ ...createLedger(), totals, carry });
+      const round = withTricks(winner === 0 ? 5 : 3, selector);
+      const { ledger } = settleRound(round, opening);
+      const remaining = balance < amount ? balance : balance - amount;
+
+      expect(ledger.totals[loser]).toBe(remaining);
+      expect(ledger.totals[winner]).toBe(20 - remaining);
+      expect(ledger.carry).toBe(0);
+      expect(ledger.entries).toEqual([
+        expect.objectContaining({
+          kind: balance < amount ? 'unpaid' : 'transfer',
+          from: loser,
+          to: winner,
+          amount,
+          reason: selectorWins ? 'selector-win' : 'selector-loss',
+        }),
+      ]);
+      expect(ledger.final).toEqual(
+        balance > amount
+          ? null
+          : {
+              reason: balance < amount ? 'loan_loss' : 'inventory_depleted',
+              winner,
+              loser,
+              roundId: round.id,
+            },
+      );
+      expect(settleRound(round, ledger)).toEqual({
+        status: 'already-settled',
+        ledger,
+      });
+    },
+  );
+});
+
 describe('confirmed scoring and unresolved combinations', () => {
   it.each([0, 1] as const)(
     'awards 1 for selector win and 2 for selector loss, selecting seat %s',

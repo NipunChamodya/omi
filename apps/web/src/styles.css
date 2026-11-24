@@ -2954,3 +2954,39 @@ input {
     animation: none;
   }
 }
+
+.startup-entry {
+  border-color: #d6a65c;
+  background: #fff2d0;
+  color: #24485d;
+}
+.startup-entry .brand {
+  justify-content: center;
+}
+.feedback.error,
+.connection-banner {
+  background: #fff2d0;
+  border-color: #b97538;
+  color: #24485d;
+}
+.connection-banner button,
+.feedback .startup-retry {
+  min-height: 44px;
+  color: #24485d;
+}
+.voice-push-to-talk {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.app-shell:has(.startup-entry) {
+  background:
+    linear-gradient(#d7f5fa66, #e8fae999),
+    url('./art/tropical-island.svg?no-inline') center / cover,
+    #48c8f5;
+  color: #24485d;
+}
+.app-shell:has(.startup-entry) :is(.header-note, .app-footer) {
+  color: #24485d;
+}

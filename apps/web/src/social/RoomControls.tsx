@@ -4,15 +4,18 @@ import type { Member } from '@omi/shared';
 import { useDataSaver } from '../pwa/preferences';
 import { SocialClient } from './client';
 import SocialPanel from './SocialPanel';
+const LocalMusic = lazy(() => import('./LocalMusic'));
 const VoicePanel = lazy(() => import('../voice/VoicePanel'));
 export default function RoomControls({
   roomId,
   actorId,
+  hostId,
   members,
   online,
 }: {
   roomId: string;
   actorId: string;
+  hostId: string;
   members: readonly Member[];
   online: boolean;
 }) {
@@ -40,6 +43,18 @@ export default function RoomControls({
           blockedActorIds={state.preferences.blocked}
         />
       </Suspense>
+      {!saver && (
+        <Suspense fallback={null}>
+          <LocalMusic
+            key={hostId}
+            roomId={roomId}
+            actorId={actorId}
+            hostId={hostId}
+            online={online}
+            blocked={state.preferences.blocked.includes(hostId)}
+          />
+        </Suspense>
+      )}
       <SocialPanel client={client} members={members} />
     </>
   );

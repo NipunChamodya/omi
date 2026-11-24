@@ -54,6 +54,9 @@ test('four mobile friends create, join, deal, play a round and resume after relo
     }
     // Every participant chooses independently before the same authoritative round.
     for (let i = 0; i < pages.length; i++) {
+      await pages[i]!.getByRole('button', {
+        name: 'Sound, voice & music',
+      }).click();
       await pages[i]!.getByText('Card themes', { exact: true }).click();
       await pages[i]!.getByLabel('Card design', { exact: true }).selectOption(
         i % 2 === 0 ? 'royal' : 'classic',
@@ -63,6 +66,9 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         i % 2 === 0 ? 'royal' : 'classic',
       );
       await pages[i]!.getByText('Card themes', { exact: true }).click();
+      await pages[i]!.getByRole('dialog', { name: 'Game settings' })
+        .getByRole('button', { name: 'Back' })
+        .click();
     }
     for (let i = 0; i < pages.length; i++) {
       await pages[i]!.getByRole('button', { name: 'Ready to play' }).click();
@@ -447,9 +453,18 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         await expect(
           pages[1]!.locator('.trick-area.completed .winning-play'),
         ).toHaveCount(1);
-        await pages[1]!
-          .getByRole('button', { name: 'Replay last trick' })
-          .click();
+        const replayButton = pages[1]!.getByRole('button', {
+          name: 'Replay last trick',
+        });
+        const revealSpeed = pages[1]!.getByRole('combobox', {
+          name: 'Trick reveal speed',
+        });
+        for (const control of [replayButton, revealSpeed]) {
+          expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(
+            44,
+          );
+        }
+        await replayButton.click();
         const replay = pages[1]!.getByRole('dialog', {
           name: 'Replay last trick',
         });

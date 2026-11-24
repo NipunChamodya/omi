@@ -1,5 +1,5 @@
 import { useMediaCopy } from '../i18n/mediaCopy';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Member } from '@omi/shared';
 import { VoiceClient } from './client';
@@ -21,6 +21,8 @@ export default function VoicePanel({
   const [client] = useState(() => new VoiceClient(roomId, actorId));
   const media = useMediaCopy();
   const state = useStore(client.store);
+  const [pushToTalk, setPushToTalk] = useState(false);
+  const talking = useRef(false);
   const volume = useSoundPreferences((state) => state.voice);
   useEffect(() => {
     client.setMasterVolume(volume);
@@ -32,6 +34,32 @@ export default function VoicePanel({
   useEffect(() => {
     client.setBlocked(blockedActorIds);
   }, [client, blockedActorIds]);
+  useEffect(() => {
+    if (!pushToTalk) return;
+    function release() {
+      talking.current = false;
+      client.setMuted(true);
+    }
+    window.addEventListener('blur', release);
+    document.addEventListener('visibilitychange', release);
+    return () => {
+      window.removeEventListener('blur', release);
+      document.removeEventListener('visibilitychange', release);
+      if (talking.current) release();
+    };
+  }, [client, pushToTalk]);
+  useEffect(() => {
+    if (pushToTalk && state.status !== 'connected' && talking.current) {
+      talking.current = false;
+      client.setMuted(true);
+    }
+  }, [client, pushToTalk, state.status]);
+  function talk(pressed: boolean) {
+    if (pressed && state.status !== 'connected') return;
+    if (talking.current === pressed) return;
+    talking.current = pressed;
+    client.setMuted(!pressed);
+  }
   const active = ['joining', 'connected', 'reconnecting'].includes(
     state.status,
   );
@@ -62,17 +90,67 @@ export default function VoicePanel({
           </button>
         ) : (
           <>
+            {pushToTalk ? (
+              <button
+                className="secondary-button"
+                aria-pressed={!state.muted}
+                disabled={state.status !== 'connected'}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                  talk(true);
+                }}
+                onPointerUp={() => talk(false)}
+                onPointerCancel={() => talk(false)}
+                onLostPointerCapture={() => talk(false)}
+                onBlur={() => talk(false)}
+                onKeyDown={(event) => {
+                  if (event.key === ' ' || event.key === 'Enter') {
+                    event.preventDefault();
+                    talk(true);
+                  }
+                }}
+                onKeyUp={(event) => {
+                  if (event.key === ' ' || event.key === 'Enter') {
+                    event.preventDefault();
+                    talk(false);
+                  }
+                }}
+              >
+                {media('Hold to talk')}
+              </button>
+            ) : (
+              <button
+                className="secondary-button"
+                aria-pressed={state.muted}
+                disabled={state.status !== 'connected'}
+                onClick={() => client.setMuted(!state.muted)}
+              >
+                {state.muted
+                  ? media('Unmute microphone')
+                  : media('Mute microphone')}
+              </button>
+            )}
+            <label className="voice-push-to-talk">
+              <input
+                type="checkbox"
+                checked={pushToTalk}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  talking.current = false;
+                  client.setMuted(true);
+                  setPushToTalk(enabled);
+                }}
+              />
+              {media('Push to talk')}
+            </label>
             <button
-              className="secondary-button"
-              aria-pressed={state.muted}
-              disabled={state.status !== 'connected'}
-              onClick={() => client.setMuted(!state.muted)}
+              className="text-button"
+              onClick={() => {
+                talk(false);
+                client.leave();
+              }}
             >
-              {state.muted
-                ? media('Unmute microphone')
-                : media('Mute microphone')}
-            </button>
-            <button className="text-button" onClick={client.leave}>
               {media('Leave voice')}
             </button>
           </>

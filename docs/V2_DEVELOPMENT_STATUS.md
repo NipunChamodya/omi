@@ -10,6 +10,29 @@ This document records the current implementation. Stages A–J and earlier audit
 - The SQLite loopback run exercised eight rooms, 32 clients, 320 actions and eight reconnects. Action latency p50/p95/p99 was 2.25/5.92/8.85 ms. Peak combined RSS was 168.3 MiB. These results describe the local environment.
 - See the [acceptance checklist](V2_10_ACCEPTANCE.md) and [executed test inventory](V2_10_TEST_INVENTORY.csv). The design-rules upload was unavailable. Physical-device acceptance and the 1,200-case requirement remain open.
 
+### Final acceptance follow-up
+
+- Chromium passed the four-human ranked path from matchmaking through nine hands, terminal results, and rematch. The deterministic driver temporarily moves each seat to its own socket. The ordinary application reconnects to render the result and cast rematch votes.
+- Added 20 ordinary-scoring boundary cases for both teams, covering exact depletion, unpaid obligations, available balance, Sepuru carry, inventory conservation, and duplicate settlement.
+- Final Vitest passed 307 cases and infrastructure passed 15. The cumulative executed inventory records 346 distinct passes, including 24 Playwright scenarios. Earlier browser evidence is retained alongside new results.
+- The expanded acceptance matrix lists outstanding per-screen checks and physical-device procedures. Browser-driven restart through match completion, localization coverage, all-screen visual inspection and the 1,200-test gate remain open.
+
+### Tropical Adventure visual follow-up
+
+- Added shared tokenized cream panels, orange ribbons, glossy lobby controls and themed settings. The waiting lobby has an island scene, room-code ticket, framed seats and host information. Settings is a dismissible overlay in lobbies and matches. Profile and match results use the shared surfaces. The rules and server code were preserved.
+- Localized lobby, sound and card-theme copy in Sinhala. Full player-facing localization, Tamil and WCAG 2.2 AA acceptance are open.
+- Inspected lobby and settings before and after at mobile and desktop sizes, plus selected profile, gameplay and result states. The [visual matrix](V2_10_VISUAL_ACCEPTANCE.md) records per-screen status.
+- The cumulative test inventory records 368 distinct passes across 307 Vitest, 15 infrastructure and 46 Playwright cases. The required 1,200-case gate and complete screen-by-screen visual acceptance are open.
+
+### Ultimate directive follow-up
+
+- Startup now shows an illustrated splash while the real session request runs. The app offers Retry after an unavailable session service. Room reconnects use an abortable ownership read, then wait for a fresh authenticated socket snapshot before restoring game actions. An expired session or changed ownership clears the private table.
+- Added a private, disk-backed browser restart fixture. It kills only its isolated backend child, restores from SQLite, reloads the browser and verifies hand identities and round settlement through actual card controls.
+- Styled brighter inlay felt, a layered gold and wooden rim, avatar plates and connection banners. The updated 320px board and illustrated startup were visually inspected.
+- Added pointer and keyboard push-to-talk for the existing voice mesh. The Chromium fixture proved inbound audio at all four seats, actual microphone track muting, reconnect, teardown, synchronized bundled playback and a real card play while voice remained connected. Player-selected local-file transmission remains open.
+- Final Vitest passed 310 cases, including the 118-case focused defensive subset. Infrastructure passed 15. The cumulative inventory contains 374 distinct passes, including 49 browser scenarios. The restart-to-round-settlement case passed Chromium and Firefox. The compressed production entry is 95,363 bytes.
+- See the updated [traceability and restart reproduction](V2_10_ACCEPTANCE.md#ultimate-directive-traceability). This release remains incomplete on all-screen acceptance, full approved localization and accessibility, local-file music, full match journeys through restart and the 1,200-case gate.
+
 ## V2.9 (incomplete)
 
 - Previous-table management now supports permanent casual departure. The server transfers ownership to a remaining human, keeps a permanent bot in the vacated seat, and prevents old tabs and retries from reclaiming it. Finished records are preserved when the table is removed. Ranked forfeits keep the existing policy.

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
 import { z } from 'zod';
-import type { VoiceMessage, VoiceParticipant } from '@omi/shared';
+import type { VoiceMessage, VoiceParticipant, VoiceSignal } from '@omi/shared';
 import { SerialQueue, RateLimiter, RoomError } from '../multiplayer/support.js';
 import type { Identity } from '../multiplayer/support.js';
 const participant = z.strictObject({ actorId: z.uuid(), callId: z.uuid() });
@@ -44,6 +44,18 @@ export const voiceCommand = z.discriminatedUnion('type', [
   }),
   z.strictObject({
     ...envelope,
+    type: z.literal('track'),
+    payload: z.strictObject({
+      title: z
+        .string()
+        .min(1)
+        .max(120)
+        .regex(/^[^\p{C}]+$/u),
+      seconds: z.number().int().positive().max(1200),
+    }),
+  }),
+  z.strictObject({
+    ...envelope,
     type: z.literal('mute'),
     payload: z.strictObject({ muted: z.boolean() }),
   }),
@@ -65,6 +77,13 @@ export class VoiceService {
     private readonly authorized: (roomId: string, identity: Identity) => void,
     now: () => number,
     private readonly maxRooms: number,
+    private readonly allowSignal?: (
+      roomId: string,
+      sender: Identity,
+      target: Identity,
+      payload: VoiceSignal,
+    ) => boolean,
+    private readonly allowTrack?: (roomId: string, sender: Identity) => boolean,
   ) {
     this.rate = new RateLimiter(now, 90, 10_000);
   }
@@ -167,6 +186,16 @@ export class VoiceService {
               target.public.callId === command.target.callId
             ) {
               this.authorized(roomId, target.identity);
+              if (
+                this.allowSignal &&
+                !this.allowSignal(
+                  roomId,
+                  identity,
+                  target.identity,
+                  command.payload,
+                )
+              )
+                throw new Error();
               this.send(target, {
                 type: 'signal',
                 from: peer.public,
@@ -175,7 +204,15 @@ export class VoiceService {
             }
             // A departed target is harmless; do not disclose membership outside this channel.
           } else {
-            peer.public = { ...peer.public, muted: command.payload.muted };
+            if (
+              command.type === 'track' &&
+              !this.allowTrack?.(roomId, identity)
+            )
+              throw new Error();
+            peer.public =
+              command.type === 'track'
+                ? { ...peer.public, track: command.payload }
+                : { ...peer.public, muted: command.payload.muted };
             for (const other of channel.peers.values())
               if (other !== peer)
                 this.send(other, { type: 'updated', peer: peer.public });

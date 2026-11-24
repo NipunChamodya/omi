@@ -27,7 +27,7 @@ const app = buildApp({
     PORT: '3100',
     APP_ORIGIN: testOrigin,
     TRUST_LOCAL_PROXY: 'true',
-    DATABASE_PATH: ':memory:',
+    DATABASE_PATH: process.env.OMI_TEST_DATABASE ?? ':memory:',
     ALLOW_GUESTS: 'true',
     GOOGLE_CLIENT_ID: 'mock-client',
     GOOGLE_CLIENT_SECRET: 'mock-secret',

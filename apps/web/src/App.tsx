@@ -10,10 +10,12 @@ import { ThemeControls } from './themes/ThemeControls';
 import { PwaControls } from './pwa/PwaControls';
 import { Brand, Avatar } from './components/Cards';
 import { claimOpeningSponsor } from './components/SponsorPlacement';
-import { GameBack } from './components/GameChrome';
-import { Lobby } from './components/Lobby';
+import { GameBack, GameRibbon } from './components/GameChrome';
 import { SoundSettings } from './audio/SoundSettings';
 import { useGameAudio } from './audio/useGameAudio';
+const Lobby = lazy(() =>
+  import('./components/Lobby').then(({ Lobby }) => ({ default: Lobby })),
+);
 const Home = lazy(() =>
   import('./components/Home').then(({ Home }) => ({ default: Home })),
 );
@@ -38,6 +40,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
   const state = useStore(client.store);
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [startupAttempt, setStartupAttempt] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -52,8 +55,10 @@ export function App({ client: supplied }: { client?: GameClient }) {
     window.history.pushState({ ...current, omiOverlay: panel }, '');
     overlay.current = panel;
     if (panel === 'profile') setProfileOpen(true);
-    else if (panel === 'settings') setToolsOpen(true);
-    else setTutorialOpen(true);
+    else if (panel === 'settings') {
+      void import('./components/adventure-chrome.css');
+      setToolsOpen(true);
+    } else setTutorialOpen(true);
   }
   const closingOverlay = useRef(false);
   function closeOverlay() {
@@ -69,14 +74,6 @@ export function App({ client: supplied }: { client?: GameClient }) {
   useEffect(() => {
     const dialog = tools.current;
     if (!dialog) return;
-    if (state.view === 'room' && !playing) {
-      if (dialog.open) dialog.close?.();
-      dialog.removeAttribute('data-modal');
-      dialog.setAttribute('open', '');
-      return;
-    }
-    if (dialog.open && !dialog.hasAttribute('data-modal'))
-      dialog.removeAttribute('open');
     if (toolsOpen && !dialog.open) {
       if (dialog.showModal) dialog.showModal();
       else dialog.setAttribute('open', '');
@@ -87,7 +84,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
       dialog.removeAttribute('open');
       dialog.removeAttribute('data-modal');
     }
-  }, [toolsOpen, state.view, playing]);
+  }, [toolsOpen]);
   useEffect(() => {
     const dialog = leaving.current;
     if (state.leaveRequest && dialog && !dialog.open) {
@@ -166,7 +163,6 @@ export function App({ client: supplied }: { client?: GameClient }) {
       .then(async (session) => {
         if (!active) return;
         setAuth(session);
-        setAuthLoading(false);
         if (session.user && session.expiresAt)
           client.adoptAccount(session.user, session.room, session.expiresAt);
         else if (session.guestIdentity)
@@ -178,13 +174,12 @@ export function App({ client: supplied }: { client?: GameClient }) {
             'Google sign-in was cancelled or could not be verified. Please try again.',
           );
         if (session.user || session.guestAllowed) await client.start();
+        if (active) setAuthLoading(false);
       })
       .catch(() => {
         if (active) {
           setAuthLoading(false);
-          setAuthError(
-            'Sign-in is unavailable. Refresh the page to try again.',
-          );
+          setAuthError('Sign-in is unavailable. Try again.');
         }
       });
     window.addEventListener('offline', client.offline);
@@ -196,7 +191,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
       controller.abort();
       client.stop();
     };
-  }, [client]);
+  }, [client, startupAttempt]);
   const [opening, setOpening] = useState(
     () =>
       state.view === 'home' && !state.saved && window.location.search === '',
@@ -227,6 +222,19 @@ export function App({ client: supplied }: { client?: GameClient }) {
     }
   }, [sponsorEligible]);
   const online = state.connection === 'online';
+  const connectionText = text(
+    online
+      ? 'At the table'
+      : state.connection === 'expired'
+        ? 'This table is unavailable.'
+        : state.connection === 'restoring'
+          ? 'Restoring your table…'
+          : state.connection === 'reconnecting'
+            ? 'Reconnecting to your table…'
+            : state.connection === 'connecting'
+              ? 'Connecting…'
+              : 'Disconnected',
+  );
   return (
     <div
       className={`app-shell ${state.view === 'room' ? '' : 'game-menu'} ${state.view === 'room' && state.snapshot?.game ? 'playing-room' : ''}`}
@@ -255,12 +263,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
                 <span
                   className={`connection-light ${online ? 'connected' : ''}`}
                 />
-                {online
-                  ? 'At the table'
-                  : state.connection === 'connecting' ||
-                      state.connection === 'reconnecting'
-                    ? 'Connecting…'
-                    : text('Disconnected')}
+                {connectionText}
               </>
             ) : (
               'THE SRI LANKAN TABLE'
@@ -296,6 +299,18 @@ export function App({ client: supplied }: { client?: GameClient }) {
           {authError && (
             <div className="feedback error" role="alert">
               <p>{translate(language, authError)}</p>
+              {authError === 'Sign-in is unavailable. Try again.' && (
+                <button
+                  className="text-button startup-retry"
+                  onClick={() => {
+                    setAuthError(null);
+                    setAuthLoading(true);
+                    setStartupAttempt((attempt) => attempt + 1);
+                  }}
+                >
+                  {text('Try again')}
+                </button>
+              )}
               <button
                 aria-label={text('Dismiss sign-in message')}
                 onClick={() => setAuthError(null)}
@@ -340,15 +355,24 @@ export function App({ client: supplied }: { client?: GameClient }) {
             </p>
           }
         >
-          {state.view === 'room' ? (
+          {authLoading && !auth && state.view === 'home' ? (
+            <section
+              className="match-entry startup-entry"
+              aria-labelledby="startup-title"
+            >
+              <Brand />
+              <img src={cardGuide} width="135" height="117" alt="" />
+              <h1 id="startup-title">{text('Opening OMI…')}</h1>
+              <p role="status">{text('Checking your session…')}</p>
+            </section>
+          ) : state.view === 'room' ? (
             <>
               <div className="room-toolbar">
                 <GameBack onClick={client.home} />
                 <button
                   className="text-button"
                   onClick={() => {
-                    if (playing) openOverlay('settings');
-                    else tools.current?.scrollIntoView?.({ block: 'start' });
+                    openOverlay('settings');
                     const panel = document.getElementById(
                       'table-sound-settings',
                     );
@@ -373,15 +397,8 @@ export function App({ client: supplied }: { client?: GameClient }) {
               </div>
               {!online && (
                 <div className="connection-banner" role="status">
-                  <span>
-                    {state.connection === 'expired'
-                      ? 'This session has ended.'
-                      : state.connection === 'connecting' ||
-                          state.connection === 'reconnecting'
-                        ? 'Reconnecting. Your seat is saved.'
-                        : 'You are disconnected. Your seat is saved.'}
-                  </span>
-                  {!['expired', 'connecting'].includes(state.connection) && (
+                  <span>{connectionText}</span>
+                  {state.connection === 'offline' && (
                     <button
                       className="text-button"
                       onClick={() => void client.retry()}
@@ -421,16 +438,13 @@ export function App({ client: supplied }: { client?: GameClient }) {
                   aria-labelledby="match-entry-title"
                 >
                   <img src={cardGuide} width="135" height="117" alt="" />
-                  <h1 id="match-entry-title">{text('Setting your table…')}</h1>
-                  <p role="status">
+                  <h1 id="match-entry-title">
                     {text(
                       state.connection === 'expired'
                         ? 'This table is unavailable.'
-                        : state.connection === 'reconnecting'
-                          ? 'Reconnecting to your table…'
-                          : 'Waiting for the table to respond…',
+                        : 'Setting your table…',
                     )}
-                  </p>
+                  </h1>
                 </section>
               )}
             </>
@@ -456,7 +470,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
           )}
         </Suspense>
       </main>
-      {state.view !== 'room' && (
+      {state.view !== 'room' && !(authLoading && !auth) && (
         <nav className="game-dock" aria-label={text('Game menu')}>
           <button className="button secondary" onClick={client.home}>
             {text('Home')}
@@ -479,7 +493,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
       )}
       <dialog
         ref={tools}
-        className={`table-utilities ${state.view === 'room' && !playing ? 'lobby-utilities' : ''}`}
+        className="table-utilities"
         aria-label={
           playing ? text('Table settings and voice') : text('Game settings')
         }
@@ -488,10 +502,11 @@ export function App({ client: supplied }: { client?: GameClient }) {
           closeOverlay();
         }}
       >
-        {(playing || state.view !== 'room') && (
+        <header className="settings-heading">
           <GameBack onClick={closeOverlay} />
-        )}
-        <label>
+          <GameRibbon id="settings-title">{text('Game settings')}</GameRibbon>
+        </header>
+        <label className="settings-language">
           Language / භාෂාව{' '}
           <select
             value={language}
@@ -529,6 +544,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
                 key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
                 roomId={state.snapshot.roomId}
                 actorId={state.snapshot.you.actorId}
+                hostId={state.snapshot.hostId}
                 members={state.snapshot.members}
                 online={online}
               />

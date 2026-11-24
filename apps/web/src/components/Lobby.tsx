@@ -1,7 +1,10 @@
+import './adventure-chrome.css';
 import { useCopy } from '../i18n/locale';
 import type { Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
 import { avatarSource } from '../auth/api';
+import island from '../art/tropical-island.svg';
+import { GameButton, GameRibbon } from './GameChrome';
 import { Avatar } from './Cards';
 export async function copyText(text: string, client: GameClient) {
   try {
@@ -31,15 +34,23 @@ export function Lobby({
     snapshot.members.length === 4 &&
     snapshot.members.every((member) => member.ready && member.connected);
   return (
-    <section className="lobby" aria-labelledby="lobby-title">
+    <section className="lobby adventure-lobby" aria-labelledby="lobby-title">
+      <div className="lobby-scene" aria-hidden="true">
+        <img src={island} alt="" />
+      </div>
       <p className="eyebrow">
-        {snapshot.ranked ? 'RANKED TABLE' : 'CASUAL TABLE'}
+        {text(snapshot.ranked ? 'RANKED TABLE' : 'CASUAL TABLE')}
       </p>
-      <h1 id="lobby-title">{text('Your table is ready.')}</h1>
+      <GameRibbon as="h1" id="lobby-title">
+        {text('Your table is ready.')}
+      </GameRibbon>
       <p className="subtitle">
         {snapshot.members.length < 4
-          ? `${4 - snapshot.members.length} more ${snapshot.members.length === 3 ? 'friend' : 'friends'} to make a game.`
-          : 'Four seats. Let the friendly rivalry begin.'}
+          ? text('Open seats: {count}').replace(
+              '{count}',
+              String(4 - snapshot.members.length),
+            )
+          : text('All four seats are filled.')}
       </p>
       {snapshot.ranked && (
         <p className="quiet-note">
@@ -51,12 +62,13 @@ export function Lobby({
           <span className="eyebrow">{text('TABLE CODE')}</span>
           <strong>{snapshot.code}</strong>
         </div>
-        <button
-          className="button compact secondary"
+        <GameButton
+          tone="blue"
+          className="compact"
           onClick={() => void copyText(snapshot.code, client)}
         >
           {text('Copy code')}
-        </button>
+        </GameButton>
       </div>
       <button
         className="text-button invite-link"
@@ -88,25 +100,29 @@ export function Lobby({
               )}
               <div className="seat-copy">
                 <strong>
-                  {member?.displayName ?? 'An open seat'}
+                  {member?.displayName ?? text('An open seat')}
+                  {member?.actorId === snapshot.hostId && (
+                    <span className="host-tag">{text('Host')}</span>
+                  )}
                   {member?.actorId === own.actorId && (
                     <span className="you-tag">{text('YOU')}</span>
                   )}
                 </strong>
                 <span>
-                  {teammate ? 'Your team' : 'Other team'} · Seat {seat + 1}
+                  {text(teammate ? 'Your team' : 'Their team')} · {text('Seat')}{' '}
+                  {seat + 1}
                 </span>
               </div>
               <span
                 className={`ready-label ${member?.ready && member.connected ? 'is-ready' : ''}`}
               >
                 {!member
-                  ? 'Invite a friend'
+                  ? text('Invite a friend')
                   : !member.connected
-                    ? 'Reconnecting'
+                    ? text('Reconnecting')
                     : member.ready
-                      ? '✓ Ready'
-                      : 'Not ready'}
+                      ? `✓ ${text('Ready')}`
+                      : text('Not ready')}
               </span>
             </div>
           );
@@ -117,16 +133,16 @@ export function Lobby({
       </p>
       <div className="lobby-actions">
         {host && !snapshot.ranked && snapshot.members.length < 4 && (
-          <button
-            className="button secondary"
+          <GameButton
+            tone="blue"
             disabled={!enabled || pending}
             onClick={() => client.act({ type: 'add-bot', payload: {} })}
           >
             {text('Add a bot')}
-          </button>
+          </GameButton>
         )}
-        <button
-          className={`button ${own.ready ? 'secondary' : 'primary'}`}
+        <GameButton
+          tone={own.ready ? 'blue' : 'green'}
           disabled={!enabled || pending}
           aria-pressed={own.ready}
           onClick={() =>
@@ -134,20 +150,20 @@ export function Lobby({
           }
         >
           {text(own.ready ? 'Not ready' : 'Ready to play')}
-        </button>
+        </GameButton>
         {host ? (
-          <button
-            className="button primary"
+          <GameButton
+            tone="gold"
             disabled={!enabled || pending || !allReady}
             onClick={() => client.act({ type: 'start', payload: {} })}
           >
             {text('Start game')} <span aria-hidden="true">→</span>
-          </button>
+          </GameButton>
         ) : (
           <p className="waiting-note">
             {allReady
-              ? 'Your host will start the game.'
-              : 'Ready up while your friends take their seats.'}
+              ? text('Your host will start the game.')
+              : text('Ready up while your friends take their seats.')}
           </p>
         )}
       </div>

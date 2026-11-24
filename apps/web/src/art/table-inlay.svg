@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" preserveAspectRatio="none">
  <defs>
-  <linearGradient id="felt" x2="0" y2="1"><stop stop-color="#266b58"/><stop offset=".57" stop-color="#174c43"/><stop offset="1" stop-color="#123b39"/></linearGradient>
-  <pattern id="weave" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 1h8M1 0v8" stroke="#a3d38d" stroke-opacity=".075" stroke-width="1"/></pattern>
+  <linearGradient id="felt" x2="0" y2="1"><stop stop-color="#47933b"/><stop offset=".57" stop-color="#287a49"/><stop offset="1" stop-color="#155039"/></linearGradient>
+  <pattern id="weave" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 1h8M1 0v8" stroke="#a3d38d" stroke-opacity=".11" stroke-width="1"/></pattern>
   <g id="leaf" fill="none" stroke="#b1d7a0" stroke-linecap="round" stroke-width="2">
    <path d="M0 0q21 12 45 10M4 1Q23-18 47-13 37 5 19 7m0-1Q44 2 58 14 43 24 27 15M1 1q23 4 22 25Q10 23 5 15"/>
   </g>

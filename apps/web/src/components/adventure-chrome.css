@@ -1,0 +1,423 @@
+:root {
+  --adventure-sky: #48c8f5;
+  --adventure-play: #83d52f;
+  --adventure-gold: #ffd044;
+  --adventure-orange: #ff8b27;
+  --adventure-cream: #fff2d0;
+  --adventure-alert: #f64c65;
+  --adventure-purple: #b95bf5;
+  --adventure-ink: #24485d;
+  --adventure-rim: #c68c40;
+  --adventure-radius: 22px;
+  --adventure-touch: 44px;
+  --adventure-ease: 160ms;
+  --adventure-depth:
+    inset 0 0 0 2px #fff9e6, 0 5px #9c623a, 0 14px 28px #132b3533;
+}
+
+.app-shell
+  :is(
+    .adventure-lobby,
+    .leave-dialog,
+    .table-utilities[open],
+    .profile-dialog,
+    .result-panel
+  ) {
+  color: var(--adventure-ink);
+  background: var(--adventure-cream);
+  border: 3px solid var(--adventure-rim);
+  border-radius: var(--adventure-radius);
+  box-shadow: var(--adventure-depth);
+  overflow-wrap: anywhere;
+}
+.app-shell .game-ribbon {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 12px;
+  padding: 8px clamp(12px, 4vw, 28px);
+  border: 2px solid #a65424;
+  border-radius: 9px 9px 16px 16px;
+  background: linear-gradient(#ffbe64 0 46%, var(--adventure-orange) 47%);
+  box-shadow:
+    inset 0 2px #fff5c8,
+    0 3px #a65424;
+  color: #542d1a;
+  text-align: center;
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.app-shell .adventure-lobby {
+  max-width: 740px;
+  margin-top: 12px;
+  padding: clamp(12px, 4vw, 26px);
+}
+.lobby-scene {
+  height: clamp(82px, 23vw, 164px);
+  margin-bottom: 12px;
+  overflow: hidden;
+  border: 2px solid #cb9349;
+  border-radius: 14px;
+  background: var(--adventure-sky);
+}
+.lobby-scene img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 54%;
+}
+.adventure-lobby
+  :is(
+    .subtitle,
+    .quiet-note,
+    .waiting-note,
+    .eyebrow,
+    .invite-link,
+    .seat-copy > span
+  ) {
+  color: var(--adventure-ink);
+}
+.adventure-lobby .subtitle {
+  margin-bottom: 12px;
+}
+.adventure-lobby .invite-box {
+  padding: 10px 12px;
+  background: #ffe1a1;
+  border-color: #be8a49;
+  box-shadow:
+    inset 0 2px #fff5c8,
+    0 3px #d2a86d;
+}
+.adventure-lobby .invite-link {
+  min-height: var(--adventure-touch);
+  margin: 8px 0;
+}
+.adventure-lobby .lobby-seat {
+  background: #fff9e8;
+  border-color: #caab77;
+  box-shadow:
+    inset 0 1px white,
+    0 3px #dec59a;
+  padding: 10px;
+  gap: 7px;
+}
+.adventure-lobby .lobby-seat.empty {
+  background: #f4e6c8;
+}
+.adventure-lobby .avatar {
+  width: 43px;
+  height: 43px;
+  border: 2px solid #b8793c;
+  box-shadow: 0 2px #d8b377;
+}
+.adventure-lobby .avatar.vacant {
+  background: #fff9e8;
+  color: #835026;
+}
+.adventure-lobby .seat-copy strong {
+  font-size: 0.88rem;
+}
+.adventure-lobby :is(.ready-label, .host-tag, .you-tag) {
+  width: fit-content;
+  color: var(--adventure-ink);
+  background: #e3f4fa;
+  border: 0;
+  border-radius: 7px;
+  padding: 3px 6px;
+  font-size: 0.7rem;
+}
+.adventure-lobby .host-tag {
+  display: inline-block;
+  margin-inline-start: 4px;
+  background: #ffdf9b;
+}
+.adventure-lobby .ready-label.is-ready {
+  color: #23501f;
+  background: #e2f4bb;
+}
+
+.app-shell .table-utilities[open] {
+  padding: clamp(12px, 3vw, 22px);
+}
+.settings-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.settings-heading .game-ribbon {
+  margin: 0;
+}
+.settings-language {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.app-shell
+  .table-utilities[open]
+  :is(
+    .sound-settings-body,
+    .pwa-controls,
+    .theme-controls,
+    .voice-panel,
+    .social-panel
+  ) {
+  width: 100%;
+  max-width: none;
+  padding: 10px;
+  color: var(--adventure-ink);
+  background: #fff9e9;
+  border: 1px solid #c7a478;
+  border-radius: 14px;
+}
+.app-shell
+  .table-utilities[open]
+  :is(.sound-settings, .pwa-controls, .theme-controls) {
+  width: 100%;
+}
+.app-shell
+  .table-utilities[open]
+  :is(.quiet-note, .social-connection, .sound-settings-body p) {
+  color: var(--adventure-ink);
+}
+.app-shell .table-utilities[open] > details > summary,
+.app-shell .table-utilities[open] details > summary {
+  min-height: var(--adventure-touch);
+  padding: 10px 12px;
+  border: 1px solid #b8783d;
+  border-radius: 10px;
+  color: #542d1a;
+  background: linear-gradient(#fff1c3, #ffcc77);
+}
+.app-shell .table-utilities[open] :is(select, textarea) {
+  min-height: var(--adventure-touch);
+  max-width: 100%;
+  border: 1px solid #a77955;
+  border-radius: 9px;
+  background: #fffdfa;
+  color: var(--adventure-ink);
+  padding-inline: 8px;
+}
+.app-shell
+  .table-utilities[open]
+  :is(input[type='checkbox'], input[type='range']) {
+  accent-color: #437237;
+}
+.app-shell .table-utilities[open] label:has(input[type='checkbox']) {
+  min-height: var(--adventure-touch);
+  cursor: pointer;
+}
+.app-shell
+  .table-utilities[open]
+  :is(button, summary, input, select, textarea):focus-visible,
+.app-shell .adventure-lobby button:focus-visible {
+  outline: 3px solid #73348d;
+  outline-offset: 3px;
+}
+.app-shell .leave-dialog h2,
+.app-shell .result-panel :is(p, .quiet-note, .result-scores strong) {
+  color: var(--adventure-ink);
+}
+.app-shell .result-panel .result-scores > span {
+  color: var(--adventure-ink);
+  background: #ffe7ae;
+  border: 1px solid #cb9b5a;
+  border-radius: 14px;
+  padding: 9px 16px;
+}
+.result-medallion {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 10px;
+  border: 2px solid #c98b43;
+  border-radius: 50%;
+  background: radial-gradient(#fff9e9, #ffdf90);
+}
+.result-medallion--defeat {
+  background: radial-gradient(#fff9e9, #e6c5ec);
+}
+.app-shell .button.game-button {
+  min-height: var(--adventure-touch);
+  transition-duration: var(--adventure-ease);
+}
+.app-shell .button.game-button--red {
+  background: linear-gradient(#ffb4b5, var(--adventure-alert));
+  color: #481525;
+}
+
+.app-shell .profile-heading .game-ribbon {
+  margin: 0 0 12px;
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+}
+.app-shell
+  .profile-dialog
+  :is(.profile-current, .photo-editor, .friend-list, details) {
+  background: #fff9e9;
+  border: 1px solid #c7a478;
+  padding: 10px;
+  border-radius: 14px;
+}
+.app-shell .profile-dialog :is(.profile-current small, .photo-editor > p) {
+  color: var(--adventure-ink);
+}
+.app-shell .profile-dialog .file-input::file-selector-button {
+  color: var(--adventure-ink);
+  background: linear-gradient(#e3f9ff, #aaddf3);
+  border-color: #5c8c9f;
+  border-radius: 9px;
+}
+.app-shell .room-toolbar > .text-button {
+  min-height: var(--adventure-touch);
+  border: 1px solid #6f9ba9;
+  border-radius: 10px;
+  padding-inline: 8px;
+  color: #fff2d0;
+  background: #24485d;
+}
+
+.app-shell :is(.adventure-lobby, .settings-heading) .game-button {
+  color: #18384a;
+  background: linear-gradient(#dcf8ff 0 46%, #92d5ef 47%);
+  border: 1px solid #4283a1;
+  box-shadow:
+    inset 0 2px #fff9,
+    0 3px #4283a1;
+}
+.app-shell .adventure-lobby .game-button--green {
+  background: linear-gradient(#c7ef86 0 46%, var(--adventure-play) 47%);
+  border-color: #538031;
+  box-shadow:
+    inset 0 2px #fff9,
+    0 3px #538031;
+}
+.app-shell .adventure-lobby .game-button--gold {
+  background: linear-gradient(#ffe8a2 0 46%, var(--adventure-gold) 47%);
+  border-color: #ac762c;
+  box-shadow:
+    inset 0 2px #fff9,
+    0 3px #ac762c;
+}
+.app-shell
+  :is(.adventure-lobby, .settings-heading)
+  .game-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+.app-shell .table-utilities[open] input[type='checkbox'] {
+  appearance: none;
+  position: relative;
+  width: 40px;
+  height: 24px;
+  flex: none;
+  border: 1px solid #6f7d82;
+  border-radius: 20px;
+  background: #dfe7ea;
+  cursor: pointer;
+}
+.app-shell .table-utilities[open] input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  inset: 3px auto 3px 3px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #496475;
+}
+.app-shell .table-utilities[open] input[type='checkbox']:checked {
+  background: #d0ec9d;
+  border-color: #57783d;
+}
+.app-shell .table-utilities[open] input[type='checkbox']:checked::before {
+  inset-inline: auto 3px;
+  background: #35662b;
+}
+@media (forced-colors: active) {
+  .app-shell .table-utilities[open] input[type='checkbox'] {
+    appearance: auto;
+  }
+  .app-shell .table-utilities[open] input[type='checkbox']::before {
+    content: none;
+  }
+}
+
+.app-shell:has(.adventure-lobby) {
+  color: var(--adventure-ink);
+  background: radial-gradient(ellipse at 50% 0, #a6e9f6, #e3f4da 72%);
+}
+.app-shell:has(.adventure-lobby)
+  :is(.room-code, .header-note, .app-footer, .logo-type) {
+  color: var(--adventure-ink);
+}
+.app-shell
+  :is(
+    .adventure-lobby,
+    .table-utilities[open],
+    .leave-dialog,
+    .profile-dialog
+  ) {
+  color-scheme: light;
+}
+.app-shell:has(.adventure-lobby) .room-code strong {
+  color: var(--adventure-ink);
+}
+@media (max-width: 370px) {
+  .adventure-lobby .lobby-seat.empty {
+    align-content: start;
+  }
+  .adventure-lobby .lobby-seat.empty .seat-copy {
+    flex-basis: 100%;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .playing-room .result-medallion {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 6px;
+  }
+  .playing-room .result-medallion svg {
+    width: 32px;
+    height: 32px;
+  }
+  .playing-room .result-panel .game-ribbon {
+    padding-block: 4px;
+  }
+}
+
+.app-shell .table-utilities[open] .local-file-music {
+  padding: 10px;
+  color: var(--adventure-ink);
+  background: #fff9e9;
+  border: 1px solid #c7a478;
+  border-radius: 14px;
+}
+.local-file-music details > :not(summary) {
+  margin: 8px 0;
+}
+.local-file-music label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.local-file-music input {
+  max-width: 100%;
+}
+.local-file-music button {
+  min-height: 44px;
+  padding: 6px 11px;
+  margin-inline-end: 6px;
+  border: 1px solid #ad7435;
+  border-radius: 9px;
+  color: #24485d;
+  background: linear-gradient(#fff1c3, #ffcc77);
+}
+.local-file-music button:disabled {
+  opacity: 0.6;
+}

@@ -6,7 +6,7 @@ export function GameButton({
   className = '',
   children,
   ...props
-}: ComponentProps<'button'> & { tone?: 'blue' | 'green' | 'gold' }) {
+}: ComponentProps<'button'> & { tone?: 'blue' | 'green' | 'gold' | 'red' }) {
   return (
     <button
       {...props}
@@ -42,5 +42,21 @@ export function GamePanel({
     >
       {children}
     </section>
+  );
+}
+
+export function GameRibbon({
+  as: Heading = 'h2',
+  id,
+  children,
+}: {
+  as?: 'h1' | 'h2';
+  id: string;
+  children: ReactNode;
+}) {
+  return (
+    <Heading className="game-ribbon" id={id}>
+      {children}
+    </Heading>
   );
 }
