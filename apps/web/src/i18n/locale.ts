@@ -292,6 +292,27 @@ const sinhala = {
     'නව තරගයකට එක්වීමට මෙම අසුන අත්හරින්නද?',
   'Keep my seat': 'මගේ අසුන තබාගන්න',
   'Release table seat': 'අසුන අත්හරින්න',
+  Player: 'ක්\u200dරීඩකයා',
+  'Turn time remaining': 'වාරයේ ඉතිරි කාලය',
+  'Replay last trick': 'පෙර අත යළි බලන්න',
+  'Trick winner': 'අත දිනූ ක්\u200dරීඩකයා',
+  'Lead suit': 'මුලින් ගැසූ වර්ගය',
+  'Winning card': 'දිනූ කොළය',
+  'Your team took the trick': 'ඔබේ පිල අත දිනා ගත්තා',
+  'Their team took the trick': 'අනෙක් පිල අත දිනා ගත්තා',
+  'Trick reveal speed': 'අත පෙන්වන වේගය',
+  Fast: 'වේගවත්',
+  Normal: 'සාමාන්\u200dය',
+  Relaxed: 'සෙමින්',
+  'View results': 'ප්\u200dරතිඵල බලන්න',
+  'Remove from Home': 'මුල් පිටුවෙන් ඉවත් කරන්න',
+  'Leave match permanently': 'තරගයෙන් ස්ථිරව ඉවත් වන්න',
+  'A bot will take your seat. You cannot return to this match.':
+    'බොට් ක්\u200dරීඩකයෙක් ඔබේ අසුන ගනී. මේ තරගයට යළි එක් විය නොහැක.',
+  'Players seated': 'අසුන් ගත් ක්‍රීඩකයෝ',
+  'This table is unavailable.': 'මෙම මේසය ලබා ගත නොහැක.',
+  'Waiting for the table to respond…': 'මේසයෙන් පිළිතුරක් බලාපොරොත්තුවෙන්…',
+  'Manage saved table': 'වෙන් කළ මේසය කළමනාකරණය කරන්න',
 } as const;
 
 export function translate(language: 'en' | 'si', message: string): string {

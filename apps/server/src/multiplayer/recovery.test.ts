@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createDeck, createLedger, createRound } from '@omi/game-engine';
+import {
+  createDeck,
+  createLedger,
+  createRound,
+  cutAndDeal,
+  leftOf,
+  selectTrump,
+} from '@omi/game-engine';
 import { WebSocket } from 'ws';
 import { expect, it, vi } from 'vitest';
 import { SqliteAccounts } from '../persistence/repository.js';
@@ -593,3 +600,183 @@ it('releases a lobby host atomically, transfers ownership and persists remaining
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+function playingFixture(
+  repository: SqliteAccounts,
+  ranked = false,
+  fillBots = false,
+) {
+  const identities = Array.from({ length: 4 }, (_, seat) => ({
+    actorId: randomUUID(),
+    tokenHash: randomUUID(),
+    displayName: `Player ${seat}`,
+    expiresAt: 200_000,
+  }));
+  const initial = createRound('fixture-turn', 0, createDeck());
+  const dealt = cutAndDeal(initial, leftOf(initial.dealer), 16);
+  const round = selectTrump(
+    dealt,
+    dealt.selector,
+    dealt.hands[dealt.selector][0]!.suit,
+  );
+  const roomId = randomUUID();
+  repository.matchStorage.save({
+    id: roomId,
+    code: 'ABCDEFGH',
+    hostId: identities[0]!.actorId,
+    version: 2,
+    members: identities.map(({ actorId, displayName }, seat) => ({
+      actorId,
+      displayName,
+      seat: seat as 0 | 1 | 2 | 3,
+      ready: true,
+      ...(fillBots && seat >= 2 && { bot: true, permanentBot: true }),
+    })),
+    round,
+    ledger: createLedger(),
+    result: null,
+    lastActive: 1,
+    ranked,
+    receipts: [],
+  });
+  return { roomId, identities, turn: round.selector };
+}
+
+it('preserves a casual deadline across restart and serializes expiry with legal play', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omi-timer-'));
+  const path = join(dir, 'match.sqlite');
+  let repository = new SqliteAccounts(path);
+  const { roomId, identities, turn } = playingFixture(repository);
+  let now = 1000;
+  const open = () =>
+    new RoomService(
+      () => now,
+      () => true,
+      DEFAULT_LIMITS,
+      undefined,
+      repository.matchStorage,
+      30_000,
+    );
+  let rooms = open();
+  try {
+    for (const id of identities) await rooms.attach(roomId, peer(id));
+    const first = await Promise.all(
+      identities.map((id) => rooms.getSnapshot(roomId, id)),
+    );
+    expect(first.map((view) => view.turnClock?.deadline)).toEqual([
+      31_000, 31_000, 31_000, 31_000,
+    ]);
+    rooms.stop();
+    repository.close();
+    now = 11_000;
+    repository = new SqliteAccounts(path);
+    rooms = open();
+    const active = peer(identities[turn]!);
+    await rooms.attach(roomId, active);
+    const recovered = await rooms.getSnapshot(roomId, active.identity);
+    expect(recovered.turnClock).toEqual({
+      deadline: 31_000,
+      durationMs: 30_000,
+      serverNow: 11_000,
+    });
+    const command = {
+      roomId,
+      actorId: active.identity.actorId,
+      actionId: randomUUID(),
+      expectedVersion: recovered.version,
+      type: 'play' as const,
+      payload: { card: recovered.game!.hand[0]! },
+    };
+    now = 30_999;
+    rooms.tick();
+    expect(
+      (await rooms.getSnapshot(roomId, active.identity)).game?.trick,
+    ).toHaveLength(0);
+    now = 31_000;
+    await rooms.command(roomId, active, command);
+    expect(vi.mocked(active.socket.send).mock.lastCall?.[0]).toContain(
+      'TURN_EXPIRED',
+    );
+    rooms.tick();
+    rooms.tick();
+    const updated = await rooms.getSnapshot(roomId, active.identity);
+    expect(updated.game?.trick).toHaveLength(1);
+    expect(updated.turnClock?.deadline).toBe(61_000);
+    expect(updated.score.totals).toEqual([10, 10]);
+    await rooms.command(roomId, active, command);
+    expect(
+      (await rooms.getSnapshot(roomId, active.identity)).turnClock?.deadline,
+    ).toBe(61_000);
+  } finally {
+    rooms.stop();
+    repository.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it.each([false, true])(
+  'persists permanent casual departure and preserves ranked restrictions (ranked %s)',
+  async (ranked) => {
+    const dir = mkdtempSync(join(tmpdir(), 'omi-permanent-'));
+    const path = join(dir, 'match.sqlite');
+    let repository = new SqliteAccounts(path);
+    const { roomId, identities } = playingFixture(repository, ranked, !ranked);
+    const [host, guest] = identities as [Identity, Identity];
+    const open = () =>
+      new RoomService(
+        () => 100,
+        () => true,
+        DEFAULT_LIMITS,
+        undefined,
+        repository.matchStorage,
+        30_000,
+      );
+    let rooms = open();
+    try {
+      await rooms.attach(roomId, peer(host));
+      await rooms.attach(roomId, peer(guest));
+      if (ranked) {
+        await expect(rooms.releaseSeat(host, roomId)).rejects.toMatchObject({
+          code: 'MATCH_IN_PROGRESS',
+        });
+        expect(
+          (await rooms.getSnapshot(roomId, guest)).turnClock,
+        ).toBeUndefined();
+        expect(rooms.forActor(host.actorId)?.roomId).toBe(roomId);
+        return;
+      }
+      await Promise.all([
+        rooms.releaseSeat(host, roomId),
+        rooms.releaseSeat(host, roomId),
+      ]);
+      expect(rooms.forActor(host.actorId)).toBeNull();
+      expect(() => rooms.authorize(roomId, host)).toThrow();
+      const next = rooms.create(host, {
+        actorId: host.actorId,
+        actionId: randomUUID(),
+        expectedVersion: 0,
+      });
+      await rooms.releaseSeat(host, roomId);
+      rooms.stop();
+      repository.close();
+      repository = new SqliteAccounts(path);
+      rooms = open();
+      const recovered = await rooms.getSnapshot(roomId, guest);
+      expect(recovered.hostId).toBe(guest.actorId);
+      expect(recovered.members[0]).toMatchObject({ bot: true, seat: 0 });
+      expect(recovered.score.totals).toEqual([10, 10]);
+      expect(rooms.forActor(host.actorId)?.roomId).toBe(next.roomId);
+      expect(() => rooms.authorize(roomId, host)).toThrow();
+      await rooms.releaseSeat(guest, roomId);
+      expect(rooms.forActor(guest.actorId)).toBeNull();
+      expect(rooms.forActor(host.actorId)?.roomId).toBe(next.roomId);
+      expect(
+        repository.matchStorage.loadActive(2).map((saved) => saved.id),
+      ).toEqual([next.roomId]);
+    } finally {
+      rooms.stop();
+      repository.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);

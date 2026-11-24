@@ -15,7 +15,11 @@ export function applyEvent(
     message.version !== message.fromVersion + 1
   )
     return null;
-  const next = { ...state, version: message.version };
+  const next = {
+    ...state,
+    version: message.version,
+    ...(message.turnClock !== undefined && { turnClock: message.turnClock }),
+  };
   const event = message.event;
   switch (event.kind) {
     case 'member-joined':

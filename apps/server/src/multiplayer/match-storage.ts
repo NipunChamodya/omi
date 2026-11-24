@@ -28,6 +28,7 @@ export type StoredMatch = Pick<
   | 'partnerId'
   | 'rematchVotes'
   | 'hands'
+  | 'turnDeadline'
 > & { receipts: readonly (readonly [string, Receipt])[] };
 
 export type StoredInvitation = RoomInvitation & {
@@ -93,6 +94,7 @@ export function storedMatch(room: Room): StoredMatch {
     ...(room.partnerId && { partnerId: room.partnerId }),
     rematchVotes: room.rematchVotes ?? [],
     hands: room.hands ?? [],
+    ...(room.turnDeadline !== undefined && { turnDeadline: room.turnDeadline }),
     receipts: [...room.receipts],
   };
 }

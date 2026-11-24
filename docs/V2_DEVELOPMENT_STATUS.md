@@ -2,6 +2,20 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.9 (incomplete)
+
+- Previous-table management now supports permanent casual departure. The server transfers ownership to a remaining human, keeps a permanent bot in the vacated seat, and prevents old tabs and retries from reclaiming it. Finished records are preserved when the table is removed. Ranked forfeits keep the existing policy.
+- Local casual turn timing is configurable and off by default. The proposed local option is 30 seconds. When enabled, deadlines persist with the matching SQLite state transition. A connected timed-out player receives an existing legal bot choice. Production and ranked enforcement remain disabled.
+- The active board adds countdown progress at the active seat, winner feedback, a queued four-card trick reveal, 2/3/5-second presentation settings, Replay Last Trick, and a larger curved hand that preserves drag and keyboard selection. Match loading shows the existing original card mascot and real connection state.
+- Added English and Sinhala copy for new board and saved-seat controls. General all-screen redesign and complete Sinhala localization remain open. See [V2.9 timing and release](V2_9_TIMING_AND_RELEASE.md) for verified behavior and policy.
+- Started clean on `dev` at `5dc85e5`, one commit ahead of the remote. The private checkpoint contains 282 tracked and non-ignored untracked files, verified file by file. No deployment or Git publishing was performed.
+
+### V2.9 verification
+
+- 306 distinct cases passed in the selected runs, including 280 Vitest tests, 15 infrastructure cases and 11 browser scenarios. The focused defensive suite passed 115 cases within Vitest. The final four-player browser scenario covered a complete eight-trick hand, starting the next round, a clock for every seat, replay, drag input and permanent departure followed by a new room. A full match-through-victory and rematch browser journey remains unverified.
+- The first browser run rejected the fan at 320 px and still assumed hand cards never overlap. Adjusted the fan fit and added checks that every overlapping card retains a hit target. Chromium and Firefox passed the corrected viewport and gameplay checks. Automations for physical mobile browsers and the remaining screen matrix are outstanding.
+- The compressed entry was 95,130 bytes. The eight-room / 32-client SQLite loopback benchmark ran 320 actions and eight reconnects. Action p50/p95/p99 was 2.07/7.37/9.15 ms and combined peak RSS was 199.8 MiB. Desktop Home layout shift and physical-phone memory were not re-measured. This run does not validate Azure capacity.
+
 ## V2.8 Tropical Adventure (incomplete)
 
 - Home previously used one action for both gameplay discovery and Resume. Play now opens a separate mode picker. The picker displays the authorized seat and status, and Resume remains explicit. Join invite URLs no longer auto-resume merely because their code matches a stored seat. The ranked queue rejects existing casual seats while preserving reconnection to assigned ranked games.

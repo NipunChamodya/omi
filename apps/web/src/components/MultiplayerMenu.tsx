@@ -156,19 +156,30 @@ export function MultiplayerMenu({
                       : 'Check your saved table',
             )}
           </p>
+          {saved.memberCount !== undefined && (
+            <p>
+              {text('Players seated')} · {saved.memberCount}/4
+            </p>
+          )}
           <GameButton
             tone="green"
             onClick={() => void client.resume()}
             disabled={busy}
           >
-            {text('Resume table')}
+            {text(
+              saved.seatStatus === 'completed'
+                ? 'View results'
+                : 'Resume table',
+            )}
           </GameButton>
-          {saved.seatStatus === 'lobby' || saved.seatStatus === 'completed' ? (
+          {saved.seatStatus !== 'ranked' ? (
             confirmSeat === saved.roomId ? (
               <div>
                 <p>
                   {text(
-                    'Release this seat and make it available for a new game?',
+                    saved.seatStatus === 'casual'
+                      ? 'A bot will take your seat. You cannot return to this match.'
+                      : 'Release this seat and make it available for a new game?',
                   )}
                 </p>
                 <GameButton onClick={() => setConfirmSeat(null)}>
@@ -183,7 +194,13 @@ export function MultiplayerMenu({
                     )
                   }
                 >
-                  {text('Release table seat')}
+                  {text(
+                    saved.seatStatus === 'casual'
+                      ? 'Leave match permanently'
+                      : saved.seatStatus === 'completed'
+                        ? 'Remove from Home'
+                        : 'Release table seat',
+                  )}
                 </GameButton>
               </div>
             ) : (
@@ -191,7 +208,13 @@ export function MultiplayerMenu({
                 onClick={() => setConfirmSeat(saved.roomId)}
                 disabled={busy}
               >
-                {text('Release table seat')}
+                {text(
+                  saved.seatStatus === 'casual'
+                    ? 'Leave match permanently'
+                    : saved.seatStatus === 'completed'
+                      ? 'Remove from Home'
+                      : 'Release table seat',
+                )}
               </GameButton>
             )
           ) : (

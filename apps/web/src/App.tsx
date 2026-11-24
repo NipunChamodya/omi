@@ -1,3 +1,4 @@
+import cardGuide from './art/card-guide.svg?no-inline';
 import { useLocale, useCopy, translate } from './i18n/locale';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
@@ -415,9 +416,22 @@ export function App({ client: supplied }: { client?: GameClient }) {
                   />
                 )
               ) : (
-                <p className="loading" role="status">
-                  {text('Setting your table…')}
-                </p>
+                <section
+                  className="match-entry"
+                  aria-labelledby="match-entry-title"
+                >
+                  <img src={cardGuide} width="135" height="117" alt="" />
+                  <h1 id="match-entry-title">{text('Setting your table…')}</h1>
+                  <p role="status">
+                    {text(
+                      state.connection === 'expired'
+                        ? 'This table is unavailable.'
+                        : state.connection === 'reconnecting'
+                          ? 'Reconnecting to your table…'
+                          : 'Waiting for the table to respond…',
+                    )}
+                  </p>
+                </section>
               )}
             </>
           ) : ['multiplayer', 'friends', 'online'].includes(state.view) ? (

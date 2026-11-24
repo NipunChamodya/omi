@@ -1,3 +1,9 @@
+import {
+  TurnCountdown,
+  TrickReplay,
+  readRevealSeconds,
+  revealSeconds,
+} from './TableTiming';
 import './table-adventure.css';
 import { useCopy } from '../i18n/locale';
 import { useEffect, useRef, useState } from 'react';
@@ -28,17 +34,19 @@ function Player({
   member,
   snapshot,
   position,
+  trickWinner,
 }: {
   member: Member;
   snapshot: Snapshot;
   position: string;
+  trickWinner: boolean;
 }) {
   const text = useCopy();
   const active = snapshot.game!.turn === member.seat;
   const local = member.seat === snapshot.you.seat;
   return (
     <div
-      className={`table-player seat-${position} ${active ? 'active' : ''}`}
+      className={`table-player seat-${position} ${active ? 'active' : ''} ${trickWinner ? 'trick-seat-winner' : ''}`}
       data-testid={`seat-${position}`}
     >
       <span className="avatar-wrap">
@@ -70,6 +78,9 @@ function Player({
           'Opponent'
         )}
       </span>
+      {active && snapshot.turnClock && (
+        <TurnCountdown clock={snapshot.turnClock} />
+      )}
       {!local && (
         <span
           className="hidden-hand"
@@ -139,8 +150,41 @@ export default function GameTable({
     snapshot.members.find((member) => member.seat === seat)?.displayName ??
     'Your friend';
   const lastTrick = game.tricks.at(-1);
-  const plays = game.trick.length ? game.trick : (lastTrick?.plays ?? []);
-  const completed = game.trick.length === 0 && !!lastTrick;
+  const [revealFor, setRevealFor] = useState(readRevealSeconds);
+  const [replay, setReplay] = useState<{
+    trick: NonNullable<typeof lastTrick>;
+    round: string;
+  } | null>(null);
+  const [reveals, setReveals] = useState<
+    readonly { trick: NonNullable<typeof lastTrick>; round: string }[]
+  >([]);
+  const seen = useRef({ round: game.id, index: game.tricks.length });
+  useEffect(() => {
+    const index = game.tricks.length;
+    if (seen.current.round !== game.id) {
+      seen.current = { round: game.id, index };
+      setReveals([]);
+      return;
+    }
+    if (index <= seen.current.index) return;
+    const recent = game.tricks
+      .slice(seen.current.index)
+      .map((trick) => ({ trick, round: game.id }));
+    seen.current.index = index;
+    setReveals((pending) => [...pending, ...recent]);
+  }, [game.id, game.tricks]);
+  const reveal = reveals[0];
+  useEffect(() => {
+    if (!reveal) return;
+    const timeout = setTimeout(
+      () => setReveals((pending) => pending.slice(1)),
+      revealFor * 1000,
+    );
+    return () => clearTimeout(timeout);
+  }, [reveal, revealFor]);
+  const visibleReveal = reveal?.round === game.id ? reveal.trick : null;
+  const plays = visibleReveal?.plays ?? game.trick;
+  const completed = !!visibleReveal;
   const trickCounts = [
     game.tricks.filter((trick) => trick.winner % 2 === snapshot.you.team)
       .length,
@@ -198,20 +242,21 @@ export default function GameTable({
             member={member}
             snapshot={snapshot}
             position={positions[relative(member.seat, snapshot.you.seat)]!}
+            trickWinner={visibleReveal?.winner === member.seat}
           />
         ))}
         <div
           ref={dropZone}
           data-testid="card-drop-zone"
           data-drop-ready={dragging && playable}
-          className={`trick-area ${completed ? 'completed' : ''} ${over ? 'drop-over' : ''} ${live?.event.kind === 'card-played' && live.event.completedTrick ? `trick-collect collect-${positions[relative(live.event.completedTrick.winner, snapshot.you.seat)]}` : ''}`}
+          className={`trick-area ${completed ? 'completed' : ''} ${over ? 'drop-over' : ''} `}
           aria-label={
             completed ? text('Last completed trick') : text('Current trick')
           }
         >
           {plays.map((play) => (
             <div
-              className={`thrown-card thrown-${positions[relative(play.seat, snapshot.you.seat)]} ${live?.event.kind === 'card-played' && cardKey(live.event.card) === cardKey(play.card) ? 'animate-play' : ''}`}
+              className={`thrown-card ${visibleReveal?.winner === play.seat ? 'winning-play' : ''} thrown-${positions[relative(play.seat, snapshot.you.seat)]} ${live?.event.kind === 'card-played' && cardKey(live.event.card) === cardKey(play.card) ? 'animate-play' : ''}`}
               key={`${game.id}-${cardKey(play.card)}`}
               role="img"
               aria-label={`${name(play.seat)} played ${cardName(play.card)}`}
@@ -220,6 +265,16 @@ export default function GameTable({
             </div>
           ))}
         </div>
+        {visibleReveal && (
+          <div className="trick-banner" role="status">
+            {text(
+              visibleReveal.winner % 2 === snapshot.you.team
+                ? 'Your team took the trick'
+                : 'Their team took the trick',
+            )}{' '}
+            · {name(visibleReveal.winner)}
+          </div>
+        )}
         <TableMotion message={live} />
         {dragging && (
           <span className="drop-caption" role="status">
@@ -227,43 +282,71 @@ export default function GameTable({
           </span>
         )}
       </section>
-      {completed && (
-        <p className="trick-winner">
-          {lastTrick!.winner === snapshot.you.seat
-            ? 'You won'
-            : `${name(lastTrick!.winner)} won`}{' '}
-          the last trick
+      <div className="table-turn-row">
+        <p
+          className={`turn-status ${yours && game.phase === 'playing' ? 'your-turn' : ''}`}
+          data-testid="turn-status"
+          data-your-turn={yours && game.phase === 'playing'}
+          role="status"
+        >
+          {live?.event.kind === 'round-started' &&
+            live.event.cancelledBy !== undefined && (
+              <>{text('No trump. Same dealer.')} </>
+            )}
+          {!enabled
+            ? text('Reconnecting to your table…')
+            : game.phase === 'awaiting-cut'
+              ? `${name(cutter)} is cutting the deck.`
+              : game.phase === 'awaiting-trump'
+                ? yours
+                  ? text('Choose your trump suit.')
+                  : `${name(game.selector)} is choosing trump.`
+                : game.phase === 'complete'
+                  ? 'Eight tricks. One good game.'
+                  : game.phase === 'cancelled'
+                    ? 'This round was cancelled.'
+                    : yours
+                      ? game.trick.length
+                        ? text('Your turn. Choose a card.')
+                        : text('Your lead. Choose a card.')
+                      : `Waiting for ${name(game.turn)}…`}
         </p>
-      )}
-
-      <p
-        className={`turn-status ${yours && game.phase === 'playing' ? 'your-turn' : ''}`}
-        data-testid="turn-status"
-        data-your-turn={yours && game.phase === 'playing'}
-        role="status"
-      >
-        {live?.event.kind === 'round-started' &&
-          live.event.cancelledBy !== undefined && (
-            <>{text('No trump. Same dealer.')} </>
-          )}
-        {!enabled
-          ? text('Reconnecting to your table…')
-          : game.phase === 'awaiting-cut'
-            ? `${name(cutter)} is cutting the deck.`
-            : game.phase === 'awaiting-trump'
-              ? yours
-                ? text('Choose your trump suit.')
-                : `${name(game.selector)} is choosing trump.`
-              : game.phase === 'complete'
-                ? 'Eight tricks. One good game.'
-                : game.phase === 'cancelled'
-                  ? 'This round was cancelled.'
-                  : yours
-                    ? game.trick.length
-                      ? text('Your turn. Choose a card.')
-                      : text('Your lead. Choose a card.')
-                    : `Waiting for ${name(game.turn)}…`}
-      </p>
+        {game.tricks.length > 0 && (
+          <div className="table-timing-controls">
+            <button
+              className="text-button"
+              disabled={!lastTrick}
+              onClick={() => {
+                if (lastTrick) setReplay({ trick: lastTrick, round: game.id });
+              }}
+            >
+              {text('Replay last trick')}
+            </button>
+            <label>
+              {text('Trick reveal speed')}
+              <select
+                value={revealFor}
+                onChange={(event) => {
+                  const value = revealSeconds.find(
+                    (seconds) => seconds === Number(event.target.value),
+                  );
+                  if (!value) return;
+                  setRevealFor(value);
+                  try {
+                    localStorage.setItem('omi.trick-reveal', String(value));
+                  } catch {
+                    /* This session still works. */
+                  }
+                }}
+              >
+                <option value="2">{text('Fast')} · 2s</option>
+                <option value="3">{text('Normal')} · 3s</option>
+                <option value="5">{text('Relaxed')} · 5s</option>
+              </select>
+            </label>
+          </div>
+        )}
+      </div>
       {game.phase === 'awaiting-cut' && cutter === snapshot.you.seat && (
         <section className="action-panel" aria-labelledby="cut-title">
           <h2 id="cut-title">{text('Cut the deck.')}</h2>
@@ -317,6 +400,13 @@ export default function GameTable({
             </div>
           </section>
         )}
+      {replay?.round === game.id && (
+        <TrickReplay
+          trick={replay.trick}
+          snapshot={snapshot}
+          onClose={() => setReplay(null)}
+        />
+      )}
       {game.hand.length > 0 &&
         game.phase !== 'complete' &&
         game.phase !== 'cancelled' && (
@@ -328,28 +418,29 @@ export default function GameTable({
                 {game.phase === 'playing' ? ' · Hold & drag, or select' : ''}
               </span>
             </div>
-            <div className={`hand-grid hand-${game.hand.length}`}>
+            <div className={`hand-grid hand-fan hand-${game.hand.length}`}>
               {game.hand.map((card) => (
-                <InteractiveCard
-                  key={cardKey(card)}
-                  card={card}
-                  selected={selected === cardKey(card)}
-                  disabled={game.phase !== 'playing' || !enabled || pending}
-                  playable={playable}
-                  pending={pending}
-                  zone={dropZone}
-                  deal={live?.event.kind === 'cards-dealt'}
-                  onDrag={(active, inside) => {
-                    setDragging(active);
-                    setOver(inside);
-                  }}
-                  onSelect={() =>
-                    setSelected(
-                      selected === cardKey(card) ? null : cardKey(card),
-                    )
-                  }
-                  onPlay={() => play(card)}
-                />
+                <div className="fan-slot" key={cardKey(card)}>
+                  <InteractiveCard
+                    card={card}
+                    selected={selected === cardKey(card)}
+                    disabled={game.phase !== 'playing' || !enabled || pending}
+                    playable={playable}
+                    pending={pending}
+                    zone={dropZone}
+                    deal={live?.event.kind === 'cards-dealt'}
+                    onDrag={(active, inside) => {
+                      setDragging(active);
+                      setOver(inside);
+                    }}
+                    onSelect={() =>
+                      setSelected(
+                        selected === cardKey(card) ? null : cardKey(card),
+                      )
+                    }
+                    onPlay={() => play(card)}
+                  />
+                </div>
               ))}
             </div>
             {game.phase === 'playing' && (

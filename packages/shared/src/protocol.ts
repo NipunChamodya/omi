@@ -63,7 +63,13 @@ export type PlayerGame = RoundHeader &
     trick: readonly PublicPlay[];
     tricks: readonly PublicTrick[];
   }>;
+export type TurnClock = Readonly<{
+  deadline: number;
+  serverNow: number;
+  durationMs: number;
+}>;
 export type Snapshot = Readonly<{
+  turnClock?: TurnClock | null;
   ranked?: boolean;
   rematchVotes?: readonly Seat[];
   rematchAvailable?: boolean;
@@ -189,6 +195,7 @@ export type EventMessage = Readonly<{
   fromVersion: number;
   version: number;
   event: RoomEvent;
+  turnClock?: TurnClock | null;
 }>;
 export type ServerMessage = Snapshot | Ack | Failure | EventMessage;
 

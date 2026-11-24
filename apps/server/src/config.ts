@@ -18,6 +18,7 @@ const schema = z
       .refine((value) => /^https?:/.test(value), 'HTTP(S) required')
       .default('http://127.0.0.1:5173'),
     DATABASE_PATH: z.string().min(1).default('./data/omi.sqlite'),
+    CASUAL_TURN_SECONDS: z.coerce.number().int().min(0).max(120).default(0),
     EXPERIMENTAL_ELO: z
       .enum(['true', 'false'])
       .default('false')

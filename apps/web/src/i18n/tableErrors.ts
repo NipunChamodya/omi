@@ -8,6 +8,7 @@ const messages: Readonly<Record<string, string>> = {
   REMATCH_UNAVAILABLE: 'මේ මේසයේ නැවත තරගයක් ඇරඹිය නොහැක.',
   REMATCH_WAITING:
     'සියලු ක්‍රීඩකයන් යළි සම්බන්ධ වී පිළිගන්නා තෙක් රැඳී සිටින්න.',
+  TURN_EXPIRED: 'ඔබේ වාරයේ කාලය අවසන්. මේසය යාවත්කාලීන වෙමින් පවතී.',
   MATCH_COMPLETE: 'තරගය අවසන්.',
   ROUND_NOT_SETTLED: 'ඊළඟ වටයට පෙර දැන් ක්‍රීඩා කරන වටය අවසන් කරන්න.',
   BOT_NOT_ALLOWED:

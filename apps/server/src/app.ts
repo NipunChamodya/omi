@@ -114,6 +114,10 @@ export function buildApp(options: AppOptions = {}) {
       ...options.multiplayer,
       accounts,
       matchStorage: repository.matchStorage,
+      casualTurnMs:
+        config.NODE_ENV === 'production'
+          ? 0
+          : config.CASUAL_TURN_SECONDS * 1000,
       ice: config,
       allowGuests: config.ALLOW_GUESTS,
       allowPrivateCommunications:

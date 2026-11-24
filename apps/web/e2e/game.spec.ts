@@ -124,6 +124,19 @@ test('four mobile friends create, join, deal, play a round and resume after relo
       ).toBe(true);
       await expect(page.getByTestId('seat-bottom')).toContainText('You');
     }
+    if (process.env.OMI_TEST_CASUAL_TURN_SECONDS) {
+      for (const page of pages) {
+        await expect(
+          page.getByRole('timer', { name: 'Turn time remaining' }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole('progressbar', { name: 'Turn time remaining' }),
+        ).toHaveAttribute(
+          'max',
+          String(Number(process.env.OMI_TEST_CASUAL_TURN_SECONDS) * 1000),
+        );
+      }
+    }
     for (let i = 0; i < 3; i++)
       await pages[i]!.screenshot({
         path: testInfo.outputPath(`table-${[320, 390, 430][i]}.png`),
@@ -263,15 +276,24 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         expect(box.right - box.left).toBeGreaterThanOrEqual(43.9);
         expect(box.bottom - box.top).toBeGreaterThanOrEqual(43.9);
       }
-      for (let i = 0; i < boxes.length; i++)
-        for (let j = i + 1; j < boxes.length; j++) {
-          const a = boxes[i]!,
-            b = boxes[j]!;
-          expect(
-            Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
-              Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5,
-          ).toBe(false);
-        }
+      expect(boxes[0]!.right).toBeGreaterThan(boxes[1]!.left);
+      const hittable = await host
+        .getByTestId('hand-card')
+        .evaluateAll((cards) =>
+          cards.every((card) => {
+            const r = card.getBoundingClientRect();
+            return [0.25, 0.4, 0.55].some(
+              (fraction) =>
+                document
+                  .elementFromPoint(
+                    r.left + r.width * fraction,
+                    r.top + r.height / 2,
+                  )
+                  ?.closest('[data-testid="hand-card"]') === card,
+            );
+          }),
+        );
+      expect(hittable).toBe(true);
       expect(
         await host.evaluate(
           () => document.documentElement.scrollHeight <= innerHeight + 1,
@@ -422,6 +444,22 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         await expect(
           pages[1]!.locator('.trick-area.completed .thrown-card'),
         ).toHaveCount(4);
+        await expect(
+          pages[1]!.locator('.trick-area.completed .winning-play'),
+        ).toHaveCount(1);
+        await pages[1]!
+          .getByRole('button', { name: 'Replay last trick' })
+          .click();
+        const replay = pages[1]!.getByRole('dialog', {
+          name: 'Replay last trick',
+        });
+        await expect(replay.getByRole('img')).toHaveCount(4);
+        await expect(replay.getByText('Winning card')).toBeVisible();
+        await pages[1]!.screenshot({
+          path: testInfo.outputPath('replay-390.png'),
+          animations: 'disabled',
+        });
+        await replay.getByRole('button', { name: 'Back', exact: true }).click();
         await pages[1]!.screenshot({
           path: testInfo.outputPath('trick-390.png'),
           fullPage: true,
@@ -453,6 +491,33 @@ test('four mobile friends create, join, deal, play a round and resume after relo
       );
       await expect(page.getByTestId('hand-card')).toHaveCount(0);
     }
+
+    await host
+      .getByRole('main')
+      .getByRole('button', { name: 'Back', exact: true })
+      .click();
+    await host
+      .getByRole('button', { name: 'Return home and keep my seat' })
+      .click();
+    await host.getByRole('button', { name: 'Manage saved table' }).click();
+    const release = host.getByRole('button', {
+      name: 'Leave match permanently',
+    });
+    await release.click();
+    await expect(
+      host.getByText(
+        'A bot will take your seat. You cannot return to this match.',
+      ),
+    ).toBeVisible();
+    await release.click();
+    await expect(
+      host.getByRole('region', { name: 'Your seat is saved.' }),
+    ).toHaveCount(0);
+    await expect(pages[1]!.locator('.table-player')).toHaveCount(4);
+    await host.getByRole('button', { name: 'Create Private Table' }).click();
+    await host.getByLabel('Your name').fill('New table host');
+    await host.getByRole('button', { name: /Create a table/ }).click();
+    await expect(host.locator('.invite-box strong')).not.toHaveText(code);
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
   }

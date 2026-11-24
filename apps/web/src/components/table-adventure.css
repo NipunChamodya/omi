@@ -60,3 +60,194 @@
     inset 0 1px #fff2d055,
     0 4px #274a48;
 }
+
+.playing-room .table-turn-row {
+  grid-row: 4;
+  min-width: 0;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .playing-room .table-turn-row {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+.table-timing-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+}
+.table-timing-controls .text-button {
+  min-height: 32px;
+  color: #fff2d0;
+}
+.table-timing-controls select {
+  margin-inline-start: 4px;
+  max-width: 100%;
+  color: #24485d;
+  background: #fff2d0;
+  font: inherit;
+}
+.turn-clock {
+  width: 49px;
+  text-align: center;
+  color: #fff2d0;
+  background: #24485d;
+  padding: 2px 4px;
+  border-radius: 7px;
+  font: 700 0.68rem/1.12 system-ui;
+}
+.turn-clock progress {
+  display: block;
+  height: 4px;
+  width: 100%;
+  margin-top: 2px;
+  accent-color: #83d52f;
+}
+.turn-clock--urgent {
+  background: #852d42;
+}
+.turn-clock--urgent progress {
+  accent-color: #f64c65;
+}
+.playing-room .trick-seat-winner .avatar {
+  box-shadow:
+    0 0 0 3px #ffd044,
+    0 0 13px #ffd04488;
+}
+.trick-banner {
+  position: absolute;
+  z-index: 3;
+  bottom: 22%;
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  max-width: 72%;
+  border-radius: 9px;
+  padding: 4px 8px;
+  background: #fff2d0;
+  color: #24485d;
+  font-size: 0.68rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+.winning-play {
+  outline: 2px solid #ffd044;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.trick-replay ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  list-style: none;
+  padding: 0;
+}
+.trick-replay li {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-size: 0.68rem;
+}
+.replay-face {
+  position: relative;
+  width: min(52px, 100%);
+  aspect-ratio: 5 / 7;
+  display: block;
+}
+
+.playing-room .hand-grid.hand-fan {
+  --card-size: clamp(59px, 12vw, 88px);
+  --card-step: clamp(33px, 7.2vw, 50px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+  padding: 9px 4px 12px;
+  min-width: 0;
+}
+.hand-fan .fan-slot {
+  flex: 0 1 var(--card-step);
+  position: relative;
+  min-width: 0;
+}
+.hand-fan .fan-slot:last-child {
+  flex-basis: var(--card-size);
+}
+.playing-room .hand-fan .hand-card {
+  width: var(--card-size);
+  min-width: 0;
+  max-width: none;
+  aspect-ratio: 5 / 7;
+  rotate: var(--fan-angle, 0deg);
+  translate: 0 var(--fan-rise, 0px);
+  transform-origin: center;
+}
+.hand-fan .fan-slot:first-child:not(:last-child) {
+  --fan-angle: -10deg;
+  --fan-rise: 5px;
+}
+.hand-fan .fan-slot:nth-child(2):nth-last-child(n + 3) {
+  --fan-angle: -7deg;
+  --fan-rise: 2px;
+}
+.hand-fan .fan-slot:nth-child(3):nth-last-child(n + 5) {
+  --fan-angle: -4deg;
+  --fan-rise: -2px;
+}
+.hand-fan .fan-slot:nth-child(n + 3):nth-last-child(2) {
+  --fan-angle: 6deg;
+  --fan-rise: 2px;
+}
+.hand-fan .fan-slot:last-child:not(:first-child) {
+  --fan-angle: 10deg;
+  --fan-rise: 5px;
+}
+.hand-fan .fan-slot:has(.selected, [data-dragging], :focus-visible) {
+  z-index: 2;
+}
+.playing-room .hand-fan .hand-card[data-dragging] {
+  rotate: none;
+  translate: none;
+}
+.playing-room .hand-fan .hand-card .card-corner {
+  font-size: 12px;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .playing-room .hand-grid.hand-fan {
+    --card-size: 60px;
+    --card-step: 32px;
+  }
+}
+
+@media (max-width: 360px) {
+  .playing-room .hand-grid.hand-fan {
+    --card-size: 58px;
+    --card-step: 29px;
+  }
+}
+
+.trick-replay[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(390px, calc(100% - 28px));
+  max-height: calc(100dvh - 28px);
+  overflow: auto;
+  background: #fff2d0;
+  color: #24485d;
+  box-shadow:
+    0 6px #a97046,
+    0 16px 45px #0c273788;
+}
+.trick-replay[open] h2 {
+  color: #24485d;
+}
+.trick-replay[open] .winning-play {
+  outline-color: #b87724;
+}

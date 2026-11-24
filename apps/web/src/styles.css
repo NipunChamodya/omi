@@ -2925,3 +2925,32 @@ input {
 .leave-dialog h2 {
   color: #fff2d0;
 }
+
+.match-entry {
+  max-width: 380px;
+  margin: 24px auto;
+  padding: 18px;
+  text-align: center;
+  background: #24485d;
+  color: #fff2d0;
+  border: 2px solid #dca95d;
+  border-radius: 24px;
+}
+.match-entry img {
+  display: block;
+  margin: auto;
+  animation: match-entry-bob 1.5s ease-in-out infinite alternate;
+}
+@keyframes match-entry-bob {
+  to {
+    transform: translateY(-8px);
+  }
+}
+.data-saver .match-entry img {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .match-entry img {
+    animation: none;
+  }
+}

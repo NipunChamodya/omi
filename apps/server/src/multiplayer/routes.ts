@@ -33,6 +33,7 @@ export type MultiplayerOptions = {
   origin: string;
   secureCookies: boolean;
   now?: () => number;
+  casualTurnMs?: number;
   limits?: Partial<Limits>;
   entropy?: RandomInt;
   accounts: Accounts;
@@ -64,6 +65,7 @@ export async function registerMultiplayer(
     limits,
     options.entropy,
     options.matchStorage,
+    options.casualTurnMs,
   );
   const httpRate = new RateLimiter(now, limits.httpPerMinute, 60_000);
   const gameSockets = new Set<import('ws').WebSocket>();

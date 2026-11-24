@@ -17,6 +17,7 @@ export type {
   RoundHeader,
   PlayerGame,
   Snapshot,
+  TurnClock,
   RoomDescriptor,
   GuestIdentity,
   ClientCommand,

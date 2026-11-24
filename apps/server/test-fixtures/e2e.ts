@@ -15,6 +15,7 @@ const app = buildApp({
   logger: false,
   config: parseConfig({
     NODE_ENV: 'test',
+    CASUAL_TURN_SECONDS: process.env.OMI_TEST_CASUAL_TURN_SECONDS,
     VOICE_TURN_URLS: process.env.OMI_TEST_TURN_URLS,
     VOICE_TURN_SECRET: process.env.OMI_TEST_TURN_SECRET,
     VOICE_ICE_POLICY: process.env.OMI_TEST_ICE_POLICY,

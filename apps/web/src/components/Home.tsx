@@ -83,7 +83,8 @@ export function Home({
               onClick={() => client.navigate('multiplayer')}
               disabled={state.busy || authLoading}
             >
-              {text('Play OMI')} <span aria-hidden="true">▶</span>
+              {text(state.saved ? 'Play Online' : 'Play OMI')}{' '}
+              <span aria-hidden="true">▶</span>
             </GameButton>
             <button
               className="island-stage__learn"
@@ -131,13 +132,18 @@ export function Home({
                   onClick={() => void client.resume()}
                   disabled={state.busy || authLoading}
                 >
-                  {text('Resume table')} <span aria-hidden="true">↗</span>
+                  {text(
+                    state.saved.seatStatus === 'completed'
+                      ? 'View results'
+                      : 'Resume table',
+                  )}{' '}
+                  <span aria-hidden="true">↗</span>
                 </button>
                 <button
                   className="button secondary"
                   onClick={() => client.navigate('multiplayer')}
                 >
-                  {text('Play Online')}
+                  {text('Manage saved table')}
                 </button>
                 <p className="seated-options">
                   {text(

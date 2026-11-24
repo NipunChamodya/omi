@@ -22,6 +22,7 @@ type SavedTable = {
   code: string;
   displayName: string;
   seatStatus?: RoomDescriptor['seatStatus'];
+  memberCount?: number | undefined;
 };
 export type View =
   'home' | 'multiplayer' | 'friends' | 'create' | 'join' | 'online' | 'room';
@@ -82,6 +83,8 @@ export function friendlyError(code: string, type?: string): string {
       return 'This table is no longer available for a rematch.';
     case 'REMATCH_WAITING':
       return 'Waiting for everyone to reconnect and accept.';
+    case 'TURN_EXPIRED':
+      return 'Your turn time ended. The table is updating.';
     case 'MATCH_IN_PROGRESS':
       return 'This match is still in progress. Return to your seat to continue.';
     case 'MATCH_COMPLETE':
@@ -243,6 +246,7 @@ export class GameClient {
             code: room.code,
             displayName: identity.displayName,
             seatStatus: room.seatStatus,
+            memberCount: room.memberCount,
           }
         : null,
     );
@@ -294,6 +298,7 @@ export class GameClient {
     if (previous === 'room' && saved && snapshot)
       this.save({
         ...saved,
+        memberCount: snapshot.members.length,
         seatStatus: snapshot.score.final
           ? 'completed'
           : !snapshot.game
@@ -436,6 +441,7 @@ export class GameClient {
         code: room.code,
         displayName: identity.displayName,
         seatStatus: 'lobby',
+        memberCount: room.memberCount,
       });
       this.rememberView('room');
       this.retries = 0;
@@ -483,6 +489,7 @@ export class GameClient {
       this.store.setState({ identity, snapshot, busy: false });
       this.save({
         ...saved,
+        memberCount: snapshot.members.length,
         seatStatus: snapshot.score.final
           ? 'completed'
           : !snapshot.game
@@ -630,6 +637,13 @@ export class GameClient {
       this.socket = null;
       clearTimeout(this.connectTimer);
       clearTimeout(this.actionTimer);
+      if (event.code === 4002) {
+        this.clearPending();
+        this.save(null);
+        this.changeView('home', true);
+        this.store.setState({ snapshot: null });
+        return;
+      }
       if (event.code === 4001 || event.code === 1008) {
         this.store.setState({
           connection:

@@ -72,9 +72,11 @@ export function snapshot(
   member: RoomMember,
   requestId: string | null = null,
   nextRoundConfigured = false,
+  turnClock: Snapshot['turnClock'] = null,
 ): Snapshot {
   const round = room.round;
   return {
+    ...(turnClock && { turnClock }),
     ranked: room.ranked ?? false,
     rematchVotes: room.rematchVotes ?? [],
     rematchAvailable:

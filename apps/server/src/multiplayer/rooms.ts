@@ -66,7 +66,7 @@ export type RoomMember = {
   bot?: boolean;
   departed?: boolean;
   permanentBot?: boolean;
-  disconnectDeadline?: number;
+  disconnectDeadline?: number | undefined;
   avatarUrl?: string | null;
 };
 export type Peer = { socket: WebSocket; identity: Identity; alive: boolean };
@@ -90,6 +90,7 @@ export type Room = {
   queue: SerialQueue;
   receipts: Map<string, Receipt>;
   lastActive: number;
+  turnDeadline?: number | undefined;
 };
 export type Limits = {
   maxRooms: number;
@@ -149,6 +150,7 @@ export class RoomService {
     private readonly limits: Limits,
     private readonly entropy: RandomInt = randomInt,
     private readonly storage?: MatchStorage,
+    private readonly casualTurnMs = 0,
   ) {
     const recoveredAt = this.now();
     const recoveryDeadline = recoveredAt + reconnectGraceMs;
@@ -223,14 +225,22 @@ export class RoomService {
     await room.queue.run(() => {
       this.checkIdentity(identity, actor);
       if (this.memberships.get(actor) !== roomId) return;
-      if (room.round && !room.ledger.final)
+      if (room.ranked && room.round && !room.ledger.final)
         throw new RoomError('MATCH_IN_PROGRESS', 409);
 
       const remaining = room.members.filter(
         (member) => member.actorId !== actor,
       );
-      const nextHost = remaining.find((member) => !member.bot);
-      const disband = !room.round && (room.ranked || !nextHost);
+      const nextHost = remaining.find(
+        (member) =>
+          !member.departed &&
+          !member.permanentBot &&
+          (!member.bot || room.round),
+      );
+      const activeCasual = !!room.round && !room.ledger.final;
+      const disband =
+        (!room.round && (room.ranked || !nextHost)) ||
+        (activeCasual && !nextHost);
       const departing = disband
         ? room.members.map((member) => member.actorId)
         : [actor];
@@ -247,7 +257,15 @@ export class RoomService {
           members: room.round
             ? room.members.map((member) =>
                 member.actorId === actor
-                  ? { ...member, departed: true }
+                  ? {
+                      ...member,
+                      departed: true,
+                      ...(activeCasual && {
+                        bot: true,
+                        permanentBot: true,
+                        disconnectDeadline: undefined,
+                      }),
+                    }
                   : member,
               )
             : remaining.map((member, seat) => ({
@@ -256,8 +274,9 @@ export class RoomService {
                 ready: false,
               })),
         };
+        if (room.hostId === actor && nextHost && !room.ledger.final)
+          draft.hostId = nextHost.actorId;
         if (!room.round) {
-          if (room.hostId === actor) draft.hostId = nextHost!.actorId;
           if (room.hostId === actor || room.partnerId === actor)
             delete draft.partnerId;
           this.seatPartnership(draft);
@@ -266,16 +285,20 @@ export class RoomService {
         Object.assign(room, draft);
       }
       for (const id of departing) {
-        this.memberships.delete(id);
+        if (this.memberships.get(id) === roomId) this.memberships.delete(id);
         const peer = room.peers.get(id);
         room.peers.delete(id);
         this.onPeerDisconnect(room.id, id);
-        peer?.socket.close(1000, 'Seat released');
+        peer?.socket.close(4002, 'Seat released');
       }
       if (!disband)
         for (const member of room.members) {
           const peer = room.peers.get(member.actorId);
-          if (peer) this.send(peer, snapshot(room, member, null, true));
+          if (peer)
+            this.send(
+              peer,
+              snapshot(room, member, null, true, this.turnClock(room)),
+            );
         }
     });
   }
@@ -718,7 +741,7 @@ export class RoomService {
     const { room } = this.authorize(roomId, identity);
     return room.queue.run(() => {
       const { member } = this.authorize(roomId, identity);
-      return snapshot(room, member, null, true);
+      return snapshot(room, member, null, true, this.turnClock(room));
     });
   }
   attach(roomId: string, peer: Peer): Promise<void> {
@@ -757,7 +780,7 @@ export class RoomService {
       const member = room.members.find(
         (item) => item.actorId === peer.identity.actorId,
       )!;
-      this.send(peer, snapshot(room, member, null, true));
+      this.send(peer, snapshot(room, member, null, true, this.turnClock(room)));
     });
   }
   detach(roomId: string, peer: Peer): Promise<void> {
@@ -792,7 +815,10 @@ export class RoomService {
         throw new RoomError('STALE_CONNECTION', 403);
       if (command.roomId !== roomId) throw new RoomError('ROOM_MISMATCH', 403);
       if (command.type === 'sync') {
-        this.send(peer, snapshot(room, member, command.actionId, true));
+        this.send(
+          peer,
+          snapshot(room, member, command.actionId, true, this.turnClock(room)),
+        );
         return;
       }
       const key = `${member.actorId}:${command.actionId}`;
@@ -823,6 +849,8 @@ export class RoomService {
         this.expireDisconnects(room);
         if (command.expectedVersion !== room.version)
           throw new RoomError('VERSION_CONFLICT', 409, room.version);
+        if (command.type === 'play' && this.timeoutReady(room, member))
+          throw new RoomError('TURN_EXPIRED', 409);
         const draft: Room = {
           ...room,
           members: room.members.map((member) => ({ ...member })),
@@ -1112,6 +1140,42 @@ export class RoomService {
     }
     throw new RoomError('INVALID_ACTION');
   }
+  private turnKey(room: Room): string | null {
+    const round = room.round;
+    return !room.ranked &&
+      !room.ledger.final &&
+      round?.phase === 'playing' &&
+      round.turn !== null
+      ? JSON.stringify([
+          round.id,
+          round.turn,
+          round.tricks.length,
+          round.trick.length,
+        ])
+      : null;
+  }
+  private turnClock(room: Room, serverNow = this.now()) {
+    return this.casualTurnMs > 0 &&
+      this.turnKey(room) &&
+      room.turnDeadline !== undefined
+      ? {
+          deadline: room.turnDeadline,
+          durationMs: this.casualTurnMs,
+          serverNow,
+        }
+      : null;
+  }
+  private timeoutReady(room: Room, member: RoomMember): boolean {
+    return (
+      this.casualTurnMs > 0 &&
+      !!this.turnKey(room) &&
+      room.round?.turn === member.seat &&
+      !member.bot &&
+      room.turnDeadline !== undefined &&
+      this.now() >= room.turnDeadline &&
+      room.peers.has(member.actorId)
+    );
+  }
   private advance(
     room: Room,
     event: (recipient: RoomMember) => RoomEvent,
@@ -1123,6 +1187,13 @@ export class RoomService {
     const fromVersion = room.version;
     const lastActive = this.now();
     const committed = { ...room, version: fromVersion + 1, lastActive };
+    const key = this.turnKey(committed);
+    if (!key || this.casualTurnMs <= 0) delete committed.turnDeadline;
+    else if (
+      key !== this.turnKey(commitTo) ||
+      commitTo.turnDeadline === undefined
+    )
+      committed.turnDeadline = lastActive + this.casualTurnMs;
     const previous = commitTo.matchId ?? commitTo.id;
     const current = committed.matchId ?? committed.id;
     this.storage?.save(
@@ -1142,6 +1213,9 @@ export class RoomService {
           fromVersion,
           version: room.version,
           event: event(member),
+          ...(this.casualTurnMs > 0 && {
+            turnClock: this.turnClock(room, lastActive),
+          }),
         });
     }
   }
@@ -1246,7 +1320,10 @@ export class RoomService {
         room.ledger.final ||
         this.stopped ||
         !room.members.some(
-          (member) => member.bot || member.disconnectDeadline !== undefined,
+          (member) =>
+            member.bot ||
+            member.disconnectDeadline !== undefined ||
+            this.timeoutReady(room, member),
         )
       )
         continue;
@@ -1268,7 +1345,18 @@ export class RoomService {
                 ? round.selector
                 : round.turn;
           const member = seat === null ? undefined : room.members[seat];
-          if (!member?.bot || room.peers.has(member.actorId)) return;
+          if (
+            !member ||
+            !(
+              this.timeoutReady(room, member) ||
+              (member.bot && !room.peers.has(member.actorId))
+            )
+          )
+            return;
+          if (
+            !['awaiting-cut', 'awaiting-trump', 'playing'].includes(round.phase)
+          )
+            return;
           const envelope = {
             roomId: room.id,
             actorId: member.actorId,
