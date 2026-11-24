@@ -2836,3 +2836,32 @@ input {
   min-width: 0;
   margin: 0;
 }
+
+.player-report {
+  position: relative;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+.player-report summary {
+  display: list-item;
+  align-content: center;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.player-report .entry-form {
+  position: absolute;
+  z-index: 20;
+  inset-inline-end: 0;
+  width: min(240px, 58vw);
+  padding: 12px;
+  background: #202522;
+  color: #fff;
+  border: 1px solid #87998d;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.player-report select {
+  width: 100%;
+  min-height: 44px;
+}

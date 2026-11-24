@@ -469,3 +469,62 @@ it('expires an invitation at its exact deadline', async () => {
     service.stop();
   }
 });
+
+it('replays committed HTTP create and join descriptors across restart', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'omi-receipt-'));
+  const file = join(directory, 'rooms.sqlite');
+  let repo = new SqliteAccounts(file);
+  const open = () =>
+    new RoomService(
+      () => 1,
+      () => true,
+      DEFAULT_LIMITS,
+      undefined,
+      repo.matchStorage,
+    );
+  let rooms = open();
+  const host = {
+    actorId: randomUUID(),
+    displayName: 'Host',
+    expiresAt: 1000,
+    tokenHash: 'host',
+  };
+  const guest = { ...host, actorId: randomUUID(), tokenHash: 'guest' };
+  const create = {
+    actorId: host.actorId,
+    actionId: randomUUID(),
+    expectedVersion: 0,
+  };
+  try {
+    const room = rooms.create(host, create);
+    const join = {
+      actorId: guest.actorId,
+      actionId: randomUUID(),
+      roomId: room.roomId,
+      code: room.code,
+      expectedVersion: room.version,
+    };
+    const [joined, replay] = await Promise.all([
+      rooms.join(guest, join),
+      rooms.join(guest, join),
+    ]);
+    expect(replay).toEqual(joined);
+    rooms.stop();
+    repo.close();
+    repo = new SqliteAccounts(file);
+    rooms = open();
+    expect(rooms.create(host, create)).toEqual(room);
+    expect(await rooms.join(guest, join)).toEqual(joined);
+    expect(() => rooms.create(guest, create)).toThrow();
+    await expect(
+      rooms.join(guest, { ...join, expectedVersion: 99 }),
+    ).rejects.toMatchObject({ code: 'ACTION_ID_REUSED' });
+    expect((await rooms.getSnapshot(room.roomId, host)).members).toHaveLength(
+      2,
+    );
+  } finally {
+    rooms.stop();
+    repo.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

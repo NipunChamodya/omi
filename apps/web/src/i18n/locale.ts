@@ -237,6 +237,17 @@ const sinhala = {
     'මෙම කවුළුව වසා යළි පිවිසෙන්න.',
   'Could not save your profile. Please try again.':
     'පැතිකඩ සුරැකිය නොහැකි විය. යළි උත්සාහ කරන්න.',
+  'Report a player': 'ක්‍රීඩකයෙකු වාර්තා කරන්න',
+  'Who are you worried about?': 'ඔබට ගැටලුවක් ඇති කළේ කවුද?',
+  'Choose a player': 'ක්‍රීඩකයෙකු තෝරන්න',
+  'What happened?': 'සිදු වූයේ කුමක්ද?',
+  'Unfriendly behavior': 'අමිත්‍රශීලී හැසිරීම',
+  'Something felt unsafe': 'අනාරක්ෂිත බවක් දැනුණා',
+  'Something else': 'වෙනත් හේතුවක්',
+  'Send private report': 'පෞද්ගලික වාර්තාව යවන්න',
+  'Your report was sent privately.': 'ඔබේ වාර්තාව පෞද්ගලිකව යවා ඇත.',
+  'Could not send your report. Try again later.':
+    'වාර්තාව යැවීමට නොහැකි විය. පසුව නැවත උත්සාහ කරන්න.',
 } as const;
 
 export function translate(language: 'en' | 'si', message: string): string {

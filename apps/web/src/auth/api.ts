@@ -48,6 +48,17 @@ async function json<T>(
   }
 }
 export const authApi = {
+  reportPlayer: (
+    roomId: string,
+    subjectId: string,
+    reason: 'unfriendly' | 'unsafe' | 'other',
+    csrf: string,
+  ) =>
+    json<{ ok: true }>(
+      '/profile/report-player',
+      { roomId, subjectId, reason },
+      csrf,
+    ),
   protect: (csrf: string) =>
     json<{ protectedPlay: boolean }>(
       '/profile/safety',

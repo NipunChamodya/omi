@@ -2,6 +2,20 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.5 changes
+
+- Signed-in table members can report another human player without opening chat or voice. The report collects a reason category, the two internal account or seat IDs, table and timestamp. It stores no free text, chat transcript, audio or cards. The existing moderator workflow sees the report. The route requires exact Origin, session, CSRF and room membership, limits submissions per account and deduplicates the same target within a match generation.
+- HTTP create and join receipts now commit atomically with SQLite room changes. They are scoped to the authenticated actor, expire after 24 hours, and are bounded at 64 per account and 16,384 overall. A replay requires current membership in the original table and an identical request fingerprint. The browser already retries an uncertain response with the same action ID.
+- Table errors use stable server codes for English and Sinhala feedback. The reporting form is bilingual. Complete translation of dynamic profile, statistics, game announcements, settings and secondary social surfaces remains pending.
+- Azure systemd startup now requires a verified existing database on the mounted data directory. Production Elo, existing gameplay, white cards and opening-only sponsor gating were preserved.
+
+Protected-play deactivation and child account onboarding remain gated pending an owner-approved age and guardian workflow. Before public operation, verify applicable jurisdictions, data retention and deletion, consent and parental access requirements where applicable, and provider policies. [FTC COPPA guidance](https://www.ftc.gov/business-guidance/privacy-security/childrens-privacy) · [Sri Lanka Data Protection Authority](https://www.dpa.gov.lk/) · [Google child-directed treatment](https://support.google.com/adsense/answer/3248194)
+
+### V2.5 verification
+
+- From clean `dev` at `d1e15dc`, verified a private checkpoint of 265 project files. Final checks passed 232 unit and integration tests, 109 in the focused defensive suite, 15 infrastructure tests, four selected Chromium/Firefox checks and four PWA checks. Production build, typecheck, lint and the 100,036-byte compressed entry passed. An initial test expected rate limiting one call early; the corrected regression verifies enforcement on the sixth authenticated attempt. The selected browser checks covered 320 px Sinhala and mobile gameplay with reload recovery.
+- The disposable SQLite load run served eight rooms and 32 clients across 320 actions and a 10-second idle soak. Local action p50/p95/p99 were 1.93/3.57/4.29 ms. Combined CPU averaged 4.8% and combined RSS peaked at 187.4 MiB. Physical-device acceptance, real network throughput, extended overload scenarios and cloud recovery are unverified.
+
 ## V2.4 changes
 
 - Expanded the existing Sinhala catalog across navigation, login and profile controls, friends, lobby, gameplay feedback, moderation and PWA settings. English fallback is safe for unknown copy and the compiler checks keys used by the typed catalog. Dynamic errors and some settings, moderation, match statistics, and game-state copy still need translation.

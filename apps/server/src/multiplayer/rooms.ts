@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
 import type {
   Ack,
@@ -50,7 +50,11 @@ import {
   snapshot,
 } from './projection.js';
 import { storedMatch } from './match-storage.js';
-import type { MatchStorage, StoredInvitation } from './match-storage.js';
+import type {
+  HttpReceipt,
+  MatchStorage,
+  StoredInvitation,
+} from './match-storage.js';
 import { RoomError, SerialQueue } from './support.js';
 import type { Identity } from './support.js';
 
@@ -242,14 +246,16 @@ export class RoomService {
     actionId: string,
     fingerprint: string,
   ): RoomDescriptor | undefined {
-    const prior = this.httpReceipts
-      .get(identity.actorId)
-      ?.records.get(actionId);
+    const prior =
+      this.httpReceipts.get(identity.actorId)?.records.get(actionId) ??
+      this.storage?.httpReceipt(identity.actorId, actionId, this.now());
     if (!prior) return undefined;
     if (prior.fingerprint !== fingerprint)
       throw new RoomError('ACTION_ID_REUSED');
     if (!this.rooms.has(prior.descriptor.roomId))
       throw new RoomError('ROOM_EXPIRED', 410);
+    if (this.memberships.get(identity.actorId) !== prior.descriptor.roomId)
+      throw new RoomError('ROOM_NOT_FOUND', 404);
     return prior.descriptor;
   }
   private httpBudget(identity: Identity): void {
@@ -262,6 +268,7 @@ export class RoomService {
     fingerprint: string,
     descriptor: RoomDescriptor,
   ): RoomDescriptor {
+    if (this.storage) return descriptor;
     let bucket = this.httpReceipts.get(identity.actorId);
     if (!bucket) {
       bucket = { identity, records: new Map() };
@@ -270,13 +277,29 @@ export class RoomService {
     bucket.records.set(actionId, { fingerprint, descriptor });
     return descriptor;
   }
+  private receipt(
+    identity: Identity,
+    actionId: string,
+    fingerprint: string,
+    descriptor: RoomDescriptor,
+  ) {
+    return {
+      actorId: identity.actorId,
+      actionId,
+      fingerprint,
+      descriptor,
+      expiresAt: this.now() + 24 * 60 * 60_000,
+    };
+  }
   create(
     identity: Identity,
     request: CreateRequest,
     rankedRoster?: readonly Identity[],
   ): RoomDescriptor {
     this.checkIdentity(identity, request.actorId);
-    const fingerprint = JSON.stringify({ kind: 'create', ...request });
+    const fingerprint = createHash('sha256')
+      .update(JSON.stringify({ kind: 'create', ...request }))
+      .digest('hex');
     const prior = this.previousHttp(identity, request.actionId, fingerprint);
     if (prior) return prior;
     this.httpBudget(identity);
@@ -313,7 +336,16 @@ export class RoomService {
       receipts: new Map(),
       lastActive: this.now(),
     };
-    this.storage?.save(storedMatch(room));
+    const descriptor = this.descriptor(room);
+    this.storage?.save(
+      storedMatch(room),
+      undefined,
+      undefined,
+      rankedRoster
+        ? undefined
+        : this.receipt(identity, request.actionId, fingerprint, descriptor),
+    );
+
     this.rooms.set(room.id, room);
     this.codes.set(code, room.id);
     for (const member of room.members)
@@ -537,7 +569,9 @@ export class RoomService {
     const room = this.rooms.get(request.roomId);
     if (!room || room.code !== request.code)
       throw new RoomError('ROOM_NOT_FOUND', 404);
-    const fingerprint = JSON.stringify({ kind: 'join', ...request });
+    const fingerprint = createHash('sha256')
+      .update(JSON.stringify({ kind: 'join', ...request }))
+      .digest('hex');
     return room.queue.run(() => {
       this.checkIdentity(identity, request.actorId);
       const prior = this.previousHttp(identity, request.actionId, fingerprint);
@@ -563,6 +597,10 @@ export class RoomService {
       };
       draft.members.push(member);
       const reseated = this.seatPartnership(draft);
+      const descriptor = this.descriptor({
+        ...draft,
+        version: draft.version + 1,
+      });
       this.advance(
         draft,
         () =>
@@ -575,6 +613,7 @@ export class RoomService {
         undefined,
         room,
         consumed,
+        this.receipt(identity, request.actionId, fingerprint, descriptor),
       );
       if (consumed) this.invitations.delete(consumed);
       this.memberships.set(identity.actorId, room.id);
@@ -1003,6 +1042,7 @@ export class RoomService {
     exclude?: Peer,
     commitTo: Room = room,
     consumeInvitation?: string,
+    receipt?: HttpReceipt,
   ): void {
     const fromVersion = room.version;
     const lastActive = this.now();
@@ -1013,6 +1053,7 @@ export class RoomService {
       storedMatch(committed),
       previous === current ? undefined : previous,
       consumeInvitation,
+      receipt,
     );
     Object.assign(commitTo, committed);
     room = commitTo;
@@ -1198,6 +1239,7 @@ export class RoomService {
         }
       }
     this.sweep();
+    this.storage?.pruneHttpReceipts(this.now());
   }
   sweep(): void {
     for (const [id, room] of this.rooms) {

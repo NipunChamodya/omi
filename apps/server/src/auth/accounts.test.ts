@@ -897,3 +897,66 @@ it('returns a minimal readiness failure and remains alive if the database probe 
     200,
   );
 });
+
+it('accepts a private report from a protected player and requires membership and CSRF', async () => {
+  const host = await login();
+  const target = await login();
+  const outsider = await login();
+  const actorId = host.session.user!.id;
+  const subjectId = target.session.user!.id;
+  const table = (
+    await post(
+      '/rooms',
+      { actorId, actionId: randomUUID(), expectedVersion: 0 },
+      host.cookie,
+    )
+  ).json<RoomDescriptor>();
+  expect(
+    (
+      await post(
+        '/rooms/join',
+        {
+          actorId: subjectId,
+          actionId: randomUUID(),
+          roomId: table.roomId,
+          code: table.code,
+          expectedVersion: table.version,
+        },
+        target.cookie,
+      )
+    ).statusCode,
+  ).toBe(200);
+  expect(
+    (
+      await post(
+        '/profile/safety',
+        { protectedPlay: true },
+        host.cookie,
+        host.session.csrfToken!,
+      )
+    ).statusCode,
+  ).toBe(200);
+  const report = { roomId: table.roomId, subjectId, reason: 'unsafe' };
+  const send = (body: object, csrf = host.session.csrfToken!) =>
+    post('/profile/report-player', body, host.cookie, csrf);
+  expect((await send(report, 'wrong')).statusCode).toBe(403);
+  expect(
+    (
+      await post(
+        '/profile/report-player',
+        report,
+        outsider.cookie,
+        outsider.session.csrfToken!,
+      )
+    ).statusCode,
+  ).toBe(404);
+  expect((await send({ ...report, subjectId: actorId })).statusCode).toBe(404);
+  expect((await send(report)).json()).toEqual({ ok: true });
+  expect((await send(report)).statusCode).toBe(202);
+  expect(repository.moderation.list(Date.now())).toEqual([
+    expect.objectContaining({ reason: 'abuse', evidence: '', note: '' }),
+  ]);
+  expect((await send(report)).statusCode).toBe(202);
+  expect((await send(report)).statusCode).toBe(202);
+  expect((await send(report)).statusCode).toBe(429);
+});

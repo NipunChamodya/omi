@@ -38,7 +38,7 @@ export type ClientState = {
   connection: Connection;
   busy: boolean;
   pending: boolean;
-  error: string | null;
+  error: string | TableError | null;
   notice: string | null;
   saved: SavedTable | null;
   presentation: EventMessage | null;
@@ -69,6 +69,8 @@ function loadSaved(): SavedTable | null {
   }
   return null;
 }
+export type TableError = { code: string; action?: string | undefined };
+
 export function friendlyError(code: string, type?: string): string {
   switch (code) {
     case 'REMATCH_UNAVAILABLE':
@@ -101,9 +103,14 @@ export function friendlyError(code: string, type?: string): string {
       return 'All four players need to be connected and ready.';
     case 'RATE_LIMITED':
     case 'ROOM_BUSY':
+    case 'ROOM_CAPACITY':
+    case 'CONNECTION_CAPACITY':
+    case 'SERVICE_STOPPING':
       return 'The table is busy. Please try again in a moment.';
     case 'ACTION_BUDGET_EXHAUSTED':
       return 'This table has reached its action limit.';
+    case 'ACTION_ID_REUSED':
+      return 'That request was already used. Please try again.';
     case 'HOST_REQUIRED':
       return 'Only the table host can do that.';
     case 'REPORT_REJECTED':
@@ -367,9 +374,7 @@ export class GameClient {
       if (!this.stopped && epoch === this.epoch)
         this.store.setState({
           busy: false,
-          error: friendlyError(
-            error instanceof ApiError ? error.code : 'NETWORK',
-          ),
+          error: { code: error instanceof ApiError ? error.code : 'NETWORK' },
         });
     }
   };
@@ -423,9 +428,7 @@ export class GameClient {
         view: 'home',
         busy: false,
         connection: 'offline',
-        error: friendlyError(
-          error instanceof ApiError ? error.code : 'NETWORK',
-        ),
+        error: { code: error instanceof ApiError ? error.code : 'NETWORK' },
       });
     }
   };
@@ -486,7 +489,7 @@ export class GameClient {
         this.save(null);
         this.store.setState({
           connection: 'expired',
-          error: friendlyError(error.code),
+          error: { code: error.code },
         });
       } else this.scheduleRetry();
     } finally {
@@ -555,7 +558,7 @@ export class GameClient {
             event.code === 4001
               ? 'This table is open in another tab. Reconnect here to move it back.'
               : event.reason === 'Session expired'
-                ? friendlyError('SESSION_EXPIRED')
+                ? { code: 'SESSION_EXPIRED' }
                 : 'Connection paused. Try reconnecting in a few seconds.',
         });
       } else this.scheduleRetry();
@@ -599,7 +602,7 @@ export class GameClient {
       const type = this.pendingAction?.wire.type;
       if (message.actionId === this.pendingAction?.wire.actionId)
         this.clearPending();
-      this.store.setState({ error: friendlyError(message.code, type) });
+      this.store.setState({ error: { code: message.code, action: type } });
       if (
         message.code === 'VERSION_CONFLICT' ||
         message.code === 'INVALID_GAME_ACTION'

@@ -1,10 +1,15 @@
 import type { EloPolicy } from './ratings.js';
 import { Ratings } from './ratings.js';
 import { createHash } from 'node:crypto';
-import type { MatchStatistics, RoomInvitation } from '@omi/shared';
+import type {
+  MatchStatistics,
+  RoomDescriptor,
+  RoomInvitation,
+} from '@omi/shared';
 import { settleRound, countTricks } from '@omi/game-engine';
 import type { ScoreLedger } from '@omi/game-engine';
 import type Database from 'better-sqlite3';
+import { RoomError } from './support.js';
 import type { Receipt, Room } from './rooms.js';
 
 export type StoredMatch = Pick<
@@ -31,12 +36,27 @@ export type StoredInvitation = RoomInvitation & {
   recipient: string;
 };
 
+export type HttpReceipt = {
+  actorId: string;
+  actionId: string;
+  fingerprint: string;
+  descriptor: RoomDescriptor;
+  expiresAt: number;
+};
+
 export interface MatchStorage {
+  httpReceipt(
+    actor: string,
+    action: string,
+    now: number,
+  ): Pick<HttpReceipt, 'fingerprint' | 'descriptor'> | undefined;
+  pruneHttpReceipts(now: number): void;
   loadActive(limit: number): StoredMatch[];
   save(
     state: StoredMatch,
     archivePrevious?: string,
     consumeInvitation?: string,
+    receipt?: HttpReceipt,
   ): void;
   archive(id: string): void;
   statistics(actorId: string): MatchStatistics;
@@ -172,6 +192,7 @@ export class SqliteMatchStorage implements MatchStorage {
     state: StoredMatch,
     archivePrevious?: string,
     consumeInvitation?: string,
+    receipt?: HttpReceipt,
   ): void {
     const payload = JSON.stringify({ format: 1, state });
     const matchId = state.matchId ?? state.id;
@@ -189,6 +210,33 @@ export class SqliteMatchStorage implements MatchStorage {
           .run(consumeInvitation);
         if (removed.changes !== 1)
           throw new Error('Invitation was not available at commit');
+      }
+      if (receipt) {
+        this.pruneHttpReceipts(state.lastActive);
+        const count = (
+          this.db
+            .prepare(
+              'SELECT count(*) AS total FROM omi_http_receipts WHERE actor_id = ?',
+            )
+            .get(receipt.actorId) as { total: number }
+        ).total;
+        if (count >= 64) throw new RoomError('ACTION_BUDGET_EXHAUSTED', 429);
+        const atCapacity = this.db
+          .prepare('SELECT 1 FROM omi_http_receipts LIMIT 1 OFFSET 16383')
+          .get();
+        if (atCapacity) throw new RoomError('ROOM_CAPACITY', 503);
+        this.db
+          .prepare(
+            `INSERT INTO omi_http_receipts
+          (actor_id, action_id, fingerprint, descriptor, expires_at) VALUES (?, ?, ?, ?, ?)`,
+          )
+          .run(
+            receipt.actorId,
+            receipt.actionId,
+            receipt.fingerprint,
+            JSON.stringify(receipt.descriptor),
+            receipt.expiresAt,
+          );
       }
       const final = state.ledger.final;
       if (!final) return;
@@ -279,6 +327,28 @@ export class SqliteMatchStorage implements MatchStorage {
         ranked: row.ranked === 1,
       })),
     };
+  }
+
+  httpReceipt(actor: string, action: string, now: number) {
+    const row = this.db
+      .prepare(
+        `SELECT fingerprint, descriptor FROM omi_http_receipts
+      WHERE actor_id = ? AND action_id = ? AND expires_at > ?`,
+      )
+      .get(actor, action, now) as
+      { fingerprint: string; descriptor: string } | undefined;
+    return (
+      row && {
+        fingerprint: row.fingerprint,
+        descriptor: JSON.parse(row.descriptor) as RoomDescriptor,
+      }
+    );
+  }
+
+  pruneHttpReceipts(now: number): void {
+    this.db
+      .prepare('DELETE FROM omi_http_receipts WHERE expires_at <= ?')
+      .run(now);
   }
 
   loadInvitations(now: number, limit: number): StoredInvitation[] {

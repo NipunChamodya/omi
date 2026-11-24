@@ -9,6 +9,7 @@ Group=omi
 WorkingDirectory=/opt/omi/current/apps/server
 EnvironmentFile=/etc/omi/server.env
 ExecStartPre=/usr/bin/mountpoint -q /srv/omi-data
+ExecStartPre=/opt/omi/node/bin/node dist/ops/azure-startup.js
 ExecStart=/opt/omi/node/bin/node dist/index.js
 Restart=on-failure
 RestartSec=5

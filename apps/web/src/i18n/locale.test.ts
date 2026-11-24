@@ -13,3 +13,16 @@ describe('interface copy', () => {
     expect(translate('si', 'constructor')).toBe('constructor');
   });
 });
+
+it('uses a friendly Sinhala fallback for unknown table codes', async () => {
+  const { tableErrorCopy } = await import('./tableErrors');
+  const fallback = tableErrorCopy({ code: 'UNKNOWN' });
+  expect(tableErrorCopy({ code: 'constructor' })).toBe(fallback);
+  expect(tableErrorCopy({ code: 'ROOM_CAPACITY' })).toBe(
+    tableErrorCopy({ code: 'RATE_LIMITED' }),
+  );
+  expect(tableErrorCopy({ code: 'ROOM_CAPACITY' })).not.toBe(fallback);
+  expect(
+    tableErrorCopy({ code: 'REPORT_REJECTED', action: 'report-no-trump' }),
+  ).not.toBe(tableErrorCopy({ code: 'REPORT_REJECTED' }));
+});

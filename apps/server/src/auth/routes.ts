@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -48,6 +49,7 @@ export async function registerAccountRoutes(
     sameSite: 'lax' as const,
   };
   const rate = new RateLimiter(options.now, 120, 60_000);
+  const reportRate = new RateLimiter(options.now, 5, 10 * 60_000);
   const moderationRate = new RateLimiter(options.now, 20, 60_000);
   const friendWrites = new RateLimiter(options.now, 10, 60_000);
   const uploads = new RateLimiter(options.now, 6, 60_000);
@@ -202,6 +204,52 @@ export async function registerAccountRoutes(
         { path: '/', secure: options.secure },
       );
       return { ok: true };
+    });
+    api.post('/profile/report-player', async (request, reply) => {
+      const { identity } = authorized(request);
+      if (!reportRate.take(identity.actorId))
+        throw new RoomError('RATE_LIMITED', 429);
+      const body = parse(
+        z.strictObject({
+          roomId: z.uuid(),
+          subjectId: z.uuid(),
+          reason: z.enum(['unfriendly', 'unsafe', 'other']),
+        }),
+        request.body,
+      );
+      const { room } = rooms.authorize(body.roomId, identity);
+      if (
+        body.subjectId === identity.actorId ||
+        !room.members.some(
+          (member) =>
+            member.actorId === body.subjectId &&
+            !member.bot &&
+            !member.departed,
+        )
+      )
+        throw new RoomError('REPORT_TARGET_UNAVAILABLE', 404);
+      const now = options.now();
+      accounts.repo.storeSocialReport({
+        id: randomUUID(),
+        roomId: room.id,
+        reporterId: identity.actorId,
+        subjectId: body.subjectId,
+        reason: (
+          { unfriendly: 'harassment', unsafe: 'abuse', other: 'other' } as const
+        )[body.reason],
+        messageId: digest(
+          JSON.stringify([
+            'player-report',
+            room.matchId ?? room.id,
+            body.subjectId,
+          ]),
+        ),
+        note: '',
+        messageText: '',
+        messageCreatedAt: now,
+        createdAt: now,
+      });
+      return reply.code(202).send({ ok: true });
     });
     api.post('/profile/safety', async (request) => {
       const { identity } = authorized(request);

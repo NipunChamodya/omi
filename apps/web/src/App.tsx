@@ -1,7 +1,8 @@
 import { useLocale, useCopy, translate } from './i18n/locale';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
-import { GameClient } from './game/client';
+import { tableErrorCopy } from './i18n/tableErrors';
+import { GameClient, friendlyError } from './game/client';
 import type { AuthSession, PublicProfile } from '@omi/shared';
 import { authApi, avatarSource } from './auth/api';
 import { ThemeControls } from './themes/ThemeControls';
@@ -13,6 +14,7 @@ import { Lobby } from './components/Lobby';
 import { SoundSettings } from './audio/SoundSettings';
 import { useGameAudio } from './audio/useGameAudio';
 import { MultiplayerMenu } from './components/MultiplayerMenu';
+const PlayerReport = lazy(() => import('./auth/PlayerReport'));
 const RoomControls = lazy(() => import('./social/RoomControls'));
 const Profile = lazy(() => import('./auth/Profile'));
 const GameTable = lazy(() => import('./components/GameTable'));
@@ -251,7 +253,13 @@ export function App({ client: supplied }: { client?: GameClient }) {
           )}
           {state.error && (
             <div className="feedback error" role="alert">
-              <p>{translate(language, state.error)}</p>
+              <p>
+                {typeof state.error === 'string'
+                  ? translate(language, state.error)
+                  : language === 'si'
+                    ? tableErrorCopy(state.error)
+                    : friendlyError(state.error.code, state.error.action)}
+              </p>
               <button
                 aria-label={text('Dismiss message')}
                 onClick={client.dismiss}
@@ -288,6 +296,15 @@ export function App({ client: supplied }: { client?: GameClient }) {
               >
                 {text('Sound & tools')}
               </button>
+              {auth?.csrfToken && state.snapshot && (
+                <Suspense fallback={null}>
+                  <PlayerReport
+                    key={state.snapshot.roomId}
+                    csrf={auth.csrfToken}
+                    snapshot={state.snapshot}
+                  />
+                </Suspense>
+              )}
               <span className="room-code">
                 TABLE{' '}
                 <strong>{state.snapshot?.code ?? state.saved?.code}</strong>
