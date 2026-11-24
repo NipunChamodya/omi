@@ -13,7 +13,7 @@ test('production mounts with strict CSP and no Vite exceptions', async ({
   );
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: /Four friends/ }),
+    page.getByRole('heading', { name: /Tropical Adventure/ }),
   ).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Sign-in is unavailable');
   const policy = await page

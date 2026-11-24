@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 394 136">
+ <defs><linearGradient id="gold" x2="0" y2="1"><stop stop-color="#fff7b0"/><stop offset=".48" stop-color="#ffd044"/><stop offset="1" stop-color="#ff8b27"/></linearGradient></defs>
+ <path d="M44 86 13 93l14 13-9 20 52-4m280-36 31 7-14 13 9 20-52-4" fill="#db7133" stroke="#763c31" stroke-width="4" stroke-linejoin="round"/>
+ <path d="M52 89q140-16 290 0l-9 33q-141-11-272 0Z" fill="#fff2d0" stroke="#763c31" stroke-width="4" stroke-linejoin="round"/>
+ <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M122 22c-51-6-53 66-5 65 40 0 47-60 5-65Zm53 61 7-57 26 33 23-33 9 57m37-57h39m-19 0v57m-20 0h39" stroke="#153344" stroke-width="25" transform="translate(0 5)"/>
+  <path d="M122 22c-51-6-53 66-5 65 40 0 47-60 5-65Zm53 61 7-57 26 33 23-33 9 57m37-57h39m-19 0v57m-20 0h39" stroke="#24485d" stroke-width="24"/>
+  <path d="M122 22c-51-6-53 66-5 65 40 0 47-60 5-65Zm53 61 7-57 26 33 23-33 9 57m37-57h39m-19 0v57m-20 0h39" stroke="url(#gold)" stroke-width="15"/>
+ </g>
+ <path d="M54 37q-22 4-25 18 11 8 29 0-13 15-6 21 15-3 16-20 11-8 1-10ZM341 37q22 4 25 18-11 8-29 0 13 15 6 21-15-3-16-20-11-8-1-10Z" fill="#74c75b" stroke="#286a58" stroke-width="3"/>
+</svg>

@@ -159,8 +159,14 @@ test('four mobile friends create, join, deal, play a round and resume after relo
       'data-card-theme',
       'royal',
     );
-    await host.getByRole('button', { name: 'Back', exact: true }).click();
-    await host.getByRole('button', { name: '← Home', exact: true }).click();
+    await host
+      .getByRole('dialog', { name: 'Table settings and voice' })
+      .getByRole('button', { name: 'Back', exact: true })
+      .click();
+    await host
+      .getByRole('main')
+      .getByRole('button', { name: 'Back', exact: true })
+      .click();
     await expect(
       host.getByRole('dialog', { name: 'Return from your table?' }),
     ).toBeVisible();

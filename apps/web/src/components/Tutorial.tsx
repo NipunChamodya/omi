@@ -129,8 +129,18 @@ export default function Tutorial({ onClose }: { onClose: () => void }) {
       }}
     >
       <div className="profile-inner">
-        <button type="button" className="text-button" onClick={onClose}>
-          {sinhala ? 'වසන්න' : 'Close'}
+        <button
+          type="button"
+          className="button game-back"
+          onClick={() => {
+            if (index === 0) onClose();
+            else {
+              setIndex(index - 1);
+              setCorrect(null);
+            }
+          }}
+        >
+          {sinhala ? 'ආපසු' : 'Back'}
         </button>
         <button
           type="button"

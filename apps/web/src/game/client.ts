@@ -159,6 +159,7 @@ export class GameClient {
         view:
           prior?.omi && prior.view === 'room' && loadSaved() ? 'room' : view,
         index: prior?.omi && Number.isInteger(prior.index) ? prior.index : 0,
+        parent: prior?.omi ? prior.parent : undefined,
       },
       '',
       window.location.href,
@@ -259,6 +260,7 @@ export class GameClient {
   };
   showJoin = () => this.navigate('join');
   dismiss = () => this.store.setState({ error: null, notice: null });
+  private backing = false;
   private rememberView(view: View, replace = false) {
     const index = Number(window.history.state?.index ?? 0);
     const url =
@@ -268,7 +270,14 @@ export class GameClient {
           ? ''
           : `?screen=${view}`;
     window.history[replace ? 'replaceState' : 'pushState'](
-      { omi: true, view, index: replace ? index : index + 1 },
+      {
+        omi: true,
+        view,
+        parent: replace
+          ? window.history.state?.parent
+          : window.history.state?.view,
+        index: replace ? index : index + 1,
+      },
       '',
       window.location.pathname + url,
     );
@@ -306,19 +315,23 @@ export class GameClient {
   };
   home = () => this.navigate('home');
   back = () => {
-    if (this.store.getState().view === 'home') return;
-    if (window.history.state?.omi && window.history.state.index > 0)
+    const { view } = this.store.getState();
+    if (view === 'home' || this.backing) return;
+    if (view === 'room') {
+      this.home();
+      return;
+    }
+    const parent = view === 'multiplayer' ? 'home' : 'multiplayer';
+    if (window.history.state?.parent === parent) {
+      this.backing = true;
       window.history.back();
-    else
-      this.navigate(
-        ['create', 'join', 'friends', 'online'].includes(
-          this.store.getState().view,
-        )
-          ? 'multiplayer'
-          : 'home',
-      );
+    } else {
+      this.changeView(parent, false);
+      this.rememberView(parent, true);
+    }
   };
   onPopState = (event: PopStateEvent) => {
+    this.backing = false;
     const target =
       event.state?.omi && views.includes(event.state.view)
         ? (event.state.view as View)

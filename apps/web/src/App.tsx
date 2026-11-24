@@ -9,11 +9,18 @@ import { ThemeControls } from './themes/ThemeControls';
 import { PwaControls } from './pwa/PwaControls';
 import { Brand, Avatar } from './components/Cards';
 import { claimOpeningSponsor } from './components/SponsorPlacement';
-import { Home } from './components/Home';
+import { GameBack } from './components/GameChrome';
 import { Lobby } from './components/Lobby';
 import { SoundSettings } from './audio/SoundSettings';
 import { useGameAudio } from './audio/useGameAudio';
-import { MultiplayerMenu } from './components/MultiplayerMenu';
+const Home = lazy(() =>
+  import('./components/Home').then(({ Home }) => ({ default: Home })),
+);
+const MultiplayerMenu = lazy(() =>
+  import('./components/MultiplayerMenu').then(({ MultiplayerMenu }) => ({
+    default: MultiplayerMenu,
+  })),
+);
 const PlayerReport = lazy(() => import('./auth/PlayerReport'));
 const RoomControls = lazy(() => import('./social/RoomControls'));
 const Profile = lazy(() => import('./auth/Profile'));
@@ -33,21 +40,30 @@ export function App({ client: supplied }: { client?: GameClient }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const tools = useRef<HTMLDialogElement>(null);
   const leaving = useRef<HTMLDialogElement>(null);
   const playing = state.view === 'room' && !!state.snapshot?.game;
-  const overlay = useRef<'profile' | 'settings' | null>(null);
-  function openOverlay(panel: 'profile' | 'settings') {
+  const overlay = useRef<'profile' | 'settings' | 'tutorial' | null>(null);
+  function openOverlay(panel: 'profile' | 'settings' | 'tutorial') {
     if (overlay.current) return;
     const current = window.history.state;
     window.history.pushState({ ...current, omiOverlay: panel }, '');
     overlay.current = panel;
     if (panel === 'profile') setProfileOpen(true);
-    else setToolsOpen(true);
+    else if (panel === 'settings') setToolsOpen(true);
+    else setTutorialOpen(true);
   }
+  const closingOverlay = useRef(false);
   function closeOverlay() {
-    if (overlay.current && window.history.state?.omiOverlay === overlay.current)
+    if (
+      !closingOverlay.current &&
+      overlay.current &&
+      window.history.state?.omiOverlay === overlay.current
+    ) {
+      closingOverlay.current = true;
       window.history.back();
+    }
   }
   useEffect(() => {
     const dialog = tools.current;
@@ -91,10 +107,12 @@ export function App({ client: supplied }: { client?: GameClient }) {
       }
     };
     const onPop = (event: PopStateEvent) => {
+      closingOverlay.current = false;
       if (overlay.current || event.state?.omiOverlay) {
         overlay.current = event.state?.omiOverlay ?? null;
         setProfileOpen(overlay.current === 'profile');
         setToolsOpen(overlay.current === 'settings');
+        setTutorialOpen(overlay.current === 'tutorial');
         return;
       }
       client.onPopState(event);
@@ -216,8 +234,20 @@ export function App({ client: supplied }: { client?: GameClient }) {
         {text('Skip to content')}
       </a>
       <header className="app-header">
+        {state.view !== 'home' && state.view !== 'room' && (
+          <GameBack onClick={client.back} />
+        )}
         <Brand onHome={client.home} />
         <div className="header-controls">
+          {state.view === 'home' && (
+            <button
+              className="button secondary island-settings"
+              onClick={() => openOverlay('settings')}
+            >
+              <span aria-hidden="true">⚙</span> {text('Settings')}
+            </button>
+          )}
+
           <span className="header-note">
             {state.view === 'room' ? (
               <>
@@ -302,104 +332,115 @@ export function App({ client: supplied }: { client?: GameClient }) {
             </div>
           )}
         </div>
-        {state.view === 'room' ? (
-          <>
-            <div className="room-toolbar">
-              <button className="text-button" onClick={client.home}>
-                ← {text('Home')}
-              </button>
-              <button
-                className="text-button"
-                onClick={() => {
-                  if (playing) openOverlay('settings');
-                  else tools.current?.scrollIntoView?.({ block: 'start' });
-                  const panel = document.getElementById('table-sound-settings');
-                  if (panel instanceof HTMLDetailsElement) panel.open = true;
-                }}
-              >
-                {text('Sound, voice & music')}
-              </button>
-              {auth?.csrfToken && state.snapshot && (
-                <Suspense fallback={null}>
-                  <PlayerReport
-                    key={state.snapshot.roomId}
-                    csrf={auth.csrfToken}
-                    snapshot={state.snapshot}
-                  />
-                </Suspense>
-              )}
-              <span className="room-code">
-                TABLE{' '}
-                <strong>{state.snapshot?.code ?? state.saved?.code}</strong>
-              </span>
-            </div>
-            {!online && (
-              <div className="connection-banner" role="status">
-                <span>
-                  {state.connection === 'expired'
-                    ? 'This session has ended.'
-                    : state.connection === 'connecting' ||
-                        state.connection === 'reconnecting'
-                      ? 'Reconnecting. Your seat is saved.'
-                      : 'You are disconnected. Your seat is saved.'}
-                </span>
-                {!['expired', 'connecting'].includes(state.connection) && (
-                  <button
-                    className="text-button"
-                    onClick={() => void client.retry()}
-                  >
-                    {text('Reconnect')}
-                  </button>
-                )}
-              </div>
-            )}
-            {state.snapshot ? (
-              state.snapshot.game ? (
-                <Suspense
-                  fallback={
-                    <p role="status" className="loading">
-                      {text('Opening the table…')}
-                    </p>
-                  }
+        <Suspense
+          fallback={
+            <p role="status" className="loading">
+              {text('Opening the table…')}
+            </p>
+          }
+        >
+          {state.view === 'room' ? (
+            <>
+              <div className="room-toolbar">
+                <GameBack onClick={client.home} />
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    if (playing) openOverlay('settings');
+                    else tools.current?.scrollIntoView?.({ block: 'start' });
+                    const panel = document.getElementById(
+                      'table-sound-settings',
+                    );
+                    if (panel instanceof HTMLDetailsElement) panel.open = true;
+                  }}
                 >
-                  <GameTable
+                  {text('Sound, voice & music')}
+                </button>
+                {auth?.csrfToken && state.snapshot && (
+                  <Suspense fallback={null}>
+                    <PlayerReport
+                      key={state.snapshot.roomId}
+                      csrf={auth.csrfToken}
+                      snapshot={state.snapshot}
+                    />
+                  </Suspense>
+                )}
+                <span className="room-code">
+                  TABLE{' '}
+                  <strong>{state.snapshot?.code ?? state.saved?.code}</strong>
+                </span>
+              </div>
+              {!online && (
+                <div className="connection-banner" role="status">
+                  <span>
+                    {state.connection === 'expired'
+                      ? 'This session has ended.'
+                      : state.connection === 'connecting' ||
+                          state.connection === 'reconnecting'
+                        ? 'Reconnecting. Your seat is saved.'
+                        : 'You are disconnected. Your seat is saved.'}
+                  </span>
+                  {!['expired', 'connecting'].includes(state.connection) && (
+                    <button
+                      className="text-button"
+                      onClick={() => void client.retry()}
+                    >
+                      {text('Reconnect')}
+                    </button>
+                  )}
+                </div>
+              )}
+              {state.snapshot ? (
+                state.snapshot.game ? (
+                  <Suspense
+                    fallback={
+                      <p role="status" className="loading">
+                        {text('Opening the table…')}
+                      </p>
+                    }
+                  >
+                    <GameTable
+                      snapshot={state.snapshot}
+                      client={client}
+                      enabled={online}
+                      pending={state.pending}
+                    />
+                  </Suspense>
+                ) : (
+                  <Lobby
                     snapshot={state.snapshot}
                     client={client}
                     enabled={online}
                     pending={state.pending}
                   />
-                </Suspense>
+                )
               ) : (
-                <Lobby
-                  snapshot={state.snapshot}
-                  client={client}
-                  enabled={online}
-                  pending={state.pending}
-                />
-              )
-            ) : (
-              <p className="loading" role="status">
-                {text('Setting your table…')}
-              </p>
-            )}
-          </>
-        ) : ['multiplayer', 'friends', 'online'].includes(state.view) ? (
-          <MultiplayerMenu
-            client={client}
-            session={auth}
-            onSignIn={() => void signIn()}
-          />
-        ) : (
-          <Home
-            client={client}
-            state={state}
-            session={auth}
-            authLoading={authLoading}
-            animateOpening={opening && !auth?.room && !authLoading}
-            showSponsor={sponsorEligible && showSponsor}
-            onSignIn={() => void signIn()}
-          />
-        )}
+                <p className="loading" role="status">
+                  {text('Setting your table…')}
+                </p>
+              )}
+            </>
+          ) : ['multiplayer', 'friends', 'online'].includes(state.view) ? (
+            <MultiplayerMenu
+              client={client}
+              session={auth}
+              onSignIn={() => void signIn()}
+            />
+          ) : (
+            <Home
+              client={client}
+              state={state}
+              session={auth}
+              authLoading={authLoading}
+              tutorialOpen={tutorialOpen}
+              openTutorial={() => openOverlay('tutorial')}
+              closeTutorial={closeOverlay}
+              animateOpening={opening && !auth?.room && !authLoading}
+              showSponsor={sponsorEligible && showSponsor}
+              onSignIn={() => void signIn()}
+            />
+          )}
+        </Suspense>
       </main>
       {state.view !== 'room' && (
         <nav className="game-dock" aria-label={text('Game menu')}>
@@ -434,10 +475,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
         }}
       >
         {(playing || state.view !== 'room') && (
-          <button className="button secondary" onClick={closeOverlay}>
-            <span aria-hidden="true">← </span>
-            {text('Back')}
-          </button>
+          <GameBack onClick={closeOverlay} />
         )}
         <label>
           Language / භාෂාව{' '}

@@ -2,6 +2,20 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.7 Tropical Adventure
+
+- Home and table entry now use original vector artwork for the island, custom OMI mark and card guide. The island depicts sea, mountains, tea terraces, paddy fields, a waterfall and coconut palms. Artwork loads as same-origin SVG files without loosening the Content Security Policy. The Home and mode-picker code and styles are loaded on demand.
+- The game chrome adds raised buttons, a visible Back control, a Home Settings action, a framed signed-in avatar, and a recovery ticket. Saved-seat Create and Join shortcuts explain the existing membership restriction. Resume uses the authoritative seat, and exit still requires the existing lobby or match confirmation.
+- Create and Join return to mode selection, including direct links. Profile, Settings and Tutorial use the existing browser-history-based overlay mechanism. A duplicate close request no longer removes an additional history entry. The Tutorial Back control returns to the previous lesson or closes at the first lesson.
+- Added first-run and entry Sinhala text and tested the Sinhala join flow. Full localization of game announcements, profile/statistics and secondary social surfaces remains incomplete. Tamil, adventure progression, a dedicated achievements screen, and local-file music sharing were deferred. Lobby and dialogs received limited decorative treatment; no gameplay geometry or backend rules changed.
+
+### V2.7 verification
+
+- Started on clean `dev` at `e9bb695` and verified a private checkpoint of 270 project files. The final unit/integration run passed 234, the focused security selection passed 109 within that count, and infrastructure passed 15. TypeScript and lint passed.
+- The corrected browser run passed 28 Chromium/Firefox executions, covering 14 distinct scenarios, including seven viewport widths, avatar editing, a four-player round with drag and reload recovery, direct Join, modal history and Sinhala. Two additional PWA scenarios passed in both browsers. The synchronized music scenario passed in both browsers and four-peer synthetic audio passed in Chromium. The initial suite caught CSP-blocked inlined artwork and ambiguous Back test locators. The correction kept CSP unchanged and uses scoped selectors.
+- The entry passed the bundle gate at 93,821 compressed bytes. The three on-demand SVGs total about 3.72 kB gzip. One Chromium loopback sample reported artwork decoded at 294 ms for 320 px and 122 ms for 1280 px, with observed layout-shift scores 0.075 and 0.005. Browser heap reporting was rounded and does not measure phone memory. Real Safari and Android system Back require device validation. The 1,200-case target remains open.
+- The final palette and saved-seat pass completed six browser executions. Across the selected suites, 19 distinct browser scenarios passed, for 268 distinct cases with unit/integration and infrastructure. Browser repeats and the focused security subset were counted once. The isolated SQLite loopback run completed 320 actions in eight rooms with 32 clients. Action p50/p95/p99 were 1.99/8.59/13.91 ms, combined CPU averaged 5%, and peak combined RSS was 186 MiB.
+
 ## V2.6 changes
 
 - The Home and multiplayer menus use a brighter palette, rounded panels, a CSS card mascot, a large Play OMI button and a menu dock. The opening animation is decorative, observes reduced-motion and Data Saver preferences, and is suppressed when restoring an active table. Gameplay grid, card rendering, drag behavior, and server rules were preserved.

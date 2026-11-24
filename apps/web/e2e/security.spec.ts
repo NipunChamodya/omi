@@ -27,7 +27,7 @@ test('serves executable Vite modules, enforces CSP and mounts without bootstrap'
     documentResponse?.headers()['content-security-policy'],
   ).toBeUndefined();
   await expect(
-    page.getByRole('heading', { name: /Four friends/ }),
+    page.getByRole('heading', { name: /Tropical Adventure/ }),
   ).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Sign-in is unavailable');
   await expect(

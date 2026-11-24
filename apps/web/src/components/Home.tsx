@@ -5,7 +5,11 @@ import type { FormEvent } from 'react';
 import type { AuthSession } from '@omi/shared';
 import { GoogleButton } from '../auth/GoogleButton';
 import type { ClientState, GameClient } from '../game/client';
-import { CardFace } from './Cards';
+import { GameButton, GamePanel } from './GameChrome';
+import island from '../art/tropical-island.svg';
+import guide from '../art/card-guide.svg?no-inline';
+import logo from '../art/omi-mark.svg?no-inline';
+import './tropical.css';
 const Tutorial = lazy(() => import('./Tutorial'));
 export function Home({
   client,
@@ -15,6 +19,9 @@ export function Home({
   showSponsor,
   animateOpening,
   onSignIn,
+  tutorialOpen,
+  openTutorial,
+  closeTutorial,
 }: {
   client: GameClient;
   state: ClientState;
@@ -23,8 +30,10 @@ export function Home({
   showSponsor: boolean;
   animateOpening: boolean;
   onSignIn: () => void;
+  tutorialOpen: boolean;
+  openTutorial: () => void;
+  closeTutorial: () => void;
 }) {
-  const [tutorial, setTutorial] = useState(false);
   const text = useCopy();
   const [sponsorDismissed, setSponsorDismissed] = useState(false);
   const joining = state.view === 'join';
@@ -41,71 +50,76 @@ export function Home({
   }
   return (
     <div className="welcome-layout">
-      <section
-        className={
-          !animateOpening ? 'welcome-copy' : 'welcome-copy opening-hero'
-        }
-        aria-labelledby="welcome-title"
-      >
-        <p className="eyebrow">
-          <span className="tiny-line" /> {text('A SRI LANKAN TRADITION')}
-        </p>
-        <h1 id="welcome-title">
-          {text('Four friends.')}
-          <br />
-          <em>{text('One table.')}</em>
-        </h1>
-        <p className="welcome-description">
-          {text('A familiar game. A little friendly rivalry.')}
-          <br />
-          {text('Good company, wherever you are.')}
-        </p>
-        <div className="hero-cards" aria-hidden="true">
-          <div className="hero-card first">
-            <CardFace card={{ rank: 'K', suit: 'spades' }} />
-          </div>
-          <div className="hero-card middle">
-            <span className="card-mascot">• ᴗ •</span>
-            <CardFace card={{ rank: 'A', suit: 'hearts' }} />
-          </div>
-          <div className="hero-card last">
-            <CardFace card={{ rank: 'Q', suit: 'clubs' }} />
-          </div>
-        </div>
-        {!state.saved && state.view === 'home' && (
-          <button
-            className="button primary play-omi"
-            onClick={() => client.navigate('multiplayer')}
-          >
-            {text('Play OMI')} <span aria-hidden="true">▶</span>
-          </button>
-        )}
-        <button
-          className="text-button"
-          onClick={() => {
-            setSponsorDismissed(true);
-            setTutorial(true);
-          }}
+      {state.view === 'home' && (
+        <section
+          className={`island-stage ${animateOpening ? 'opening-hero' : ''}`}
+          aria-labelledby="welcome-title"
         >
-          {text('Learn to play')} <span lang="si">· ඕමි ඉගෙන ගන්න</span>
-        </button>
-        {tutorial && (
-          <Suspense fallback={<p role="status">{text('Loading practice…')}</p>}>
-            <Tutorial onClose={() => setTutorial(false)} />
-          </Suspense>
-        )}
-        <p className="table-promise">
-          {text('4 players')} <span>·</span> {text('2 teams')} <span>·</span>{' '}
-          {text('Your kind of company')}
-        </p>
-      </section>
-      <section className="entry-panel" aria-labelledby="entry-title">
+          <img
+            className="island-stage__world"
+            src={island}
+            alt=""
+            fetchPriority="high"
+            width="840"
+            height="520"
+          />
+          <div className="island-stage__title">
+            <h1 id="welcome-title">
+              <img src={logo} alt="OMI" width="394" height="136" />
+              <span>{text('Tropical Adventure')}</span>
+            </h1>
+          </div>
+          <img
+            className="island-stage__guide"
+            src={guide}
+            alt=""
+            width="270"
+            height="235"
+          />
+          <div className="island-stage__actions">
+            <GameButton
+              tone="green"
+              onClick={() =>
+                state.saved
+                  ? void client.resume()
+                  : client.navigate('multiplayer')
+              }
+              disabled={
+                state.busy ||
+                authLoading ||
+                (!!state.saved && !session?.user && !session?.guestAllowed)
+              }
+            >
+              {text(state.saved ? 'Return to your table' : 'Play OMI')}{' '}
+              <span aria-hidden="true">▶</span>
+            </GameButton>
+            <button
+              className="island-stage__learn"
+              onClick={() => {
+                setSponsorDismissed(true);
+                openTutorial();
+              }}
+            >
+              {text('Learn to play')}
+            </button>
+          </div>
+          {tutorialOpen && (
+            <Suspense
+              fallback={<p role="status">{text('Loading practice…')}</p>}
+            >
+              <Tutorial onClose={closeTutorial} />
+            </Suspense>
+          )}
+        </section>
+      )}
+      <GamePanel titleId="entry-title" recovery={!!state.saved}>
         {state.saved ? (
           <>
             <p className="eyebrow">{text('WELCOME BACK')}</p>
             <h2 id="entry-title">{text('Your seat is saved.')}</h2>
             <p>
-              {text('Table code')} <strong>{state.saved.code}</strong>
+              {text('Table code')}{' '}
+              <strong className="table-ticket">{state.saved.code}</strong>
             </p>
             {authLoading ? (
               <p role="status">{text('Checking your session…')}</p>
@@ -124,35 +138,36 @@ export function Home({
                   onClick={() => void client.resume()}
                   disabled={state.busy || authLoading}
                 >
-                  {text('Return to your table')}{' '}
-                  <span aria-hidden="true">↗</span>
+                  {text('Resume table')} <span aria-hidden="true">↗</span>
                 </button>
-                <details className="seated-options">
-                  <summary>
-                    {text('Create a table')} / {text('Join a table')}
-                  </summary>
-                  <p>
-                    {text(
-                      'You have a saved seat. Return to your table and finish or leave the match before taking another seat.',
-                    )}
-                  </p>
-                </details>
+                <p className="seated-options">
+                  {text(
+                    'You have a saved seat. Return to your table and finish or leave the match before taking another seat.',
+                  )}
+                </p>
+                {state.view === 'home' && (
+                  <div className="seat-shortcuts">
+                    <button
+                      className="button secondary"
+                      onClick={() => client.navigate('create')}
+                    >
+                      {text('Create a table')}
+                    </button>
+                    <button
+                      className="button secondary"
+                      onClick={client.showJoin}
+                    >
+                      {text('Join a table')}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </>
         ) : (
           <>
-            {(joining || state.view === 'create') && (
-              <button
-                className="text-button back"
-                onClick={client.back}
-                disabled={state.busy || authLoading}
-              >
-                ← {text('Back')}
-              </button>
-            )}
             <p className="eyebrow">
-              {joining ? 'TAKE YOUR SEAT' : 'MAKE TIME FOR A GAME'}
+              {text(joining ? 'Join a table' : 'Create a table')}
             </p>
             <h2 id="entry-title">
               {text(
@@ -161,8 +176,8 @@ export function Home({
             </h2>
             <p>
               {joining
-                ? 'Enter the code shared by your table host.'
-                : 'Start a private table and invite three friends.'}
+                ? text('Enter the code shared by your table host.')
+                : text('Start a private table and invite three friends.')}
             </p>
             {authLoading ? (
               <p role="status">{text('Checking your session…')}</p>
@@ -170,7 +185,8 @@ export function Home({
               <>
                 {session?.user ? (
                   <p className="account-welcome">
-                    Playing as <strong>{session.user.displayName}</strong>
+                    {text('Playing as')}{' '}
+                    <strong>{session.user.displayName}</strong>
                   </p>
                 ) : session?.googleAvailable ? (
                   <>
@@ -193,7 +209,7 @@ export function Home({
                           id="player-name"
                           name="displayName"
                           autoComplete="nickname"
-                          placeholder="What should we call you?"
+                          placeholder={text('Your name')}
                           required
                           maxLength={32}
                           value={name}
@@ -216,7 +232,7 @@ export function Home({
                           minLength={8}
                           maxLength={8}
                           pattern="[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}"
-                          title="An eight-character table code"
+                          title={text('An eight-character table code')}
                           required
                           value={code}
                           onChange={(event) =>
@@ -235,7 +251,7 @@ export function Home({
                       }
                     >
                       {state.busy
-                        ? 'Finding your seat…'
+                        ? text('Finding your seat…')
                         : joining
                           ? text('Join table')
                           : text('Create a table')}{' '}
@@ -265,14 +281,10 @@ export function Home({
             >
               {text('Multiplayer')}
             </button>
-            <p className="quiet-note">
-              {text('Private tables. Familiar rules.')}
-              <br />A little space for the people you know.
-            </p>
           </>
         )}
         {showSponsor && !sponsorDismissed && <SponsorPlacement />}
-      </section>
+      </GamePanel>
     </div>
   );
 }

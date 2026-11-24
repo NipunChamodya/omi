@@ -61,7 +61,7 @@ it('shows accessible create/join forms and consumes a room invite', async () => 
   render(<App />);
   expect(screen.getByRole('main')).toBeInTheDocument();
   expect(
-    screen.getByRole('heading', { name: /Four friends/ }),
+    await screen.findByRole('heading', { name: /Tropical Adventure/ }),
   ).toBeInTheDocument();
   expect(
     await screen.findByRole('button', { name: /Create a table/ }),
@@ -156,7 +156,7 @@ it('renders the home and a safe error when authentication bootstrap rejects', as
     'Sign-in is unavailable',
   );
   expect(
-    screen.getByRole('heading', { name: /Four friends/ }),
+    await screen.findByRole('heading', { name: /Tropical Adventure/ }),
   ).toBeInTheDocument();
   expect(screen.queryByText('private-provider-detail')).not.toBeInTheDocument();
   expect(screen.queryByText('Checking your session…')).not.toBeInTheDocument();

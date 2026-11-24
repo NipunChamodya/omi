@@ -74,7 +74,7 @@ test('static cache excludes identities and supplies a styled offline fallback', 
       )
       .toBe(true);
     await expect(
-      page.getByRole('heading', { name: /Four friends/ }),
+      page.getByRole('heading', { name: /Tropical Adventure/ }),
     ).toBeVisible();
     await page.evaluate(async () => {
       await fetch('/api/auth/session');
@@ -123,7 +123,7 @@ test('static cache excludes identities and supplies a styled offline fallback', 
       await page.evaluate(() => navigator.serviceWorker.controller?.state),
     ).toBe('activated');
     await expect(
-      page.getByRole('heading', { name: /Four friends/ }),
+      page.getByRole('heading', { name: /Tropical Adventure/ }),
     ).toBeVisible();
     await close();
     await page.goto(origin);
@@ -145,7 +145,7 @@ test('static cache excludes identities and supplies a styled offline fallback', 
     );
     await page.getByRole('link', { name: 'Try OMI again' }).click();
     await expect(
-      page.getByRole('heading', { name: /Four friends/ }),
+      page.getByRole('heading', { name: /Tropical Adventure/ }),
     ).toBeVisible();
   } finally {
     if (server.listening) await close();

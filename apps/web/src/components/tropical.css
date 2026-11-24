@@ -1,0 +1,305 @@
+/* Tropical Adventure presentation. Gameplay cells and card styles are outside this sheet. */
+.game-menu {
+  --navy: #24485d;
+  --paper: #fff2d0;
+  --golden: #ffd044;
+  color: var(--navy);
+  background: #e2f4df;
+  background-image: radial-gradient(
+    ellipse at 50% 0,
+    #b9eef3,
+    transparent 700px
+  );
+}
+.game-menu .app-header,
+.game-menu .app-footer {
+  color: #24485d;
+  background: transparent;
+}
+.game-menu .app-header {
+  border-color: #93c6ad;
+}
+.game-menu .profile-button {
+  border: 3px solid #ffd044;
+  border-radius: 50%;
+  background: #24485d;
+  box-shadow: 0 3px #9d5c36;
+  min-width: 44px;
+  min-height: 44px;
+}
+.game-menu .welcome-layout {
+  max-width: 1140px;
+  align-items: center;
+  padding-top: 20px;
+  gap: clamp(20px, 4vw, 48px);
+}
+.game-menu .welcome-layout:not(:has(.island-stage)) {
+  display: block;
+  max-width: 490px;
+}
+.island-stage {
+  isolation: isolate;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.24;
+  min-height: 365px;
+  overflow: hidden;
+  border: 4px solid #fff2d0;
+  border-radius: 32px;
+  background: #48c8f5;
+  box-shadow:
+    0 6px #4ca6a0,
+    0 18px 38px #257f783c;
+}
+.island-stage__world {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.island-stage__title {
+  position: absolute;
+  inset: 3% 0 auto;
+  text-align: center;
+}
+.island-stage__title h1 {
+  margin: 0;
+  font:
+    900 clamp(0.9rem, 3vw, 1.35rem)/1.2 ui-rounded,
+    system-ui,
+    sans-serif;
+}
+.island-stage__title img {
+  display: block;
+  width: min(70%, 320px);
+  height: auto;
+  margin: auto;
+}
+.island-stage__title span {
+  display: inline-block;
+  max-width: 96%;
+  padding: 5px 18px;
+  background: #24485d;
+  color: #fff2d0;
+  border: 2px solid #f7c46e;
+  border-radius: 20px;
+  text-shadow: 0 2px #183240;
+}
+.island-stage__guide {
+  position: absolute;
+  width: min(45%, 226px);
+  height: auto;
+  bottom: 21%;
+  left: 50%;
+  translate: -50% 0;
+  filter: drop-shadow(0 8px 6px #2d544866);
+}
+.island-stage__actions {
+  position: absolute;
+  inset: auto 9% 4%;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.island-stage__actions .game-button {
+  width: min(270px, 100%);
+}
+.island-stage__learn {
+  min-height: 44px;
+  color: white;
+  background: #24485d;
+  border: 1px solid #a4d7e1;
+  border-radius: 18px;
+  padding-inline: 15px;
+  font-weight: 750;
+}
+.opening-hero .island-stage__guide {
+  animation: guide-arrives 1.12s cubic-bezier(0.2, 0.85, 0.3, 1) both;
+}
+@keyframes guide-arrives {
+  from {
+    opacity: 0.3;
+    transform: translateY(20px) rotate(-7deg) scale(0.88);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(-5px) rotate(3deg) scale(1.03);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.data-saver .opening-hero .island-stage__guide {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .opening-hero .island-stage__guide {
+    animation: none;
+  }
+}
+.game-menu :is(.game-panel, .multiplayer-menu) {
+  background: var(--paper);
+  color: var(--navy);
+  border: 3px solid #dfae65;
+  border-radius: 24px;
+  box-shadow:
+    inset 0 0 0 3px #fff9e8,
+    0 6px #b77948,
+    0 16px 30px #3a7a6531;
+  padding: clamp(17px, 3vw, 26px);
+}
+.game-menu :is(.game-panel, .multiplayer-menu) :is(h1, h2) {
+  color: #24485d;
+  font:
+    900 clamp(1.35rem, 4vw, 2rem)/1.22 ui-rounded,
+    system-ui,
+    sans-serif;
+}
+.game-menu .game-panel > .eyebrow {
+  display: inline-block;
+  padding: 7px 16px;
+  border-radius: 4px 18px 18px 4px;
+  background: #24485d;
+  color: #fff2d0;
+  box-shadow: 0 3px #bf883f;
+}
+.game-menu
+  :is(
+    .entry-panel > p,
+    .quiet-note,
+    .entry-form label,
+    .divider,
+    .seated-options
+  ) {
+  color: #3b5656;
+}
+.game-menu .entry-form input {
+  background: #fffdf7;
+  border-color: #ac8357;
+  color: #24485d;
+  min-height: 44px;
+  border-radius: 12px;
+}
+.game-menu .entry-form input::placeholder {
+  color: #667e7a;
+}
+.game-menu :is(.button.primary, .button.secondary, .game-button--green) {
+  min-height: 48px;
+  font-weight: 900;
+  border: 2px solid #a96e2e;
+  border-radius: 16px;
+  background: linear-gradient(#fff6a4 0 9%, #ffd044 12% 54%, #fba634 58% 100%);
+  color: #253e41;
+  box-shadow:
+    inset 0 -3px #a65f2b45,
+    0 4px #a96e2e;
+}
+.game-menu .button.game-button--green {
+  background: linear-gradient(#e5fb95 0 9%, #a4e24d 12% 51%, #83d52f 55% 100%);
+  border-color: #3f852d;
+  box-shadow:
+    inset 0 -3px #538b325c,
+    0 5px #377b41;
+  font-size: 1.2rem;
+}
+.game-menu .button.secondary {
+  background: linear-gradient(#e7faff 0 9%, #a8e5f6 12% 51%, #83d5ef 55% 100%);
+  border-color: #478fad;
+  box-shadow:
+    inset 0 -3px #3d729b36,
+    0 4px #478fad;
+}
+.game-menu .button:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+.game-menu .button:focus-visible,
+.island-stage__learn:focus-visible {
+  outline: 3px solid #65429f;
+  outline-offset: 4px;
+}
+.game-menu .entry-panel > .button + .button {
+  margin-top: 8px;
+}
+.table-ticket {
+  display: inline-block;
+  padding: 5px 10px;
+  margin-inline-start: 5px;
+  background: #f8d975;
+  border: 2px dashed #9b6330;
+  border-radius: 8px;
+  letter-spacing: 0.12em;
+}
+.seated-options summary {
+  min-height: 44px;
+  align-content: center;
+  cursor: pointer;
+}
+.game-dock {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  margin: 12px auto;
+}
+.game-dock .button {
+  width: auto;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 680px) {
+  .game-menu .welcome-layout {
+    padding-inline: 12px;
+  }
+  .island-stage {
+    border-radius: 24px;
+  }
+  .island-stage__guide {
+    bottom: 24%;
+  }
+}
+
+.game-menu .welcome-main {
+  padding-block: clamp(10px, 2.4vw, 30px) 20px;
+}
+.game-menu .island-settings {
+  width: auto;
+  padding-inline: 12px;
+  min-height: 44px;
+}
+.game-menu .header-note {
+  display: none;
+}
+.game-menu :is(.profile-dialog, .table-utilities[open]) {
+  border: 3px solid #ffd044;
+  border-radius: 25px;
+  box-shadow:
+    inset 0 0 0 2px #fff2d055,
+    0 7px #9d5c36,
+    0 24px 50px #24485d88;
+}
+.game-menu .profile-heading h2,
+.game-menu .table-utilities > label {
+  color: #fff2d0;
+  font-weight: 900;
+}
+.seat-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+  gap: 8px;
+}
+.game-panel--recovery {
+  position: relative;
+}
+.game-panel--recovery::after {
+  content: '♠';
+  position: absolute;
+  inset: 8px 14px auto auto;
+  font-size: 1.5rem;
+  color: #855a31;
+  opacity: 0.45;
+  pointer-events: none;
+}

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 235">
+ <defs>
+  <linearGradient id="back" x2="0" y2="1"><stop stop-color="#c97cf6"/><stop offset="1" stop-color="#6a57c6"/></linearGradient>
+  <linearGradient id="ribbon" x2="0" y2="1"><stop stop-color="#ffdf62"/><stop offset="1" stop-color="#f4a22f"/></linearGradient>
+ </defs>
+ <ellipse cx="135" cy="213" rx="91" ry="14" fill="#24485d" opacity=".25"/>
+ <g transform="rotate(18 175 123)"><rect x="135" y="46" width="85" height="123" rx="15" fill="#5b4b90" stroke="#24485d" stroke-width="5"/><rect x="140" y="49" width="75" height="113" rx="11" fill="url(#back)" stroke="#f2ccfd" stroke-width="3"/><path d="m178 72 24 31-24 31-24-31z" fill="#e2bdff"/><path d="m178 89 12 14-12 14-12-14z" fill="#8f5bd1"/></g>
+ <g transform="rotate(-23 85 123)"><rect x="41" y="60" width="85" height="121" rx="15" fill="#a2bfd0" stroke="#24485d" stroke-width="5"/><rect x="44" y="60" width="78" height="112" rx="12" fill="#fff"/><path d="M83 83c-16 18-31 23-28 39 2 10 15 14 25 6l-5 14h17l-6-14c10 8 23 4 26-6 3-16-13-21-29-39Z" fill="#24485d"/></g>
+ <path d="m68 158-28 24 22 5 1 15 29-22m105-25 30 20-21 8 1 15-27-18" fill="#e49935" stroke="#874b35" stroke-width="4" stroke-linejoin="round"/>
+ <g transform="rotate(-7 136 115)">
+  <rect x="79" y="30" width="116" height="157" rx="20" fill="#adc9d2" stroke="#24485d" stroke-width="6"/>
+  <rect x="81" y="29" width="112" height="148" rx="18" fill="#fff" stroke="#24485d" stroke-width="4"/>
+  <path d="M116 72c-22-3-26 23 11 42 37-20 35-43 17-43-8 0-13 5-16 10-3-5-6-8-12-9Z" fill="#f64c65" opacity=".9"/>
+  <path d="M100 59l5-13 7 13m-10-4h8" stroke="#d24262" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M106 116q5-8 10 0m31 0q6-8 11 0" fill="none" stroke="#24485d" stroke-width="5" stroke-linecap="round"/>
+  <path d="M120 124q11 3 24 0-3 14-12 14-9 0-12-14Z" fill="#24485d"/>
+  <ellipse cx="101" cy="126" rx="7" ry="4" fill="#ffb6c3"/><ellipse cx="164" cy="126" rx="7" ry="4" fill="#ffb6c3"/>
+  <path d="M98 154q31 10 77 0l2 13q-37 15-79 2Z" fill="url(#ribbon)"/>
+ </g>
+ <g fill="#fff8b7" stroke="#efaa37" stroke-width="2"><path d="m52 32 5 12 12 4-12 4-5 12-4-12-12-4 12-4z"/><path d="m215 18 4 10 10 4-10 4-4 10-4-10-10-4 10-4z"/><circle cx="233" cy="64" r="4"/></g>
+</svg>

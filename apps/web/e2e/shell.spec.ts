@@ -4,7 +4,7 @@ for (const width of [320, 390, 430, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/');
     await expect(
-      page.getByRole('heading', { name: /Four friends/ }),
+      page.getByRole('heading', { name: /Tropical Adventure/ }),
     ).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath(`home-${width}.png`),
@@ -108,4 +108,110 @@ test('iPhone install guide shows the Safari Share steps', async ({
   } finally {
     await context.close();
   }
+});
+
+for (const width of [320, 360, 375, 390, 430, 768, 1280]) {
+  test(`Tropical Adventure artwork and controls fit ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await expect(
+      page.getByRole('heading', { name: 'OMI Tropical Adventure' }),
+    ).toBeVisible();
+    const stage = page.locator('.island-stage');
+    await expect(stage).toBeVisible();
+    for (const selector of ['.island-stage__world', '.island-stage__guide']) {
+      await expect
+        .poll(() =>
+          stage
+            .locator(selector)
+            .evaluate(
+              (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
+            ),
+        )
+        .toBe(true);
+    }
+    const play = page.getByRole('button', { name: 'Play OMI' });
+    await expect(play).toBeEnabled();
+    expect(
+      await play.evaluate((node) => getComputedStyle(node).backgroundImage),
+    ).toContain('rgb(131, 213, 47)');
+    expect((await play.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    await expect(
+      page.getByRole('button', { name: 'Settings', exact: true }),
+    ).toBeVisible();
+    if (width === 320 || width === 1280)
+      await page.screenshot({
+        path: info.outputPath(`tropical-${width}.png`),
+        fullPage: true,
+      });
+  });
+}
+
+test('direct Join Back returns to the mode picker and then Home', async ({
+  page,
+}) => {
+  await page.goto('/?screen=join');
+  await expect(page.getByLabel('Table code')).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Multiplayer' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'OMI Tropical Adventure' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Back', exact: true }),
+  ).toHaveCount(0);
+});
+
+test('repeated Settings Back presses close one history entry', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play OMI' }).click();
+  await page.getByRole('button', { name: 'Settings & install' }).click();
+  const settings = page.getByRole('dialog', { name: 'Game settings' });
+  await settings
+    .getByRole('button', { name: 'Back' })
+    .evaluate((node: HTMLButtonElement) => {
+      node.click();
+      node.click();
+    });
+  await expect(settings).not.toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Multiplayer' }),
+  ).toBeVisible();
+});
+
+test('saved lobby exposes Create and Join guidance and can resume the same code', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Your name').fill('Island captain');
+  await page.getByRole('button', { name: /Create a table/ }).click();
+  const code = await page.locator('.invite-box strong').innerText();
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Back', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Return home and keep my seat' })
+    .click();
+  const recovery = page.getByRole('region', { name: 'Your seat is saved.' });
+  await expect(recovery.getByText(code)).toBeVisible();
+  await expect(
+    recovery.getByRole('button', { name: 'Create a table' }),
+  ).toBeVisible();
+  await recovery.getByRole('button', { name: 'Join a table' }).click();
+  await expect(recovery.getByText(/before taking another seat/)).toBeVisible();
+  await expect(page.getByLabel('Table code')).toHaveCount(0);
+  await recovery.getByRole('button', { name: 'Resume table' }).click();
+  await expect(page.locator('.invite-box strong')).toHaveText(code);
 });

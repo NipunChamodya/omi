@@ -1,3 +1,4 @@
+import './tropical.css';
 import { useCopy } from '../i18n/locale';
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
@@ -32,12 +33,9 @@ export function MultiplayerMenu({
   }, [queue]);
   return (
     <section className="entry-panel multiplayer-menu">
-      <button className="text-button" onClick={client.back}>
-        ← {text('Back')}
-      </button>
       <h1>
         {view === 'multiplayer'
-          ? 'Multiplayer'
+          ? text('Multiplayer')
           : view === 'friends'
             ? text('Play with Friends')
             : text('Play Online')}

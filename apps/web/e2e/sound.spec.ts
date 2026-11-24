@@ -37,7 +37,7 @@ test('game audio stays gesture-bound, decodes local assets and persists independ
   });
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: /Four friends/ }),
+    page.getByRole('heading', { name: /Tropical Adventure/ }),
   ).toBeVisible();
   const stats = () =>
     page.evaluate(

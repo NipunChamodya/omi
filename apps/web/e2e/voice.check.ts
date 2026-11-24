@@ -521,7 +521,7 @@ test('account logout stops microphone capture and voice without losing the home'
     .getByRole('button', { name: 'Sign out' })
     .click();
   await expect(
-    page.getByRole('heading', { name: /Four friends/ }),
+    page.getByRole('heading', { name: /Tropical Adventure/ }),
   ).toBeVisible();
   expect(
     await page.evaluate(() =>

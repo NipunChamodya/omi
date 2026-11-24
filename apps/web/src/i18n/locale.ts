@@ -269,6 +269,16 @@ const sinhala = {
     'මෙම බ්‍රවුසරයෙන් ස්ථාපන ඉල්ලීමක් නොපෙන්වයි. එහි මෙනුවේ ස්ථාපන විකල්ප බලන්න.',
   'Voice and shared music are unavailable at this table.':
     'මෙම මේසයේ හඬ සහ හවුල් සංගීතය ලබා ගත නොහැක.',
+  'Tropical Adventure': 'නිවර්තන වික්‍රමය',
+  'Resume table': 'මේසයට යළි එක්වන්න',
+  'Enter the code shared by your table host.':
+    'මේසය සෑදූ ක්‍රීඩකයා දුන් කේතය ඇතුළත් කරන්න.',
+  'Start a private table and invite three friends.':
+    'පෞද්ගලික මේසයක් සාදා යහළුවන් තුන්දෙනෙකුට ආරාධනා කරන්න.',
+  'Playing as': 'ක්‍රීඩක නම',
+  'An eight-character table code': 'අක්ෂර අටක මේස කේතයක්',
+  'Finding your seat…': 'ඔබේ අසුන සොයමින්…',
+  Settings: 'සැකසුම්',
 } as const;
 
 export function translate(language: 'en' | 'si', message: string): string {

@@ -51,7 +51,7 @@ test('NGINX serves compiled assets, denies private files and preserves Origin ch
   ).toBe(403);
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: /Four friends/ }),
+    page.getByRole('heading', { name: /Tropical Adventure/ }),
   ).toBeVisible();
   expect(
     await page
