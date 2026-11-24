@@ -2,6 +2,11 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.11 (incomplete)
+
+- Fixed the lobby's narrow intrinsic columns and vertical-letter names. Players now have two-by-two seat frames, one-line names, grouped invitation and start controls, and a compact landscape layout. Added a skippable opening, original opt-in menu audio, a responsive hand curve, and Sinhala card announcements.
+- See the [V2.11 acceptance checklist and screenshots](V2_11_ACCEPTANCE.md) for current results. A complete visual and accessibility review, full localization including Tamil, and the 1,200-case gate remain open.
+
 ## V2.10 (incomplete)
 
 - Create and Join reconcile against the authenticated server seat before acting. An old room link cannot silently open a newer seat. The server verifies queued joins against live room identity so a join queued behind lobby removal cannot revive that lobby. Closed, full, invalid, seat-conflict and temporary service errors have separate handling.
@@ -32,6 +37,15 @@ This document records the current implementation. Stages A–J and earlier audit
 - Added pointer and keyboard push-to-talk for the existing voice mesh. The Chromium fixture proved inbound audio at all four seats, actual microphone track muting, reconnect, teardown, synchronized bundled playback and a real card play while voice remained connected. Player-selected local-file transmission remains open.
 - Final Vitest passed 310 cases, including the 118-case focused defensive subset. Infrastructure passed 15. The cumulative inventory contains 374 distinct passes, including 49 browser scenarios. The restart-to-round-settlement case passed Chromium and Firefox. The compressed production entry is 95,363 bytes.
 - See the updated [traceability and restart reproduction](V2_10_ACCEPTANCE.md#ultimate-directive-traceability). This release remains incomplete on all-screen acceptance, full approved localization and accessibility, local-file music, full match journeys through restart and the 1,200-case gate.
+
+### Local media and full-match follow-up
+
+- The table host can start a permission-confirmed local-file stream. The browser decodes the audio and sends a separate one-way WebRTC track. Host title and duration are shared as bounded metadata. Source file bytes remain on the host device.
+- Chromium and Firefox verified non-silent remote PCM in three independent listeners while all four synthetic microphones continued exchanging voice traffic. Playback, pause, resume, individual mute, listener recovery, card play, stop, and broadcaster departure passed locally. The visual inventory records inspected 390px and desktop media captures.
+- Full-interface Chromium cases passed casual and ranked matches and rematches through actual card controls. A separate four-human match survived an abrupt backend restart in its first hand, recovered exact private hands and scores, reached final settlement, and rematched. The casual cases also verified leaving and creating a new table.
+- Full live-match testing exposed the missing rematch action after a terminal card event. Terminal events now carry the same authoritative eligibility as a reconnect snapshot.
+- The cumulative inventory records 395 distinct passes across 326 Vitest, 15 infrastructure and 54 Playwright scenarios. The focused defensive subset passed 120. Production build, bundle gate, typecheck and lint passed. Compressed entry size was 95,380 bytes.
+- V2.10 remains incomplete on the test-count gate, all-screen visual and accessibility acceptance, full localization, and external device and provider checks. See [local music and full-interface acceptance](V2_10_ACCEPTANCE.md#local-music-continuation).
 
 ## V2.9 (incomplete)
 

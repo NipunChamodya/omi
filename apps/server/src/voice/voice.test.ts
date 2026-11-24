@@ -335,7 +335,11 @@ it('relays host-to-listener music only and rejects a listener sending audio', as
   const receiver = (await listening.wait((m) => m.type === 'hello'))
     .self as VoiceParticipant;
   const authorized = signal(table.roomId, host, sender, receiver);
-  authorized.payload.description.sdp += 'a=sendonly\r\n';
+  authorized.payload.description.sdp =
+    authorized.payload.description.sdp.replace(
+      'v=0\r\n',
+      'v=0\r\na=sendrecv\r\n',
+    ) + 'a=sendonly\r\n';
   sending.socket.send(JSON.stringify(authorized));
   await listening.wait((m) => m.type === 'signal');
   const rejected = signal(table.roomId, listener, receiver, sender);
@@ -347,5 +351,61 @@ it('relays host-to-listener music only and rejects a listener sending audio', as
   expect(await closed).toBe(1008);
   expect(
     sending.messages.some((m) => (m as VoiceMessage).type === 'signal'),
+  ).toBe(false);
+});
+
+it('limits local track announcements to the host on the authorized music connection', async () => {
+  const host = await player();
+  const listener = await player();
+  const table = await room(host);
+  const { version } = (
+    await post('/rooms/preview', listener, { code: table.code })
+  ).json<{ version: number }>();
+  expect(
+    (
+      await post('/rooms/join', listener, {
+        roomId: table.roomId,
+        code: table.code,
+        actorId: listener.actorId,
+        actionId: randomUUID(),
+        expectedVersion: version,
+      })
+    ).statusCode,
+  ).toBe(200);
+  await game(table.roomId, host);
+  await game(table.roomId, listener);
+  const path = `/rooms/${table.roomId}/music/ws`;
+  const sender = wire(path, host);
+  const receiver = wire(path, listener);
+  const hostCall = (await sender.wait((m) => m.type === 'hello'))
+    .self as VoiceParticipant;
+  const listenerCall = (await receiver.wait((m) => m.type === 'hello'))
+    .self as VoiceParticipant;
+  const announce = (peer: VoiceParticipant, title: string) => ({
+    roomId: table.roomId,
+    actorId: peer.actorId,
+    callId: peer.callId,
+    actionId: randomUUID(),
+    expectedVersion: 0,
+    type: 'track',
+    payload: { title, seconds: 48 },
+  });
+  sender.socket.send(JSON.stringify(announce(hostCall, 'Fixture tone')));
+  const published = await receiver.wait((m) => m.type === 'updated');
+  expect(published.peer).toMatchObject({
+    actorId: host.actorId,
+    track: { title: 'Fixture tone', seconds: 48 },
+  });
+  const closed = new Promise<number>((resolve) =>
+    receiver.socket.once('close', resolve),
+  );
+  receiver.socket.send(
+    JSON.stringify(announce(listenerCall, 'Listener announcement')),
+  );
+  expect(await closed).toBe(1008);
+  expect(
+    sender.messages.some(
+      (message) => (message as VoiceMessage).type === 'updated',
+    ),
   ).toBe(false);
 });

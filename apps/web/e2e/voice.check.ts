@@ -7,6 +7,12 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
   test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   const pages: Page[] = [];
+  const mediaDirections: {
+    seat: number;
+    bytes: number;
+    direction: string[];
+  }[] = [];
+
   try {
     for (let i = 0; i < 4; i++) {
       const context = await browser.newContext({
@@ -25,6 +31,23 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
           constructor(options?: AudioContextOptions) {
             super(options);
             contexts.push(this);
+          }
+        };
+        const signalingCloses: {
+          lane: string;
+          code: number;
+          reason: string;
+        }[] = [];
+        Object.assign(window, { __signalingCloses: signalingCloses });
+        const NativeSocket = window.WebSocket;
+        window.WebSocket = class extends NativeSocket {
+          constructor(url: string | URL, protocols?: string | string[]) {
+            super(url, protocols);
+            const lane = String(url).match(/\/(voice|music)\/ws$/)?.[1];
+            if (lane)
+              this.addEventListener('close', ({ code, reason }) =>
+                signalingCloses.push({ lane, code, reason }),
+              );
           }
         };
         const Original = window.RTCPeerConnection;
@@ -276,7 +299,7 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
     await saver.check();
     await expect(
       pages[0]!.locator('[data-voice-peer][data-connection="connected"]'),
-    ).toHaveCount(3);
+    ).toHaveCount(3, { timeout: 25_000 });
     expect(
       await pages[0]!.evaluate(() =>
         (window as unknown as { __voiceStreams: MediaStream[] }).__voiceStreams
@@ -331,7 +354,7 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
     ).toHaveValue('0');
     await expect(
       pages[1]!.locator('[data-voice-peer][data-connection="connected"]'),
-    ).toHaveCount(3);
+    ).toHaveCount(3, { timeout: 25_000 });
     await block.uncheck();
     await expect(
       pages[1]!.getByRole('slider', { name: 'Volume for Voice host' }),
@@ -412,6 +435,9 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
       }).click();
     }
     await host.bringToFront();
+    await expect(
+      hostMusic.getByRole('button', { name: 'Play file', exact: true }),
+    ).toBeEnabled({ timeout: 12_000 });
     await hostMusic
       .getByRole('button', { name: 'Play file', exact: true })
       .click();
@@ -463,7 +489,15 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
       .toBeGreaterThan(0);
     await expect(
       pages[2]!.locator('[data-voice-peer][data-connection="connected"]'),
-    ).toHaveCount(3);
+    ).toHaveCount(3, { timeout: 25_000 });
+    await contexts[0]!.setOffline(true);
+    for (const page of pages.slice(1))
+      await expect(page.locator('audio[data-local-music-peer]')).toHaveCount(0);
+    await contexts[0]!.setOffline(false);
+    for (const page of pages.slice(1))
+      await expect
+        .poll(() => musicEnergy(page), { timeout: 20_000 })
+        .toBeGreaterThan(0);
     await musicPanels[1]!
       .getByRole('checkbox', { name: 'Mute file music' })
       .check();
@@ -480,6 +514,7 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
     await hostMusic
       .getByRole('button', { name: 'Pause file', exact: true })
       .click();
+    await expect.poll(() => musicEnergy(pages[1]!)).toBe(0);
     await hostMusic
       .getByRole('button', { name: 'Play file', exact: true })
       .click();
@@ -532,7 +567,7 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
       }).click();
       await expect(
         pages[i]!.locator('[data-voice-peer][data-connection="connected"]'),
-      ).toHaveCount(3);
+      ).toHaveCount(3, { timeout: 25_000 });
     }
     for (const page of pages)
       await page
@@ -611,21 +646,95 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
       await page.getByRole('button', { name: 'Sound, voice & music' }).click();
       await expect(
         page.locator('[data-voice-peer][data-connection="connected"]'),
-      ).toHaveCount(3);
+      ).toHaveCount(3, { timeout: 25_000 });
     }
     for (const page of pages.slice(1))
       await expect.poll(() => musicEnergy(page)).toBeGreaterThan(0);
+    const inboundVoiceBytes = (page: Page) =>
+      page.evaluate(async () => {
+        const peers = (
+          window as unknown as { __voicePeers: RTCPeerConnection[] }
+        ).__voicePeers;
+        const voicePeers = peers.filter(
+          (peer) =>
+            peer.connectionState === 'connected' &&
+            peer
+              .getTransceivers()
+              .some((slot) => slot.currentDirection === 'sendrecv'),
+        );
+        return Promise.all(
+          voicePeers.map(async (peer) =>
+            Array.from((await peer.getStats()).values())
+              .filter(
+                (stat) => stat.type === 'inbound-rtp' && stat.kind === 'audio',
+              )
+              .reduce(
+                (total, stat) => total + Number(stat.bytesReceived ?? 0),
+                0,
+              ),
+          ),
+        );
+      });
+    for (const page of pages) {
+      const baseline = await inboundVoiceBytes(page);
+      expect(baseline).toHaveLength(3);
+      await expect
+        .poll(async () => {
+          const current = await inboundVoiceBytes(page);
+          return current.filter(
+            (received, index) => received > baseline[index]!,
+          ).length;
+        })
+        .toBe(3);
+    }
+    await musicPanels[1]!.scrollIntoViewIfNeeded();
     await pages[1]!.screenshot({
       path: testInfo.outputPath('local-music-listener.png'),
     });
+    await pages[1]!.setViewportSize({ width: 1280, height: 900 });
+    await musicPanels[1]!.scrollIntoViewIfNeeded();
+    await pages[1]!.screenshot({
+      path: testInfo.outputPath('local-music-desktop.png'),
+    });
+
     await hostMusic.getByRole('button', { name: 'Stop file sharing' }).click();
     for (const page of pages.slice(1))
       await expect(page.locator('audio[data-local-music-peer]')).toHaveCount(0);
-    for (const page of pages)
+    await hostMusic.getByRole('button', { name: 'Start sharing file' }).click();
+    await hostMusic
+      .getByRole('button', { name: 'Play file', exact: true })
+      .click();
+    for (const page of pages.slice(1))
+      await expect.poll(() => musicEnergy(page)).toBeGreaterThan(0);
+    await host
+      .getByRole('dialog', { name: 'Table settings and voice' })
+      .getByRole('button', { name: 'Back' })
+      .click();
+    await host
+      .getByRole('main')
+      .getByRole('button', { name: 'Back', exact: true })
+      .click();
+    await host
+      .getByRole('button', { name: 'Return home and keep my seat' })
+      .click();
+    for (const page of pages.slice(1))
+      await expect(page.locator('audio[data-local-music-peer]')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        host.evaluate(() =>
+          (
+            window as unknown as { __voiceStreams: MediaStream[] }
+          ).__voiceStreams.every((stream) =>
+            stream.getTracks().every((track) => track.readyState === 'ended'),
+          ),
+        ),
+      )
+      .toBe(true);
+    for (const page of pages.slice(1))
       await page
         .getByRole('button', { name: 'Leave voice', exact: true })
         .click();
-    for (const page of pages) {
+    for (const page of pages.slice(1)) {
       await expect(
         page.getByRole('button', { name: 'Join voice', exact: true }),
       ).toBeVisible();
@@ -641,6 +750,10 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
       await expect(page.locator('.table-player')).toHaveCount(4);
     }
   } finally {
+    await testInfo.attach('music-direction-diagnostics', {
+      body: JSON.stringify(mediaDirections),
+      contentType: 'application/json',
+    });
     {
       const diagnostics = await Promise.all(
         pages.map(async (page) => {
@@ -654,6 +767,9 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
                 state: ctx.state,
                 time: ctx.currentTime,
               })),
+              signalingCloses: (
+                window as unknown as { __signalingCloses: unknown[] }
+              ).__signalingCloses,
               voiceText: document.querySelector('.voice-panel')?.textContent,
               streams: (
                 window as unknown as { __voiceStreams: MediaStream[] }

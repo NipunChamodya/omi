@@ -25,6 +25,13 @@ export const useLocale = create<{
 }));
 
 const sinhala = {
+  'Select {card}': '{card} තෝරන්න',
+  '{player} played {card}': '{player} {card} ගැසුවා',
+  'Reconnection time remaining': 'යළි සම්බන්ධ වීමට ඉතිරි කාලය',
+  'Release in the center to play': 'කොළය ගැසීමට මැදට අතහරින්න',
+  'Wait for your turn': 'ඔබේ වාරය තෙක් ඉන්න',
+  'Report {card} played by {player}': '{player} ගැසූ {card} වාර්තා කරන්න',
+  'Report play': 'ක්‍රීඩා කළ කොළය වාර්තා කරන්න',
   'The no-trump report was confirmed. This round has been cancelled.':
     'තුරුම්පු නැති බව තහවුරු වුණා. මෙම වටය අවලංගු කර ඇත.',
   'Let’s deal again.': 'නැවත කොළ බෙදමු.',
@@ -146,6 +153,9 @@ const sinhala = {
   'Play Online': 'අන්තර්ජාලයෙන් ක්‍රීඩා කරන්න',
   'Play with Friends': 'යහළුවන් සමඟ ක්‍රීඩා කරන්න',
   'Find players': 'ක්‍රීඩකයන් සොයන්න',
+  'Menu music': 'මුල් පිටුවේ සංගීතය',
+  'Menu music unavailable.': 'මුල් පිටුවේ සංගීතය ලබා ගත නොහැක.',
+  'Skip intro': 'හැඳින්වීම මඟ හරින්න',
   'Skip to content': 'අන්තර්ගතයට යන්න',
   'My profile': 'මගේ පැතිකඩ',
   'Dismiss sign-in message': 'පිවිසුම් පණිවිඩය වසන්න',
@@ -205,6 +215,7 @@ const sinhala = {
   'Copy code': 'කේතය පිටපත් කරන්න',
   'Four table seats': 'මේසයේ අසුන් හතර',
   YOU: 'ඔබ',
+  'Opposite seats are teammates.': 'මුහුණට මුහුණ අසුන් එකම පිලේ.',
   'You and your teammate will sit opposite each other.':
     'ඔබ සහ ඔබේ සහකරු මුහුණට මුහුණ අසුන් ගනී.',
   Advertisement: 'වෙළඳ දැන්වීම',

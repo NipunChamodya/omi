@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { Card } from '@omi/shared';
-import { CardFace, cardName } from '../components/Cards';
+import { CardFace, useCardName } from '../components/Cards';
+import { useCopy } from '../i18n/locale';
 import { gameAudio } from '../audio/gameAudio';
 
 export const HOLD_MS = 140;
@@ -51,6 +52,8 @@ export function InteractiveCard({
   onDrag: (active: boolean, over: boolean) => void;
   deal: boolean;
 }) {
+  const text = useCopy();
+  const cardName = useCardName();
   const element = useRef<HTMLButtonElement>(null);
   const drag = useRef<Drag | null>(null);
   const frame = useRef(0);
@@ -136,7 +139,7 @@ export function InteractiveCard({
       ref={element}
       className={`hand-card ${selected ? 'selected' : ''} ${deal ? 'hand-dealt' : ''}`}
       data-testid="hand-card"
-      aria-label={`Select ${cardName(card)}`}
+      aria-label={text('Select {card}').replace('{card}', () => cardName(card))}
       aria-pressed={selected}
       disabled={disabled}
       draggable={false}

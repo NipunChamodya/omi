@@ -35,52 +35,55 @@ export function Lobby({
     snapshot.members.every((member) => member.ready && member.connected);
   return (
     <section className="lobby adventure-lobby" aria-labelledby="lobby-title">
-      <div className="lobby-scene" aria-hidden="true">
-        <img src={island} alt="" />
-      </div>
-      <p className="eyebrow">
-        {text(snapshot.ranked ? 'RANKED TABLE' : 'CASUAL TABLE')}
-      </p>
-      <GameRibbon as="h1" id="lobby-title">
-        {text('Your table is ready.')}
-      </GameRibbon>
-      <p className="subtitle">
-        {snapshot.members.length < 4
-          ? text('Open seats: {count}').replace(
-              '{count}',
-              String(4 - snapshot.members.length),
-            )
-          : text('All four seats are filled.')}
-      </p>
-      {snapshot.ranked && (
-        <p className="quiet-note">
-          {text('Chat and voice are off at ranked tables.')}
+      <header className="lobby-heading">
+        <div className="lobby-scene" aria-hidden="true">
+          <img src={island} alt="" />
+        </div>
+        <p className="eyebrow">
+          {text(snapshot.ranked ? 'RANKED TABLE' : 'CASUAL TABLE')}
         </p>
-      )}
+        <GameRibbon as="h1" id="lobby-title">
+          {text('Your table is ready.')}
+        </GameRibbon>
+        <p className="subtitle">
+          {snapshot.members.length < 4
+            ? text('Open seats: {count}').replace(
+                '{count}',
+                String(4 - snapshot.members.length),
+              )
+            : text('All four seats are filled.')}
+        </p>
+        {snapshot.ranked && (
+          <p className="quiet-note">
+            {text('Chat and voice are off at ranked tables.')}
+          </p>
+        )}
+      </header>
       <div className="invite-box">
         <div>
           <span className="eyebrow">{text('TABLE CODE')}</span>
           <strong>{snapshot.code}</strong>
         </div>
         <GameButton
-          tone="blue"
+          variant="secondary"
           className="compact"
           onClick={() => void copyText(snapshot.code, client)}
         >
           {text('Copy code')}
         </GameButton>
+        <GameButton
+          variant="secondary"
+          className="compact invite-link"
+          onClick={() =>
+            void copyText(
+              `${window.location.origin}${window.location.pathname}?room=${snapshot.code}`,
+              client,
+            )
+          }
+        >
+          {text('Copy invite link')}
+        </GameButton>
       </div>
-      <button
-        className="text-button invite-link"
-        onClick={() =>
-          void copyText(
-            `${window.location.origin}${window.location.pathname}?room=${snapshot.code}`,
-            client,
-          )
-        }
-      >
-        {text('Copy invite link')} <span aria-hidden="true">↗</span>
-      </button>
       <div className="lobby-seats" aria-label={text('Four table seats')}>
         {([0, 1, 2, 3] as const).map((seat) => {
           const member = snapshot.members.find((item) => item.seat === seat);
@@ -98,20 +101,20 @@ export function Lobby({
                   +
                 </span>
               )}
-              <div className="seat-copy">
-                <strong>
-                  {member?.displayName ?? text('An open seat')}
-                  {member?.actorId === snapshot.hostId && (
-                    <span className="host-tag">{text('Host')}</span>
-                  )}
-                  {member?.actorId === own.actorId && (
-                    <span className="you-tag">{text('YOU')}</span>
-                  )}
-                </strong>
+              <strong className="seat-name" title={member?.displayName}>
+                {member?.displayName ?? text('An open seat')}
+              </strong>
+              <div className="seat-details">
                 <span>
                   {text(teammate ? 'Your team' : 'Their team')} · {text('Seat')}{' '}
                   {seat + 1}
                 </span>
+                {member?.actorId === snapshot.hostId && (
+                  <span className="host-tag">{text('Host')}</span>
+                )}
+                {member?.actorId === own.actorId && (
+                  <span className="you-tag">{text('YOU')}</span>
+                )}
               </div>
               <span
                 className={`ready-label ${member?.ready && member.connected ? 'is-ready' : ''}`}
@@ -128,13 +131,17 @@ export function Lobby({
           );
         })}
       </div>
-      <p className="quiet-note">
-        {text('You and your teammate will sit opposite each other.')}
+      <p className="quiet-note" id="lobby-start-note">
+        {text(
+          allReady
+            ? 'Opposite seats are teammates.'
+            : 'Ready up while your friends take their seats.',
+        )}
       </p>
       <div className="lobby-actions">
         {host && !snapshot.ranked && snapshot.members.length < 4 && (
           <GameButton
-            tone="blue"
+            variant="secondary"
             disabled={!enabled || pending}
             onClick={() => client.act({ type: 'add-bot', payload: {} })}
           >
@@ -142,7 +149,7 @@ export function Lobby({
           </GameButton>
         )}
         <GameButton
-          tone={own.ready ? 'blue' : 'green'}
+          variant={own.ready ? 'secondary' : 'primary'}
           disabled={!enabled || pending}
           aria-pressed={own.ready}
           onClick={() =>
@@ -153,8 +160,9 @@ export function Lobby({
         </GameButton>
         {host ? (
           <GameButton
-            tone="gold"
+            variant="warning"
             disabled={!enabled || pending || !allReady}
+            aria-describedby="lobby-start-note"
             onClick={() => client.act({ type: 'start', payload: {} })}
           >
             {text('Start game')} <span aria-hidden="true">→</span>

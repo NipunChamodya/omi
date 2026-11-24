@@ -23,7 +23,7 @@ The four referenced owner screenshots and the separate design-rules file were un
 | Statistics, history and leaderboard | Profile, GameTable | Shared profile surface where mounted | Matrix open | Complete language and accessibility acceptance open |
 | Settings and motion | App settings dialog, SoundSettings | Light surfaces, ribbon, larger summaries and custom checkbox presentation | Before and after at 320px and 1280px, with a separate 320px Sinhala capture | Modal and language interactions tested. Full keyboard and screen-reader review open. |
 | Card themes | ThemeControls | Shared settings surface and select treatment | Matrix open | Selected theme switching and card identity checks |
-| Music and voice | RoomControls | Shared light settings container and summaries | Matrix open | Prior bundled music and synthetic voice checks. Live TURN open. |
+| Music and voice | RoomControls, LocalMusic | Cream file-sharing panel, styled controls, readable media notes and sticky Back action | 390px and 1280px listening states inspected in Chromium | Local WAV audio samples, voice, gameplay, disconnect and cleanup verified on Chromium and Firefox. Full locale, viewport and live TURN matrix open. |
 | Tutorial | Tutorial | Existing lesson cards retained | Matrix open | Prior interactive tutorial checks |
 | Reporting, moderation and Protected Play | Profile, PlayerReport | Shared styling where mounted. Policy retained. | Matrix open | Defensive service evidence. Browser visual review open. |
 | PWA install, update and offline | PwaControls | Shared settings surface. Existing install flows retained. | Matrix open | Prior automated PWA checks. Physical installation open. |

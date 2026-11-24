@@ -200,3 +200,66 @@ describe('public client projection', () => {
     expect(state.score.totals).toEqual([0, 0]);
   });
 });
+
+it('enables a rematch on the live terminal trick without requiring a new snapshot', () => {
+  const state = { ...sample(), rematchAvailable: false };
+  const update = event(
+    {
+      kind: 'card-played',
+      seat: 0,
+      card: state.game!.hand[0]!,
+      turn: null,
+      phase: 'complete',
+      handCounts: [0, 0, 0, 0],
+      completedTrick: null,
+      score: {
+        totals: [19, 1],
+        carry: 0,
+        final: {
+          reason: 'loan_loss',
+          winner: 0,
+          loser: 1,
+          roundId: state.game!.id,
+        },
+      },
+      result: null,
+    },
+    state,
+  );
+  expect(
+    applyEvent(state, { ...update, rematchAvailable: true }),
+  ).toMatchObject({
+    rematchAvailable: true,
+    game: { phase: 'complete' },
+  });
+});
+
+it('keeps rematch unavailable when the server reports a departed seat after Baldu settlement', () => {
+  const state = { ...sample(), rematchAvailable: true };
+  const update = event(
+    {
+      kind: 'score-transferred',
+      amount: 3,
+      from: 1,
+      to: 0,
+      score: {
+        totals: [19, 1],
+        carry: 0,
+        final: {
+          reason: 'loan_loss',
+          winner: 0,
+          loser: 1,
+          roundId: state.game!.id,
+        },
+      },
+      result: { status: 'settled', outcome: 'baldu', tricks: [5, 1] },
+    },
+    state,
+  );
+  expect(
+    applyEvent(state, { ...update, rematchAvailable: false }),
+  ).toMatchObject({
+    rematchAvailable: false,
+    game: { phase: 'complete' },
+  });
+});

@@ -41,6 +41,7 @@ import type {
   Seat,
 } from '@omi/game-engine';
 import {
+  canRematch,
   handCounts,
   publicCard,
   publicMember,
@@ -1222,6 +1223,7 @@ export class RoomService {
           fromVersion,
           version: room.version,
           event: event(member),
+          ...(room.ledger.final && { rematchAvailable: canRematch(room) }),
           ...(this.casualTurnMs > 0 && {
             turnClock: this.turnClock(room, lastActive),
           }),

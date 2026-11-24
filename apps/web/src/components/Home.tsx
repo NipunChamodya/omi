@@ -1,7 +1,9 @@
 import './adventure-surfaces.css';
+import { readDataSaver } from '../pwa/preferences';
+import { gameAudio } from '../audio/gameAudio';
 import { useCopy } from '../i18n/locale';
 import { SponsorPlacement } from './SponsorPlacement';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { AuthSession } from '@omi/shared';
 import { GoogleButton } from '../auth/GoogleButton';
@@ -12,6 +14,26 @@ import guide from '../art/card-guide.svg?no-inline';
 import logo from '../art/omi-mark.svg?no-inline';
 import './tropical.css';
 const Tutorial = lazy(() => import('./Tutorial'));
+function OpeningCards({ onFinish }: { onFinish: () => void }) {
+  const text = useCopy();
+  return (
+    <div className="opening-cards">
+      <div className="opening-cards__deck" aria-hidden="true">
+        {['♠', '♥', '♣', '♦'].map((suit) => (
+          <span key={suit}>A{suit}</span>
+        ))}
+      </div>
+      <GameButton
+        size="small"
+        className="opening-cards__skip"
+        onClick={onFinish}
+      >
+        {text('Skip intro')}
+      </GameButton>
+    </div>
+  );
+}
+
 export function Home({
   client,
   state,
@@ -37,6 +59,52 @@ export function Home({
 }) {
   const text = useCopy();
   const [sponsorDismissed, setSponsorDismissed] = useState(false);
+  const [intro, setIntro] = useState(() => {
+    if (
+      !animateOpening ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+      readDataSaver()
+    )
+      return false;
+    try {
+      if (sessionStorage.getItem('omi.opening-seen')) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (!intro) return;
+    try {
+      sessionStorage.setItem('omi.opening-seen', '1');
+    } catch {
+      // The visual still dismisses if browser storage is unavailable.
+    }
+    const timer = window.setTimeout(() => setIntro(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [intro]);
+  const [music, setMusic] = useState<'off' | 'starting' | 'on'>('off');
+  const [musicError, setMusicError] = useState(false);
+  useEffect(() => {
+    if (state.view !== 'home') {
+      setMusic('off');
+      setMusicError(false);
+      return;
+    }
+    return () => gameAudio.stopMenuMusic();
+  }, [state.view]);
+  async function toggleMusic() {
+    setMusicError(false);
+    if (music === 'on') {
+      gameAudio.stopMenuMusic();
+      setMusic('off');
+      return;
+    }
+    setMusic('starting');
+    const playing = await gameAudio.startMenuMusic(intro);
+    setMusic(playing ? 'on' : 'off');
+    setMusicError(!playing);
+  }
   const joining = state.view === 'join';
   const [name, setName] = useState(
     state.identity?.displayName ?? state.saved?.displayName ?? '',
@@ -54,7 +122,7 @@ export function Home({
     <div className="welcome-layout">
       {state.view === 'home' && (
         <section
-          className={`island-stage ${animateOpening ? 'opening-hero' : ''}`}
+          className={`island-stage ${intro ? 'opening-hero' : ''}`}
           aria-labelledby="welcome-title"
         >
           <img
@@ -78,6 +146,7 @@ export function Home({
             width="270"
             height="235"
           />
+          {intro && <OpeningCards onFinish={() => setIntro(false)} />}
           <div className="island-stage__actions">
             <GameButton
               tone="green"
@@ -97,6 +166,18 @@ export function Home({
               {text('Learn to play')}
             </button>
           </div>
+          <GameButton
+            className="island-stage__music"
+            variant="neutral"
+            size="small"
+            aria-label={text('Menu music')}
+            aria-pressed={music === 'on'}
+            loading={music === 'starting'}
+            onClick={() => void toggleMusic()}
+          >
+            <span aria-hidden="true">♫</span>
+          </GameButton>
+          {musicError && <p role="status">{text('Menu music unavailable.')}</p>}
           {tutorialOpen && (
             <Suspense
               fallback={<p role="status">{text('Loading practice…')}</p>}

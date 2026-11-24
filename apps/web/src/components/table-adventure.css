@@ -193,25 +193,8 @@
   translate: 0 var(--fan-rise, 0px);
   transform-origin: center;
 }
-.hand-fan .fan-slot:first-child:not(:last-child) {
-  --fan-angle: -10deg;
-  --fan-rise: 5px;
-}
-.hand-fan .fan-slot:nth-child(2):nth-last-child(n + 3) {
-  --fan-angle: -7deg;
-  --fan-rise: 2px;
-}
-.hand-fan .fan-slot:nth-child(3):nth-last-child(n + 5) {
-  --fan-angle: -4deg;
-  --fan-rise: -2px;
-}
-.hand-fan .fan-slot:nth-child(n + 3):nth-last-child(2) {
-  --fan-angle: 6deg;
-  --fan-rise: 2px;
-}
-.hand-fan .fan-slot:last-child:not(:first-child) {
-  --fan-angle: 10deg;
-  --fan-rise: 5px;
+.hand-fan:is(.hand-1, .hand-2, .hand-3, .hand-4, .hand-5) .fan-slot {
+  flex-basis: var(--card-size);
 }
 .hand-fan .fan-slot:has(.selected, [data-dragging], :focus-visible) {
   z-index: 2;

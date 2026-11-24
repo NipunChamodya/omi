@@ -195,6 +195,7 @@ export type EventMessage = Readonly<{
   fromVersion: number;
   version: number;
   event: RoomEvent;
+  rematchAvailable?: boolean;
   turnClock?: TurnClock | null;
 }>;
 export type ServerMessage = Snapshot | Ack | Failure | EventMessage;

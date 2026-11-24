@@ -18,6 +18,9 @@ export function applyEvent(
   const next = {
     ...state,
     version: message.version,
+    ...(message.rematchAvailable !== undefined && {
+      rematchAvailable: message.rematchAvailable,
+    }),
     ...(message.turnClock !== undefined && { turnClock: message.turnClock }),
   };
   const event = message.event;
@@ -45,7 +48,7 @@ export function applyEvent(
         ? {
             ...next,
             score: event.score,
-            rematchAvailable: true,
+            rematchAvailable: message.rematchAvailable ?? true,
             game: { ...state.game, phase: 'complete', turn: null },
           }
         : null;

@@ -95,3 +95,36 @@ it('keeps voice master volume separate, composes peer volume and preserves block
   links.clear();
   client.leave();
 });
+
+it('waits for the server rate window before reconnecting a throttled media socket', async () => {
+  vi.useFakeTimers();
+  setup(vi.fn());
+  const sockets: MockMediaSocket[] = [];
+  class MockMediaSocket {
+    onclose?: (event: CloseEvent) => void;
+    constructor() {
+      sockets.push(this);
+    }
+    close() {}
+  }
+  vi.stubGlobal('WebSocket', MockMediaSocket);
+  const client = new VoiceClient('room', 'listener', {
+    hostId: 'host',
+    capture: () => null,
+  });
+  try {
+    await client.join();
+    sockets[0]!.onclose?.({
+      code: 1008,
+      reason: 'Voice rate limited',
+    } as CloseEvent);
+    expect(client.store.getState().status).toBe('reconnecting');
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(sockets).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(sockets).toHaveLength(2);
+  } finally {
+    client.leave();
+    vi.useRealTimers();
+  }
+});

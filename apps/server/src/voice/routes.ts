@@ -49,9 +49,14 @@ export function registerVoice(
       if (sending === (room.hostId === target.actorId)) return false;
       if (payload.kind !== 'description') return true;
       // Music is one-way. Reject reverse or bidirectional media before relay.
-      const directions = payload.description.sdp.match(
-        /^a=(sendonly|recvonly|sendrecv|inactive)\r?$/gm,
-      );
+      const sdp = payload.description.sdp;
+      const mediaStart = sdp.search(/^m=audio /m);
+      if (mediaStart < 0) return false;
+      const pattern = /^a=(sendonly|recvonly|sendrecv|inactive)\r?$/gm;
+      // A media-level direction overrides a session-level default.
+      const directions =
+        sdp.slice(mediaStart).match(pattern) ??
+        sdp.slice(0, mediaStart).match(pattern);
       return (
         directions?.length === 1 &&
         directions[0]!.trim() === (sending ? 'a=sendonly' : 'a=recvonly')

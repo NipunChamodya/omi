@@ -16,15 +16,18 @@ mkdirSync(join(root, '.remote-testing'), { recursive: true, mode: 0o700 });
 const runtime = mkdtempSync(join(root, '.remote-testing/browser-'));
 for (const dir of ['body', 'proxy']) mkdirSync(join(runtime, dir));
 const config = join(runtime, 'nginx.conf');
+const proxyPort = Number(process.env.OMI_TEST_PROXY_PORT ?? '8082');
+const backendPort = Number(process.env.OMI_TEST_BACKEND_PORT ?? '3100');
+const origin = `http://127.0.0.1:${proxyPort}`;
 writeFileSync(
   config,
   renderConfig({
     runtime,
-    staticRoot: join(root, 'apps/web/dist'),
+    staticRoot: process.env.OMI_TEST_STATIC_ROOT ?? join(root, 'apps/web/dist'),
     mimeTypes: join(prefix, 'etc/nginx/mime.types'),
-    proxyPort: 8082,
-    backendPort: 3100,
-    publicOrigin: 'http://127.0.0.1:8082',
+    proxyPort,
+    backendPort,
+    publicOrigin: origin,
     local: true,
   }),
 );
@@ -47,7 +50,8 @@ function startBackend() {
       cwd: root,
       env: {
         ...process.env,
-        OMI_TEST_ORIGIN: 'http://127.0.0.1:8082',
+        OMI_TEST_ORIGIN: origin,
+        OMI_TEST_BACKEND_PORT: String(backendPort),
         ...(restartDir && {
           OMI_TEST_DATABASE: join(restartDir, 'fixture.db'),
         }),

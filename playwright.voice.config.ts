@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 import { syntheticAudioPath } from './infra/tests/audio-source.mjs';
 export default defineConfig({
   ...config,
-  testMatch: '**/voice.check.ts',
+  testMatch: ['**/voice.check.ts', '**/music-codec.check.ts'],
   outputDir: './.remote-testing/voice-results',
   workers: 1,
   projects: [

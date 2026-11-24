@@ -368,3 +368,98 @@
   left: 50%;
   translate: -50% 0;
 }
+
+/* Decorative entrance. Play, settings and restoration stay available. */
+.opening-cards {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.opening-cards__deck {
+  position: absolute;
+  inset: 50% auto auto 50%;
+}
+.opening-cards__deck span {
+  --orbit: 0deg;
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: clamp(40px, 12vw, 68px);
+  aspect-ratio: 5 / 7;
+  border: 2px solid #d4a151;
+  border-radius: 12%;
+  background: white;
+  color: #24485d;
+  box-shadow: 0 4px 10px #24485d55;
+  font: 800 clamp(17px, 5vw, 28px) var(--font-display, sans-serif);
+  animation: opening-card-flight 5s both;
+}
+.opening-cards__deck span:nth-child(2) {
+  --orbit: 90deg;
+  color: #b82848;
+}
+.opening-cards__deck span:nth-child(3) {
+  --orbit: 180deg;
+}
+.opening-cards__deck span:nth-child(4) {
+  --orbit: 270deg;
+  color: #b82848;
+}
+.opening-cards .opening-cards__skip {
+  position: absolute;
+  inset: 8px 8px auto auto;
+  pointer-events: auto;
+  z-index: 4;
+}
+.opening-hero .island-stage__title img {
+  animation: opening-logo-glow 5s both;
+}
+@keyframes opening-card-flight {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 100%) scale(0.7);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  30%,
+  58% {
+    transform: translate(-50%, -50%) rotate(var(--orbit)) translateY(-78%)
+      rotate(calc(-1 * var(--orbit) + 15deg));
+  }
+  76%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -180%) scale(0.35);
+  }
+}
+@keyframes opening-logo-glow {
+  0%,
+  56%,
+  100% {
+    filter: none;
+  }
+  76% {
+    filter: drop-shadow(0 0 16px #ffd044);
+  }
+}
+.data-saver .opening-cards {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .opening-cards {
+    display: none;
+  }
+}
+
+.island-stage__music {
+  position: absolute;
+  inset: 8px auto auto 8px;
+  inline-size: 44px;
+  z-index: 4;
+}
+.island-stage__music[aria-pressed='true'] {
+  outline: 2px solid #ffd044;
+  outline-offset: 2px;
+}

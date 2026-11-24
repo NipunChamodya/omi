@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { themes } from './registry';
 import { themeStore } from './store';
-import { CardBack, CardFace, cardName } from '../components/Cards';
+import { CardBack, CardFace, useCardName } from '../components/Cards';
 import type { Card } from '@omi/shared';
 const preview: readonly Card[] = [
   { rank: 'A', suit: 'spades' },
@@ -13,6 +13,7 @@ const preview: readonly Card[] = [
 ];
 export function ThemeControls() {
   const text = useCopy();
+  const cardName = useCardName();
   const state = useStore(themeStore);
   useEffect(() => {
     void themeStore.getState().choose(themeStore.getState().selected);

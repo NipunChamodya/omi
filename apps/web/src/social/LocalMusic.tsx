@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { useMediaCopy } from '../i18n/mediaCopy';
 import { VoiceClient } from '../voice/client';
+import { canSelectLocalMusic, fitsLocalMusicBudget } from './localMusicFile';
 
 type Capture = {
   buffer: AudioBuffer | null;
@@ -112,11 +113,7 @@ export default function LocalMusic({
       ]);
       if (capture.current !== current) return;
       // Bound decoded memory as well as the source file size.
-      if (
-        !buffer.duration ||
-        buffer.duration > 20 * 60 ||
-        buffer.length * buffer.numberOfChannels > 30_000_000
-      )
+      if (!fitsLocalMusicBudget(buffer))
         throw new Error('Unsupported audio length');
       current.buffer = buffer;
       setDuration(buffer.duration);
@@ -198,13 +195,7 @@ export default function LocalMusic({
                 disabled={sharing}
                 onChange={(event) => {
                   const selected = event.target.files?.[0];
-                  const valid =
-                    selected &&
-                    selected.size > 0 &&
-                    selected.size <= 25 * 1024 * 1024 &&
-                    /\.(mp3|aac|m4a|wav)$/i.test(selected.name) &&
-                    (!selected.type ||
-                      /^(audio\/|video\/mp4$)/.test(selected.type));
+                  const valid = selected && canSelectLocalMusic(selected);
                   setFile(valid ? selected : null);
                   setConsent(false);
                   setError(selected && !valid ? 'invalid' : null);

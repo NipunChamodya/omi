@@ -14,6 +14,7 @@ import type { Snapshot } from '@omi/shared';
 import GameTable from '../components/GameTable';
 import { GameClient } from '../game/client';
 import { HOLD_MS } from './InteractiveCard';
+import { useLocale } from '../i18n/locale';
 import { gameAudio } from '../audio/gameAudio';
 const card = { rank: 'A', suit: 'hearts' } as const;
 const fixture = (): Snapshot => ({
@@ -110,6 +111,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  useLocale.getState().change('en');
   client.stop();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -231,6 +233,15 @@ it('allows keyboard selection/play and prevents out-of-turn drops', () => {
   up();
   expect(send).toHaveBeenCalledTimes(1);
 });
+it('announces the rank and suit in Sinhala while retaining keyboard play', () => {
+  act(() => useLocale.getState().change('si'));
+  const ace = screen.getByRole('button', { name: 'හාරත A තෝරන්න' });
+  fireEvent.click(ace);
+  expect(ace).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.keyDown(ace, { key: 'Enter' });
+  expect(send).toHaveBeenCalledWith({ type: 'play', payload: { card } });
+});
+
 it('animates only an accepted public play and clears motion on a restored snapshot', () => {
   const snapshot = fixture();
   const event = {

@@ -10,6 +10,7 @@ process.env.AWS_SECRET_ACCESS_KEY = 'fixture-secret';
 const testOrigin = process.env.OMI_TEST_ORIGIN ?? 'http://127.0.0.1:5173';
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(testOrigin))
   throw new Error('Fixture origin must stay on loopback HTTP');
+const backendPort = Number(process.env.OMI_TEST_BACKEND_PORT ?? '3100');
 const callback = `${testOrigin}/api/auth/google/callback`;
 let seed = 1;
 const seededMatch = process.env.OMI_TEST_SEEDED_MATCH === '1';
@@ -24,7 +25,7 @@ const app = buildApp({
     VOICE_TURN_URLS: process.env.OMI_TEST_TURN_URLS,
     VOICE_TURN_SECRET: process.env.OMI_TEST_TURN_SECRET,
     VOICE_ICE_POLICY: process.env.OMI_TEST_ICE_POLICY,
-    PORT: '3100',
+    PORT: String(backendPort),
     APP_ORIGIN: testOrigin,
     TRUST_LOCAL_PROXY: 'true',
     DATABASE_PATH: process.env.OMI_TEST_DATABASE ?? ':memory:',
@@ -54,4 +55,4 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
       await storage.app.close();
     })();
   });
-await app.listen({ host: '127.0.0.1', port: 3100 });
+await app.listen({ host: '127.0.0.1', port: backendPort });

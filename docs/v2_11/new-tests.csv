@@ -1,0 +1,7 @@
+id,category,scenario,test_file,expected,result,evidence
+V211-UI-01,responsive,"Ten viewport lobby with a long player name and all seats filled",apps/web/e2e/adventure.check.ts,"Single-line name, balanced 2x2 seats, enabled Start in view, phone document fits",PASS,Chromium and Firefox
+V211-UI-02,startup,"Skip the first intro and reload in the same tab",apps/web/e2e/adventure.check.ts,"Four cards appear, skip dismisses them, intro stays dismissed after reload",PASS,Chromium and Firefox
+V211-A11Y-01,accessibility,"Cold launch with reduced motion",apps/web/e2e/adventure.check.ts,"Play is visible without a timed intro",PASS,Chromium and Firefox
+V211-AUDIO-01,audio,"Opt in and opt out of menu soundtrack",apps/web/e2e/adventure.check.ts,"No track requested before gesture, user can start and stop, game effect setting retained",PASS,Chromium and Firefox
+V211-PERF-01,performance,"Cold launch with Data Saver enabled",apps/web/e2e/adventure.check.ts,"Play is visible without a timed intro",PASS,Chromium and Firefox
+V211-I18N-01,localization,"Switch the playable hand to Sinhala and use the keyboard",apps/web/src/interactions/interactions.test.tsx,"Rank and suit announced in Sinhala and the same identity submitted once",PASS,Vitest

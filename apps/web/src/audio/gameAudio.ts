@@ -7,6 +7,8 @@ import shuffle from './assets/shuffle.mp3?url&no-inline';
 import gather from './assets/gather.mp3?url&no-inline';
 import tone from './assets/tone.mp3?url&no-inline';
 import result from './assets/result.mp3?url&no-inline';
+import openingTheme from './assets/opening-theme.mp3?url&no-inline';
+import menuTheme from './assets/menu-theme.mp3?url&no-inline';
 
 const cues = {
   select: [paper, 'cards', 0.45, 1],
@@ -52,6 +54,42 @@ export class GameAudio {
   private controller = new AbortController();
   private unsubscribe: (() => void) | null = null;
   private visible = true;
+
+  private menuMusic: HTMLAudioElement | null = null;
+
+  async startMenuMusic(withOpening: boolean): Promise<boolean> {
+    this.stopMenuMusic();
+    const audio = new Audio(withOpening ? openingTheme : menuTheme);
+    audio.volume = 0.4;
+    audio.loop = !withOpening;
+    this.menuMusic = audio;
+    if (withOpening) {
+      audio.onended = () => {
+        if (this.menuMusic !== audio) return;
+        audio.onended = null;
+        audio.src = menuTheme;
+        audio.loop = true;
+        void audio.play().catch(() => undefined);
+      };
+    }
+    try {
+      await audio.play();
+      return this.menuMusic === audio;
+    } catch {
+      if (this.menuMusic === audio) this.stopMenuMusic();
+      return false;
+    }
+  }
+
+  stopMenuMusic() {
+    const audio = this.menuMusic;
+    if (!audio) return;
+    this.menuMusic = null;
+    audio.onended = null;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  }
 
   async unlock() {
     if (!useSoundPreferences.getState().enabled) return;
@@ -190,6 +228,7 @@ export class GameAudio {
     this.playing.clear();
   }
   dispose() {
+    this.stopMenuMusic();
     this.silence();
     this.controller.abort();
     this.unsubscribe?.();

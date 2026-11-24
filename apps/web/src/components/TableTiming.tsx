@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PublicTrick, Snapshot, TurnClock } from '@omi/shared';
 import { useCopy } from '../i18n/locale';
-import { CardFace, cardName, suits } from './Cards';
+import { CardFace, useCardName, suits } from './Cards';
 
 export const revealSeconds = [2, 3, 5] as const;
 export function readRevealSeconds(): 2 | 3 | 5 {
@@ -66,6 +66,7 @@ export function TrickReplay({
   onClose: () => void;
 }) {
   const text = useCopy();
+  const cardName = useCardName();
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current;

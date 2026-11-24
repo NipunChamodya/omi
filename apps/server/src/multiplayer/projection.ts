@@ -67,6 +67,10 @@ export function publicScore(ledger: ScoreLedger): Score {
   };
 }
 /** Explicit whitelist. Never spread a private engine object or ledger onto the wire. */
+export function canRematch(room: Room): boolean {
+  return !!room.ledger.final && !room.members.some((member) => member.departed);
+}
+
 export function snapshot(
   room: Room,
   member: RoomMember,
@@ -79,8 +83,7 @@ export function snapshot(
     ...(turnClock && { turnClock }),
     ranked: room.ranked ?? false,
     rematchVotes: room.rematchVotes ?? [],
-    rematchAvailable:
-      !!room.ledger.final && !room.members.some((item) => item.departed),
+    rematchAvailable: canRematch(room),
     capabilities: { nextRound: nextRoundConfigured },
     type: 'snapshot',
     roomId: room.id,

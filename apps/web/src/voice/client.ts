@@ -200,7 +200,9 @@ export class VoiceClient {
       socket.onclose = (event) => {
         if (this.socket !== socket || epoch !== this.epoch) return;
         this.clean();
-        if (event.code === 1008 || event.code === 4001)
+        if (event.code === 1008 && event.reason === 'Voice rate limited')
+          this.recover(10_250);
+        else if (event.code === 1008 || event.code === 4001)
           this.fail(
             'Voice ended or moved to another connection. Join again to retry.',
           );
@@ -508,6 +510,8 @@ export class VoiceClient {
       for (const candidate of link.candidates.splice(0))
         await pc.addIceCandidate(candidate);
       if (description.type === 'offer') {
+        if (this.music && this.actorId !== this.music.hostId)
+          for (const slot of pc.getTransceivers()) slot.direction = 'recvonly';
         await pc.setLocalDescription();
         if (pc.localDescription?.sdp)
           this.signal(link, {
@@ -679,7 +683,7 @@ export class VoiceClient {
     this.context = null;
     this.store.setState({ speaking: false, playbackBlocked: false });
   }
-  private recover() {
+  private recover(minimumDelay = 0) {
     if (!this.wanted || !this.online) return;
     if (this.retries >= 4) {
       this.fail('Voice could not reconnect. Join again to retry.');
@@ -690,7 +694,7 @@ export class VoiceClient {
       () => {
         void this.open();
       },
-      500 * 2 ** this.retries++,
+      Math.max(minimumDelay, 500 * 2 ** this.retries++),
     );
   }
   private fail(message: string) {

@@ -1,5 +1,5 @@
 import { TropicalCourt } from './TropicalCourt';
-import { useCopy } from '../i18n/locale';
+import { useCopy, useLocale } from '../i18n/locale';
 import { useDataSaver } from '../pwa/preferences';
 import { useStore } from 'zustand';
 import { themeStore } from '../themes/store';
@@ -16,6 +16,13 @@ export const suits: Record<
   clubs: { symbol: '♣', label: 'Clubs', sinhala: 'කලාබර' },
 };
 export const cardName = (card: Card) => `${card.rank} of ${card.suit}`;
+export function useCardName() {
+  const language = useLocale((state) => state.language);
+  return (card: Card) =>
+    language === 'si'
+      ? `${suits[card.suit].sinhala} ${card.rank}`
+      : cardName(card);
+}
 const pipRows: Partial<Record<Card['rank'], readonly (readonly number[])[]>> = {
   '7': [[10, 34, 58], [22], [10, 34, 58]],
   '8': [

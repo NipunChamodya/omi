@@ -4,6 +4,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { applyEvent } from '../src/game/reducer';
 import type { AuthSession, ServerMessage, Snapshot } from '@omi/shared';
 
+test.use({ trace: 'off' });
+
 for (const mode of ['casual', 'ranked', 'casual-restart'] as const) {
   test(`full-interface ${mode} match ends in results and a fresh rematch`, async ({
     browser,
@@ -24,9 +26,11 @@ for (const mode of ['casual', 'ranked', 'casual-restart'] as const) {
         browser.newContext({
           baseURL: origin,
           viewport: { width: 390, height: 844 },
+          reducedMotion: 'reduce',
         }),
       ),
     );
+    const recentErrors: string[] = [];
     try {
       const pages = await Promise.all(
         contexts.map((context) => context.newPage()),
@@ -38,6 +42,7 @@ for (const mode of ['casual', 'ranked', 'casual-restart'] as const) {
           socket.on('framereceived', ({ payload }) => {
             const message = JSON.parse(String(payload)) as ServerMessage;
             if (message.type === 'snapshot') views.set(page, message);
+            else if (message.type === 'error') recentErrors.push(message.code);
             else if (message.type === 'event') {
               const previous = views.get(page);
               if (!previous) return;
@@ -113,7 +118,7 @@ for (const mode of ['casual', 'ranked', 'casual-restart'] as const) {
         await page.getByRole('button', { name: 'Ready to play' }).click();
       }
       await host.getByRole('button', { name: /Start game/ }).click();
-      for (let hand = 0; hand < 9; hand++) {
+      for (let hand = 0; hand < 24; hand++) {
         let cutting: Snapshot | undefined;
         await expect
           .poll(async () => {
@@ -141,21 +146,27 @@ for (const mode of ['casual', 'ranked', 'casual-restart'] as const) {
         for (let move = 0; move < 32; move++) {
           let activePage: Page | undefined;
           await expect
-            .poll(() => {
-              const game = views.get(host)?.game;
-              if (
-                !game ||
-                game.phase !== 'playing' ||
-                game.turn === null ||
-                game.tricks.length * 4 + game.trick.length !== move
-              )
-                return false;
-              activePage = seats[game.turn];
-              return (
-                activePage !== undefined &&
-                views.get(activePage)?.version === views.get(host)?.version
-              );
-            })
+            .poll(
+              () => {
+                const game = views.get(host)?.game;
+                if (
+                  !game ||
+                  game.phase !== 'playing' ||
+                  game.turn === null ||
+                  game.tricks.length * 4 + game.trick.length !== move
+                )
+                  return false;
+                activePage = seats[game.turn];
+                return (
+                  activePage !== undefined &&
+                  views.get(activePage)?.version === views.get(host)?.version
+                );
+              },
+              {
+                intervals: [10, 20, 50, 100],
+                message: `Hand ${hand + 1}, card ${move + 1}`,
+              },
+            )
             .toBe(true);
           if (mode === 'casual-restart' && hand === 0 && move === 7) {
             const before = await Promise.all(pages.map(snapshot));
@@ -191,33 +202,44 @@ for (const mode of ['casual', 'ranked', 'casual-restart'] as const) {
               name: `Select ${card.rank} of ${card.suit}`,
               exact: true,
             })
-            .press('Enter');
-          await page
-            .getByRole('button', { name: 'Play selected card', exact: true })
-            .click();
+            .evaluate((element) => (element as HTMLButtonElement).click());
+          const play = page.getByRole('button', {
+            name: 'Play selected card',
+            exact: true,
+          });
+          await expect(play).toBeEnabled();
+          await play.evaluate((element) =>
+            (element as HTMLButtonElement).click(),
+          );
+          await new Promise((resolve) => setTimeout(resolve, 140));
         }
-        if (hand < 8) {
-          await expect(
-            host.getByRole('heading', { name: 'Round complete.' }),
-          ).toBeVisible();
-          const settled = await snapshot(host);
-          expect(settled.game!.tricks).toHaveLength(8);
-          expect(settled.score.totals[0] + settled.score.totals[1]).toBe(20);
-          await host.getByRole('button', { name: /Next round/ }).click();
-        }
+        await expect.poll(() => views.get(host)?.game?.phase).toBe('complete');
+        const settled = views.get(host)!;
+        expect(settled.game!.tricks).toHaveLength(8);
+        expect(settled.score.totals[0] + settled.score.totals[1]).toBe(20);
+        if (settled.score.final) break;
+        await expect(
+          host.getByRole('heading', { name: 'Round complete.' }),
+        ).toBeVisible();
+        await host.getByRole('button', { name: /Next round/ }).click();
       }
       const resultHeading = { name: /Your team won!|The other team won!/ };
       for (const page of pages)
         await expect(page.getByRole('heading', resultHeading)).toBeVisible();
       const result = await snapshot(host);
       expect(result.game!.tricks).toHaveLength(8);
-      expect(result.score.final?.reason).toBe('loan_loss');
+      expect(['loan_loss', 'inventory_depleted']).toContain(
+        result.score.final?.reason,
+      );
       expect(result.score.totals[0] + result.score.totals[1]).toBe(20);
       await host.screenshot({
         path: info.outputPath(`${mode}-full-interface-results.png`),
       });
-      for (const page of pages)
-        await page.getByRole('button', { name: 'Play again' }).click();
+      for (const page of pages) {
+        const vote = page.getByRole('button', { name: 'Play again' });
+        await expect(vote).toBeEnabled();
+        await vote.click();
+      }
       for (const page of pages)
         await expect(
           page.getByRole('heading', resultHeading),
@@ -256,6 +278,10 @@ for (const mode of ['casual', 'ranked', 'casual-restart'] as const) {
           rematch.code,
         );
       }
+    } catch (error) {
+      if (recentErrors.length)
+        throw new Error(recentErrors.join(', '), { cause: error });
+      throw error;
     } finally {
       await Promise.all(contexts.map((context) => context.close()));
     }

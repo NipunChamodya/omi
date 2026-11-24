@@ -51,10 +51,10 @@
 .app-shell .adventure-lobby {
   max-width: 740px;
   margin-top: 12px;
-  padding: clamp(12px, 4vw, 26px);
+  padding: clamp(8px, 3vw, 16px);
 }
 .lobby-scene {
-  height: clamp(82px, 23vw, 164px);
+  height: clamp(82px, 13vh, 110px);
   margin-bottom: 12px;
   overflow: hidden;
   border: 2px solid #cb9349;
@@ -74,7 +74,7 @@
     .waiting-note,
     .eyebrow,
     .invite-link,
-    .seat-copy > span
+    .seat-details
   ) {
   color: var(--adventure-ink);
 }
@@ -89,9 +89,16 @@
     inset 0 2px #fff5c8,
     0 3px #d2a86d;
 }
-.adventure-lobby .invite-link {
+.adventure-lobby .invite-box {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto auto;
+}
+.adventure-lobby .invite-box .game-button {
   min-height: var(--adventure-touch);
-  margin: 8px 0;
+  margin: 0;
+}
+.adventure-lobby .lobby-seats {
+  margin-top: 10px;
 }
 .adventure-lobby .lobby-seat {
   background: #fff9e8;
@@ -99,8 +106,10 @@
   box-shadow:
     inset 0 1px white,
     0 3px #dec59a;
-  padding: 10px;
-  gap: 7px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 8px;
+  gap: 3px 8px;
 }
 .adventure-lobby .lobby-seat.empty {
   background: #f4e6c8;
@@ -114,9 +123,6 @@
 .adventure-lobby .avatar.vacant {
   background: #fff9e8;
   color: #835026;
-}
-.adventure-lobby .seat-copy strong {
-  font-size: 0.88rem;
 }
 .adventure-lobby :is(.ready-label, .host-tag, .you-tag) {
   width: fit-content;
@@ -346,6 +352,42 @@
   }
 }
 
+.adventure-lobby .seat-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.88rem;
+}
+.adventure-lobby :is(.seat-details, .ready-label) {
+  grid-column: 1 / -1;
+}
+.adventure-lobby .seat-details {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  font-size: 0.72rem;
+}
+.adventure-lobby .seat-details :is(.host-tag, .you-tag) {
+  margin: 0;
+}
+.adventure-lobby .ready-label {
+  justify-self: start;
+  color: var(--adventure-ink);
+}
+.adventure-lobby .ready-label.is-ready {
+  color: #225628;
+}
+.adventure-lobby .lobby-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+.adventure-lobby .lobby-actions > .game-button {
+  min-width: 0;
+  min-height: var(--adventure-touch);
+}
+
 .app-shell:has(.adventure-lobby) {
   color: var(--adventure-ink);
   background: radial-gradient(ellipse at 50% 0, #a6e9f6, #e3f4da 72%);
@@ -366,12 +408,153 @@
 .app-shell:has(.adventure-lobby) .room-code strong {
   color: var(--adventure-ink);
 }
-@media (max-width: 370px) {
-  .adventure-lobby .lobby-seat.empty {
-    align-content: start;
+.app-shell:has(.adventure-lobby) .app-footer {
+  display: none;
+}
+
+@media (max-width: 700px), (max-height: 800px) {
+  .app-shell:has(.adventure-lobby) :is(.app-header, .room-main) {
+    padding-block: 6px;
   }
-  .adventure-lobby .lobby-seat.empty .seat-copy {
-    flex-basis: 100%;
+  .app-shell:has(.adventure-lobby) .room-main {
+    padding-bottom: max(3px, env(safe-area-inset-bottom));
+  }
+  .app-shell .adventure-lobby {
+    margin-block: 4px;
+    padding: 8px;
+  }
+  .app-shell:has(.adventure-lobby) .room-toolbar {
+    margin-bottom: 3px;
+  }
+  .app-shell:has(.adventure-lobby) .room-toolbar > .text-button {
+    color: var(--adventure-cream);
+    min-height: var(--adventure-touch);
+    padding: 4px 8px;
+  }
+  .adventure-lobby .lobby-heading {
+    position: relative;
+    isolation: isolate;
+    padding: 3px 4px;
+  }
+  .adventure-lobby .lobby-scene {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    height: auto;
+    margin: 0;
+  }
+  .adventure-lobby .lobby-heading > :is(.eyebrow, .subtitle, .quiet-note) {
+    width: fit-content;
+    margin: 2px auto;
+    padding: 0 5px;
+    border-radius: 5px;
+    background: var(--adventure-cream);
+  }
+  .adventure-lobby .lobby-heading .game-ribbon {
+    padding: 4px 8px;
+  }
+  .adventure-lobby .lobby-seats {
+    margin-top: 6px;
+    gap: 6px;
+  }
+  .adventure-lobby .lobby-seat {
+    padding: 5px;
+    gap: 2px 5px;
+  }
+  .adventure-lobby h1 {
+    margin: 4px 0;
+    font-size: clamp(1rem, 5vw, 1.65rem);
+  }
+  .adventure-lobby :is(.subtitle, .quiet-note) {
+    margin: 4px 0;
+    line-height: 1.4;
+  }
+  .adventure-lobby .invite-box {
+    gap: 4px;
+    padding: 5px;
+  }
+  .adventure-lobby .invite-box strong {
+    font-size: clamp(0.85rem, 5vw, 1.4rem);
+    letter-spacing: 0.08em;
+  }
+  .adventure-lobby :is(.invite-box, .lobby-actions) .game-button {
+    padding: 5px 6px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+  .adventure-lobby .lobby-seat .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-shell .adventure-lobby {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-rows: repeat(4, auto);
+    align-items: start;
+    column-gap: 10px;
+  }
+  .adventure-lobby .lobby-heading {
+    grid-area: 1 / 1;
+  }
+  .adventure-lobby .invite-box {
+    grid-area: 2 / 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .adventure-lobby .invite-box > div {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .adventure-lobby .invite-box strong {
+    margin-block: 0;
+    font-size: 0.85rem;
+  }
+  .adventure-lobby .lobby-heading .game-ribbon {
+    font-size: clamp(0.88rem, 3vw, 1.2rem);
+    margin-bottom: 5px;
+  }
+  .adventure-lobby > .quiet-note {
+    grid-area: 4 / 1;
+    font-size: 0.68rem;
+  }
+  .adventure-lobby .lobby-seats {
+    grid-area: 1 / 2 / span 4;
+    margin-top: 0;
+  }
+  .adventure-lobby .lobby-actions {
+    grid-area: 3 / 1;
+    margin-top: 4px;
+  }
+  .app-shell:has(.adventure-lobby) .app-header {
+    position: absolute;
+    inset-block-start: max(6px, env(safe-area-inset-top));
+    inset-inline-end: max(12px, env(safe-area-inset-right));
+    width: 41%;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .app-shell:has(.adventure-lobby) .app-header .brand {
+    font-size: 1rem;
+    gap: 5px;
+  }
+  .app-shell:has(.adventure-lobby) .room-toolbar {
+    justify-content: start;
+    gap: 5px;
+    margin-inline-end: 42%;
+  }
+  .app-shell:has(.adventure-lobby) .room-toolbar .room-code {
+    display: none;
+  }
+  .adventure-lobby .lobby-seat {
+    padding: 4px;
   }
 }
 
@@ -420,4 +603,36 @@
 }
 .local-file-music button:disabled {
   opacity: 0.6;
+}
+
+.app-shell .table-utilities[open] .voice-note {
+  color: var(--adventure-ink);
+}
+.app-shell .table-utilities[open] .chat-history {
+  background: #f1e7cb;
+  color: var(--adventure-ink);
+}
+
+.local-file-music input[type='file']::file-selector-button {
+  min-height: 44px;
+  margin-inline-end: 8px;
+  padding-inline: 8px;
+  border: 1px solid #67869a;
+  border-radius: 9px;
+  color: #24485d;
+  background: linear-gradient(#e1f7ff, #a4dfee);
+}
+
+.app-shell .table-utilities[open] {
+  scroll-padding-top: 66px;
+}
+.app-shell .table-utilities[open] .settings-heading {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  padding-block: 4px 9px;
+  background: var(--adventure-cream);
+}
+.app-shell .table-utilities[open] .social-panel .text-button {
+  color: var(--adventure-ink);
 }

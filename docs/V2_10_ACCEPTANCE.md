@@ -11,8 +11,8 @@
 | Approved design rules | The referenced upload was unavailable through the repository and connected search. No substitute file was created. |
 | Accessibility and responsive widths | Targeted browser checks. Full WCAG 2.2 AA and physical-device acceptance remain open. |
 | English, Sinhala and Tamil | Targeted corrections. Complete review and Tamil coverage remain open. |
-| Required end-to-end scenarios | Four authenticated Chromium clients completed nine casual hands, saw the match result, and started a rematch. Dedicated SQLite recovery tests passed. Chromium and Firefox now cover abrupt SQLite-backed restart, browser reload and completion of a casual round. A four-human restart through final match results remains open. |
-| Automated inventory | [374 distinct passing cases](V2_10_TEST_INVENTORY.csv) across 310 Vitest, 15 infrastructure, and 49 Playwright scenarios. The 1,200-case gate remains open. |
+| Required end-to-end scenarios | Four authenticated Chromium clients completed nine casual hands, saw the match result, and started a rematch. Dedicated SQLite recovery tests passed. Chromium and Firefox now cover abrupt SQLite-backed restart, browser reload and completion of a casual round. A full four-human Chromium journey now also restarts the SQLite-backed backend mid-hand, verifies every private hand, finishes the match, and enters a rematch. |
+| Automated inventory | [395 distinct passing cases](V2_10_TEST_INVENTORY.csv) across 326 Vitest, 15 infrastructure, and 54 Playwright scenarios. The 1,200-case gate remains open. |
 | Production and safety | No production changes or resource provisioning. Existing policy gates retained. |
 
 ## Final acceptance matrix
@@ -83,11 +83,11 @@ The local Chromium fixture passed synchronized bundled music, four-peer voice wi
 | ID | Requirement | Implementation and evidence | Remaining gate |
 | --- | --- | --- | --- |
 | ENTRY-01 | Startup splash and failed-service retry | App shows the mascot during the real session request. Browser test delays a real request, returns 503, and exercises Retry. | Separate offline PWA and physical launch acceptance. |
-| RECOVERY-01 | Consistent game reconnect and seat ownership | Game client aborts obsolete reads, bounds socket retries and waits for an authenticated socket snapshot before enabling actions. Terminal session loss clears the private view and saved seat. Separate browser interruption and unit stale/replacement checks. | Full four-human restart-to-match-results journey. |
-| RECOVERY-02 | Abrupt process recovery | Dedicated loopback fixture with a private SQLite database and an isolated child process. The test restores the table and local hand, reloads the browser and completes the round through real browser controls. | Broader restart cases and end-of-match multi-player settlement. |
+| RECOVERY-01 | Consistent game reconnect and seat ownership | Game client aborts obsolete reads, bounds socket retries and waits for an authenticated socket snapshot before enabling actions. Terminal session loss clears the private view and saved seat. Separate browser interruption and unit stale/replacement checks. | See the completed local Chromium journey in RECOVERY-03. |
+| RECOVERY-02 | Abrupt process recovery | Dedicated loopback fixture with a private SQLite database and an isolated child process. The test restores the table and local hand, reloads the browser and completes the round through real browser controls. | See RECOVERY-03 for full settlement after a four-human restart. |
 | VISUAL-01 | Cartoon active table and startup | Brighter patterned felt, layered wooden border, avatar and active-seat accents, tropical startup background. Inspected selected browser captures. | All screens, dynamic states, required widths and full accessibility. |
 | AUDIO-01 | Four-way voice and hold-to-talk | Existing authorized mesh. Synthetic microphone RTP delivery, bundled music and a real card play, reconnect and logout. Hold-to-talk changes the actual outgoing track and releases on lost focus or visibility. | Live devices and TURN. Microphone selection and full accessible media redesign remain open. |
-| AUDIO-02 | Local-file music and independent mix | Bundled music remains available under the current permissions. | Local-file broadcast is unimplemented. A separate authorized media track and broadcaster lifecycle are required. Combined local music, voice and gameplay remains open. |
+| AUDIO-02 | Local-file music and independent mix | Bundled playback remains available. The authorized local-file lane now has Chromium evidence in AUDIO-02 and AUDIO-03. | Live devices, valid AAC/M4A and the remaining browser matrix. |
 | LANG-01 | English, Sinhala and Tamil | Initial startup, connection and hold-to-talk labels added in English and Sinhala. | Complete language audit, Tamil, long strings and physical shaping. |
 | COVERAGE-01 | 1,200 independently useful passing cases | Cumulative results in the [test inventory](V2_10_TEST_INVENTORY.csv), deduplicated across browsers and reruns. | Case-count and coverage-category minima remain open. |
 
@@ -101,3 +101,36 @@ OMI_TEST_RESTART_DIR="$(mktemp -d)" npx playwright test -c playwright.recovery.c
 Use a fresh directory for each run. The restart marker is only consumed by the loopback fixture runner. The backend child process is disposable and the fixture's SQLite database is isolated. The game server's production entry point does not expose a restart route.
 
 The first Firefox restart run read card DOM immediately after the socket status changed, while the lazy table was still loading. The first rerun still used the ungated assertion. After correcting the assertion to wait for eight rendered cards, Firefox passed. The test uses one human and three bots and settles a round. Four-human full-match recovery remains a separate acceptance gate.
+
+## Local music continuation
+
+The host explicitly selects a file and confirms permission. The browser decodes audio locally and sends a one-way WebRTC audio track. The existing microphone connection and bundled player remain independent. The music lane requires the same logged-in game connection, room membership and communication policy checks as voice. Only the current host can send local-file media and track metadata. The server never receives source file bytes.
+
+| Requirement | Status | Evidence or remaining gate |
+| --- | --- | --- |
+| AUDIO-02 local-file delivery | PASSED on local Chromium and Firefox | Authorized WAV selected in one client. Three other clients independently sample non-silent PCM from a separate remote music track. Host pause, resume and stop, listener mute, metadata, listener and broadcaster network recovery, and broadcaster departure exercised. |
+| AUDIO-03 local music, microphone and gameplay together | PASSED on local Chromium and Firefox | Four synthetic microphones with three inbound voice peers each, separate local-file tracks, one real card play and media teardown. Live microphones, physical devices and TURN are externally unverified. |
+| AUDIO-04 codec/device matrix | UNVERIFIED | Browser decoding is used. Four-session delivery uses WAV. Chromium and Firefox both opened MP3 sharing without a microphone and rejected unreadable AAC before signaling. Valid AAC/M4A and physical mobile playback remain unverified. |
+| SEC-MEDIA-01 host and scope authorization | PASSED locally | Defensive server cases verify one-way host-to-listener signaling and host-only metadata. Protected Play, guest policy and ranked exclusions continue through the existing authorization gate. |
+| GAME-REAL-01 full casual and ranked matches through browser controls | PASSED on local Chromium | Four separate sessions complete each seeded match, conserve the score and vote into a fresh rematch. The casual case also releases the seat and creates a different table. The test reads each session’s own inbound authorized game frames and invokes the real card and Play controls. |
+| RECOVERY-03 four-human restart through match results | PASSED on local Chromium | Four signed-in clients recover an isolated SQLite-backed match after abrupt backend termination during the first hand. The test compares seats, each private hand, partial and complete tricks, and the score, then completes the full game and rematch through the UI. |
+| LANG-01 full three-language coverage | UNVERIFIED | Added Sinhala media and table copy. Complete translation and reviewed Tamil are pending. |
+| VISUAL-01 full redesign and access | UNVERIFIED | The new media panel was inspected in the browser. The separate cartoon reference and `docs/UI_UX_DESIGN_RULES.md` are missing. Full visual and WCAG acceptance remain open. |
+| COVERAGE-01 1,200 unique cases | FAILED | The executed inventory remains below the release threshold. |
+| EXTERNAL-01 physical devices, live identity/TURN and Azure | EXTERNALLY BLOCKED | No access to the device or owner provider environments in this run. |
+
+### Reproduce the media and full-interface checks
+
+```sh
+npm run build
+npx playwright test -c playwright.voice.config.ts --project=chromium
+OMI_TEST_SEEDED_MATCH=1 npx playwright test -c playwright.seeded.config.ts --project=chromium --grep 'full-interface casual match'
+OMI_TEST_SEEDED_MATCH=1 npx playwright test -c playwright.seeded.config.ts --project=chromium --grep 'full-interface ranked match'
+OMI_TEST_SEEDED_MATCH=1 OMI_TEST_RESTART_DIR="$(mktemp -d)" npx playwright test -c playwright.seeded.config.ts --project=chromium --grep 'full-interface casual-restart match'
+```
+
+Run seeded tests in separate fixture processes to reset the game seed. The Chromium media test uses generated audio and does not require a live provider.
+
+The first full-interface attempts hit HTTP read limits. Passive observation of the game frames removed the excess reads. A paced casual run then reached results, where it reproduced a missing Play again action on live settlement. The server now sends the same authoritative rematch policy on terminal events as it does in snapshots. The corrected casual and ranked runs passed without a results-page reload. Historical failed attempts remain recorded here and in their Playwright logs.
+
+The first Firefox combined attempts exposed a media-level SDP compatibility issue and a voice signaling throttle after repeated reconnects. The server now evaluates media-level direction before the SDP session default. The client respects the existing throttle with a bounded cooldown before retrying. The final Firefox run passed the combined journey.

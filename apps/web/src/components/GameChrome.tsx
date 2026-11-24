@@ -1,16 +1,37 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { useCopy } from '../i18n/locale';
 
+const buttonTones = {
+  primary: 'green',
+  secondary: 'blue',
+  warning: 'gold',
+  danger: 'red',
+  neutral: 'neutral',
+} as const;
+
+type GameButtonProps = ComponentProps<'button'> & {
+  tone?: (typeof buttonTones)[keyof typeof buttonTones];
+  variant?: keyof typeof buttonTones;
+  size?: 'small' | 'medium' | 'large' | 'responsive';
+  loading?: boolean;
+};
+
 export function GameButton({
   tone = 'blue',
+  variant,
+  size,
+  loading = false,
+  disabled,
   className = '',
   children,
   ...props
-}: ComponentProps<'button'> & { tone?: 'blue' | 'green' | 'gold' | 'red' }) {
+}: GameButtonProps) {
   return (
     <button
       {...props}
-      className={`button game-button game-button--${tone} ${className}`}
+      disabled={disabled || loading}
+      aria-busy={loading || props['aria-busy']}
+      className={`button game-button game-button--${variant ? buttonTones[variant] : tone} ${size ? `game-button-size--${size}` : ''} ${className}`}
     >
       {children}
     </button>

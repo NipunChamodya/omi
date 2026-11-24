@@ -924,6 +924,21 @@ it.each(['casual', 'ranked'] as const)(
           await act(host, { type: 'next-round', payload: {} });
         } else {
           expect(ended.score.final?.reason).toBe('loan_loss');
+          for (const player of people) {
+            const updates = vi
+              .mocked(player.socket.send)
+              .mock.calls.map(([wire]) => JSON.parse(String(wire)));
+            expect(
+              updates.reverse().find((message) => message.type === 'event'),
+            ).toMatchObject({
+              rematchAvailable: true,
+              version: ended.version,
+              event: {
+                kind: 'card-played',
+                score: { final: { reason: 'loan_loss' } },
+              },
+            });
+          }
         }
       }
       expect(played).toBe(288);

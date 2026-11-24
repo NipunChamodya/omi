@@ -10,6 +10,7 @@ import {
 import './table-adventure.css';
 import { useCopy } from '../i18n/locale';
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useStore } from 'zustand';
 import { InteractiveCard } from '../interactions/InteractiveCard';
 import { TableMotion } from '../interactions/TableMotion';
@@ -17,18 +18,27 @@ import { gameAudio } from '../audio/gameAudio';
 import type { Card, Member, Seat, Snapshot } from '@omi/shared';
 import type { GameClient } from '../game/client';
 import { avatarSource } from '../auth/api';
-import { Avatar, CardBack, CardFace, cardName, suits } from './Cards';
+import { Avatar, CardBack, CardFace, useCardName, suits } from './Cards';
 const cardKey = (card: Card) => `${card.suit}:${card.rank}`;
 const relative = (seat: Seat, local: Seat) => (seat - local + 4) % 4;
 const positions = ['bottom', 'right', 'top', 'left'] as const;
+function fanPosition(index: number, total: number): CSSProperties {
+  const center = (total - 1) / 2;
+  const position = (index - center) / Math.max(center, 3);
+  return {
+    '--fan-angle': `${position * 10}deg`,
+    '--fan-rise': `${position ** 2 * 7 - 2}px`,
+  } as CSSProperties;
+}
 function ReconnectCountdown({ deadline }: { deadline: number }) {
+  const text = useCopy();
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(timer);
   }, []);
   return (
-    <span title="Reconnection time remaining">
+    <span title={text('Reconnection time remaining')}>
       {Math.max(0, Math.ceil((deadline - now) / 1_000))}s
     </span>
   );
@@ -123,6 +133,7 @@ export default function GameTable({
   const submitted = useRef(false);
   const presentation = useStore(client.store, (state) => state.presentation);
   const text = useCopy();
+  const cardName = useCardName();
   const live =
     enabled && presentation?.roomId === snapshot.roomId ? presentation : null;
   useEffect(() => {
@@ -154,7 +165,7 @@ export default function GameTable({
   const cutter = ((game.dealer + 3) % 4) as Seat;
   const name = (seat: Seat | null) =>
     snapshot.members.find((member) => member.seat === seat)?.displayName ??
-    'Your friend';
+    text('Player');
   const lastTrick = game.tricks.at(-1);
   const [revealFor, setRevealFor] = useState(readRevealSeconds);
   const [replay, setReplay] = useState<{
@@ -270,7 +281,11 @@ export default function GameTable({
               className={`thrown-card ${visibleReveal?.winner === play.seat ? 'winning-play' : ''} thrown-${positions[relative(play.seat, snapshot.you.seat)]} ${live?.event.kind === 'card-played' && cardKey(live.event.card) === cardKey(play.card) ? 'animate-play' : ''}`}
               key={`${game.id}-${cardKey(play.card)}`}
               role="img"
-              aria-label={`${name(play.seat)} played ${cardName(play.card)}`}
+              aria-label={text('{player} played {card}').replace(
+                /\{player\}|\{card\}/g,
+                (key) =>
+                  key === '{card}' ? cardName(play.card) : name(play.seat),
+              )}
             >
               <CardFace card={play.card} />
             </div>
@@ -289,7 +304,9 @@ export default function GameTable({
         <TableMotion message={live} />
         {dragging && (
           <span className="drop-caption" role="status">
-            {playable ? 'Release in the center to play' : 'Wait for your turn'}
+            {text(
+              playable ? 'Release in the center to play' : 'Wait for your turn',
+            )}
           </span>
         )}
       </section>
@@ -444,8 +461,12 @@ export default function GameTable({
               </span>
             </div>
             <div className={`hand-grid hand-fan hand-${game.hand.length}`}>
-              {game.hand.map((card) => (
-                <div className="fan-slot" key={cardKey(card)}>
+              {game.hand.map((card, index) => (
+                <div
+                  className="fan-slot"
+                  key={cardKey(card)}
+                  style={fanPosition(index, game.hand.length)}
+                >
                   <InteractiveCard
                     card={card}
                     selected={selected === cardKey(card)}
@@ -693,7 +714,13 @@ export default function GameTable({
                     play.seat % 2 !== snapshot.you.team && (
                       <button
                         className="text-button"
-                        aria-label={`Report ${cardName(play.card)} played by ${name(play.seat)}`}
+                        aria-label={text(
+                          'Report {card} played by {player}',
+                        ).replace(/\{player\}|\{card\}/g, (key) =>
+                          key === '{card}'
+                            ? cardName(play.card)
+                            : name(play.seat),
+                        )}
                         disabled={!enabled || pending}
                         onClick={() =>
                           client.act({
@@ -702,7 +729,7 @@ export default function GameTable({
                           })
                         }
                       >
-                        Report play
+                        {text('Report play')}
                       </button>
                     )}
                 </div>
