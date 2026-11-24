@@ -11,8 +11,13 @@ const testOrigin = process.env.OMI_TEST_ORIGIN ?? 'http://127.0.0.1:5173';
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(testOrigin))
   throw new Error('Fixture origin must stay on loopback HTTP');
 const callback = `${testOrigin}/api/auth/google/callback`;
+let seed = 1;
+const seededMatch = process.env.OMI_TEST_SEEDED_MATCH === '1';
+const entropy = (limit: number) =>
+  ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) >>> 8) % limit;
 const app = buildApp({
   logger: false,
+  ...(seededMatch && { multiplayer: { entropy } }),
   config: parseConfig({
     NODE_ENV: 'test',
     CASUAL_TURN_SECONDS: process.env.OMI_TEST_CASUAL_TURN_SECONDS,

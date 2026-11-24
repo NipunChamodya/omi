@@ -38,7 +38,10 @@ async function post<T>(
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
-      const body: unknown = await response.json();
+      const body: unknown = await response.json().catch((error: unknown) => {
+        if (response.ok) throw error;
+        return null;
+      });
       if (!response.ok)
         throw new ApiError(
           typeof body === 'object' &&
@@ -46,7 +49,9 @@ async function post<T>(
             'code' in body &&
             typeof body.code === 'string'
             ? body.code
-            : 'REQUEST_FAILED',
+            : response.status >= 500
+              ? 'SERVICE_UNAVAILABLE'
+              : 'REQUEST_FAILED',
         );
       return body as T;
     } catch (error) {
@@ -62,7 +67,11 @@ export const api = {
   release: (roomId: string, csrf?: string, signal?: AbortSignal) =>
     post<{ ok: true }>('/rooms/release', { roomId }, signal, csrf),
   session: (displayName: string, signal?: AbortSignal) =>
-    post<GuestIdentity>('/transport/session', { displayName }, signal),
+    post<GuestIdentity & { room?: RoomDescriptor | null }>(
+      '/transport/session',
+      { displayName },
+      signal,
+    ),
   create: (actorId: string, actionId: string, signal?: AbortSignal) =>
     post<RoomDescriptor>(
       '/rooms',

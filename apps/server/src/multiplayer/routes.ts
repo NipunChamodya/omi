@@ -223,6 +223,7 @@ export async function registerMultiplayer(
     );
     api.post('/transport/session', async (request, reply) => {
       const body = parse(guestSchema, request.body);
+      rooms.sweep();
       const account = options.accounts.get(
         request.cookies[sessionCookie(options.secureCookies)],
       );
@@ -231,6 +232,7 @@ export async function registerMultiplayer(
           actorId: account.identity.actorId,
           displayName: account.profile.displayName,
           expiresAt: account.identity.expiresAt,
+          room: rooms.forActor(account.identity.actorId, true),
         };
       if (!options.allowGuests) throw new RoomError('LOGIN_REQUIRED', 401);
       const existing = sessions.get(request.cookies[cookieName]);
@@ -249,6 +251,7 @@ export async function registerMultiplayer(
         actorId: identity.actorId,
         displayName: identity.displayName,
         expiresAt: identity.expiresAt,
+        room: rooms.forActor(identity.actorId, true),
       };
     });
     api.post('/rooms', async (request, reply) => {
@@ -267,8 +270,13 @@ export async function registerMultiplayer(
     // retain mandatory Origin validation without weakening the existing routes.
     api.post('/rooms/preview', async (request) => {
       const identity = identityFor(request);
-      const body = parse(z.strictObject({ code: codeSchema }), request.body);
-      return rooms.preview(identity, body.code);
+      const body = parse(
+        z.strictObject({ code: z.string().max(32) }),
+        request.body,
+      );
+      const code = codeSchema.safeParse(body.code);
+      if (!code.success) throw new RoomError('INVALID_ROOM_CODE', 400);
+      return rooms.preview(identity, code.data);
     });
     api.post('/rooms/snapshot', async (request) => {
       const identity = identityFor(request);

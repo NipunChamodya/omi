@@ -1,3 +1,4 @@
+import '../components/adventure-surfaces.css';
 import { useCopy } from '../i18n/locale';
 import { ModerationPanel } from './ModerationPanel';
 import { useEffect, useRef, useState } from 'react';

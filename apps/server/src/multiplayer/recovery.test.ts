@@ -780,3 +780,172 @@ it.each([false, true])(
     }
   },
 );
+
+it('rejects a pending join after the host closes the lobby instead of resurrecting it', async () => {
+  const repository = new SqliteAccounts(':memory:');
+  const rooms = new RoomService(
+    () => 1,
+    () => true,
+    DEFAULT_LIMITS,
+    undefined,
+    repository.matchStorage,
+  );
+  const host = {
+    actorId: randomUUID(),
+    displayName: 'Host',
+    expiresAt: 1_000,
+    tokenHash: 'host',
+  };
+  const guest = { ...host, actorId: randomUUID(), tokenHash: 'guest' };
+  try {
+    const lobby = rooms.create(host, {
+      actorId: host.actorId,
+      expectedVersion: 0,
+      actionId: randomUUID(),
+    });
+    const release = rooms.releaseSeat(host, lobby.roomId);
+    const late = rooms.join(guest, {
+      actorId: guest.actorId,
+      roomId: lobby.roomId,
+      code: lobby.code,
+      expectedVersion: 0,
+      actionId: randomUUID(),
+    });
+    await expect(late).rejects.toMatchObject({ code: 'ROOM_EXPIRED' });
+    await release;
+    expect(rooms.forActor(guest.actorId)).toBeNull();
+    expect(repository.matchStorage.loadActive(2)).toEqual([]);
+  } finally {
+    rooms.stop();
+    repository.close();
+  }
+});
+
+it.each(['casual', 'ranked'] as const)(
+  'plays a complete seeded %s match through real room commands and starts a rematch',
+  async (mode) => {
+    const repository = new SqliteAccounts(':memory:');
+    let rng = 1;
+    const entropy = (limit: number) =>
+      ((rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0) >>> 8) % limit;
+    const rooms = new RoomService(
+      () => 100,
+      () => true,
+      DEFAULT_LIMITS,
+      entropy,
+      repository.matchStorage,
+    );
+    const people = Array.from({ length: 4 }, (_, seat) => {
+      const actorId = randomUUID();
+      return peer({
+        actorId,
+        userId: actorId,
+        displayName: `Player ${seat}`,
+        expiresAt: 10_000,
+        tokenHash: actorId,
+      });
+    });
+    try {
+      const host = people[0]!;
+      const initial =
+        mode === 'ranked'
+          ? rooms.match(people.map(({ identity }) => identity))
+          : rooms.create(host.identity, {
+              actorId: host.identity.actorId,
+              actionId: randomUUID(),
+              expectedVersion: 0,
+            });
+      const { roomId } = initial;
+      if (mode === 'casual')
+        for (const player of people.slice(1)) {
+          const { version } = rooms.preview(player.identity, initial.code);
+          await rooms.join(player.identity, {
+            roomId,
+            code: initial.code,
+            actorId: player.identity.actorId,
+            actionId: randomUUID(),
+            expectedVersion: version,
+          });
+        }
+      for (const player of people) await rooms.attach(roomId, player);
+      async function act(
+        player: Peer,
+        action: Pick<import('@omi/shared').ClientCommand, 'type' | 'payload'>,
+      ) {
+        const snapshot = await rooms.getSnapshot(roomId, player.identity);
+        const actionId = randomUUID();
+        await rooms.command(roomId, player, {
+          ...action,
+          roomId,
+          expectedVersion: snapshot.version,
+          actionId,
+          actorId: player.identity.actorId,
+        } as import('@omi/shared').ClientCommand);
+        const message = JSON.parse(
+          String(vi.mocked(player.socket.send).mock.lastCall?.[0]),
+        );
+        expect(message).toMatchObject({ actionId, type: 'ack' });
+      }
+      for (const player of people)
+        await act(player, { type: 'ready', payload: { ready: true } });
+      await act(host, { type: 'start', payload: {} });
+      let played = 0;
+      for (let hand = 0; hand < 9; hand++) {
+        const before = await rooms.getSnapshot(roomId, host.identity);
+        const cutter = people[leftOf(before.game!.dealer)]!;
+        await act(cutter, { type: 'cut', payload: { offset: 16 } });
+        const selector = people[before.game!.selector]!;
+        const deal = await rooms.getSnapshot(roomId, selector.identity);
+        await act(selector, {
+          type: 'trump',
+          payload: { suit: deal.game!.hand[0]!.suit },
+        });
+        for (let play = 0; play < 32; play++) {
+          const table = await rooms.getSnapshot(roomId, host.identity);
+          const player = people[table.game!.turn!]!;
+          const personal = await rooms.getSnapshot(roomId, player.identity);
+          const legal =
+            personal.game!.hand.find(
+              (card) => card.suit === personal.game!.trick[0]?.card.suit,
+            ) ?? personal.game!.hand[0]!;
+          await act(player, { type: 'play', payload: { card: legal } });
+          played++;
+        }
+        const ended = await rooms.getSnapshot(roomId, host.identity);
+        expect(ended.game?.tricks).toHaveLength(8);
+        expect(ended.score.totals[0] + ended.score.totals[1]).toBe(20);
+        expect(
+          ended.members.every(
+            (member) => !member.bot && member.seat % 2 === member.team,
+          ),
+        ).toBe(true);
+        if (hand < 8) {
+          expect(ended.score.final).toBeNull();
+          await act(host, { type: 'next-round', payload: {} });
+        } else {
+          expect(ended.score.final?.reason).toBe('loan_loss');
+        }
+      }
+      expect(played).toBe(288);
+      const finished =
+        rooms.authorize(roomId, host.identity).room.matchId ?? roomId;
+      expect(
+        repository.matchStorage.statistics(host.identity.actorId).played,
+      ).toBe(1);
+      for (const player of people)
+        await act(player, { type: 'rematch', payload: {} });
+      const rematch = await rooms.getSnapshot(roomId, host.identity);
+      expect(rematch.score.totals).toEqual([10, 10]);
+      expect(rematch.score.final).toBeNull();
+      expect(rooms.authorize(roomId, host.identity).room.matchId).not.toBe(
+        finished,
+      );
+      expect(
+        repository.matchStorage.statistics(host.identity.actorId).played,
+      ).toBe(1);
+    } finally {
+      rooms.stop();
+      repository.close();
+    }
+  },
+);

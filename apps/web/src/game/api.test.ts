@@ -61,3 +61,14 @@ it('aborts navigation-cancelled requests without retrying', async () => {
   await rejected;
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
+
+it('reports a proxy outage distinctly when the response is not JSON', async () => {
+  const fetcher = vi
+    .fn()
+    .mockResolvedValue(new Response('<h1>Bad Gateway</h1>', { status: 502 }));
+  vi.stubGlobal('fetch', fetcher);
+  await expect(api.preview('ABCD2345')).rejects.toMatchObject({
+    code: 'SERVICE_UNAVAILABLE',
+  });
+  expect(fetcher).toHaveBeenCalledOnce();
+});

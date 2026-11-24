@@ -110,7 +110,9 @@ test('iPhone install guide shows the Safari Share steps', async ({
   }
 });
 
-for (const width of [320, 360, 375, 390, 430, 768, 1280]) {
+for (const width of [
+  320, 360, 375, 390, 414, 430, 768, 1024, 1280, 1440, 1920,
+]) {
   test(`Tropical Adventure artwork and controls fit ${width}px`, async ({
     page,
   }, info) => {
@@ -287,5 +289,30 @@ test('fresh Play Online shows illustrated and actionable modes at mobile and des
       path: info.outputPath(`modes-${width}.png`),
       fullPage: true,
     });
+  }
+});
+
+test('a signed-in tab reconciles an active lobby created in a second tab', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Continue with Google' }).click();
+  await expect(page.getByRole('button', { name: 'My profile' })).toBeVisible();
+  const other = await context.newPage();
+  try {
+    await other.goto('/');
+    await other.getByRole('button', { name: /Create a table/ }).click();
+    const code = await other.locator('.invite-box strong').innerText();
+    await page.getByRole('button', { name: /Create a table/ }).click();
+    const recovery = page.getByRole('region', { name: 'Your seat is saved.' });
+    await expect(recovery.getByText(code, { exact: true })).toBeVisible();
+    await expect(
+      recovery.getByRole('button', { name: 'Resume table' }),
+    ).toBeEnabled();
+    await expect(page.locator('.lobby')).toHaveCount(0);
+    expect(await other.locator('.invite-box strong').innerText()).toBe(code);
+  } finally {
+    await other.close();
   }
 });

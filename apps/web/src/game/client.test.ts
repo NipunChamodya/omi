@@ -256,3 +256,73 @@ it('does not create a navigation loop when Back is pressed at Home', () => {
   expect(window.location.href).toBe(before);
   expect(client.store.getState().view).toBe('home');
 });
+
+it('clears a stale saved seat from an authoritative empty transport session before create', async () => {
+  const prior = {
+    roomId: state().roomId,
+    code: 'ZZZZZZZZ',
+    displayName: 'Nipun',
+    seatStatus: 'completed' as const,
+  };
+  client.store.setState({ saved: prior });
+  vi.mocked(api.session).mockResolvedValueOnce({
+    actorId: state().you.actorId,
+    displayName: 'Nipun',
+    expiresAt: Date.now() + 100_000,
+    room: null,
+  });
+  const release = vi.spyOn(api, 'release');
+  await client.enter('Nipun');
+  expect(release).not.toHaveBeenCalled();
+  expect(api.create).toHaveBeenCalledOnce();
+  expect(client.store.getState().saved?.code).toBe('ABCD2345');
+});
+
+it('shows a server-owned active seat from another tab without creating or resuming it', async () => {
+  vi.mocked(api.session).mockResolvedValueOnce({
+    actorId: state().you.actorId,
+    displayName: 'Nipun',
+    expiresAt: Date.now() + 100_000,
+    room: {
+      roomId: state().roomId,
+      code: 'ABCD2345',
+      version: 7,
+      memberCount: 4,
+      invitePath: '/',
+      seatStatus: 'casual',
+    },
+  });
+  await client.enter('Nipun');
+  expect(api.create).not.toHaveBeenCalled();
+  expect(MockSocket.instances).toHaveLength(0);
+  expect(client.store.getState().saved).toMatchObject({
+    code: 'ABCD2345',
+    seatStatus: 'casual',
+  });
+  expect(client.store.getState().error).toEqual({ code: 'ALREADY_IN_ROOM' });
+});
+
+it('recovers a newer seat from the server without silently resuming it from an old link', async () => {
+  const roomId = '33333333-3333-4333-8333-333333333333';
+  client.store.setState({
+    saved: { roomId: state().roomId, code: 'ABCD2345', displayName: 'Nipun' },
+  });
+  vi.mocked(api.session).mockResolvedValueOnce({
+    actorId: state().you.actorId,
+    displayName: 'Nipun',
+    expiresAt: Date.now() + 100_000,
+    room: {
+      roomId,
+      code: 'BCDEFGHJ',
+      version: 4,
+      memberCount: 2,
+      invitePath: '/?room=BCDEFGHJ',
+      seatStatus: 'lobby',
+    },
+  });
+  await client.resume();
+  expect(api.snapshot).not.toHaveBeenCalled();
+  expect(client.store.getState().saved?.roomId).toBe(roomId);
+  expect(client.store.getState().view).toBe('home');
+  expect(client.store.getState().error).toEqual({ code: 'SEAT_CHANGED' });
+});

@@ -1,0 +1,64 @@
+/* Shared Tropical Adventure panel surfaces. The table grid stays in its own stylesheet. */
+html body :is(.profile-dialog, .table-utilities[data-modal]) {
+  color: #24485d;
+  background: #fff2d0;
+  border: 3px solid #d6a65c;
+  border-radius: 22px;
+  box-shadow:
+    inset 0 0 0 2px #fff9e6,
+    0 6px #925932,
+    0 18px 36px #132b3566;
+  overflow-wrap: anywhere;
+  padding: clamp(12px, 3vw, 23px);
+}
+html
+  body
+  :is(.profile-dialog, .table-utilities[data-modal])
+  :is(h2, h3, label, .quiet-note, .eyebrow):not(:is(.voice-panel, .social-panel) *) {
+  color: #24485d;
+}
+:is(.profile-dialog, .table-utilities[data-modal]) details > summary {
+  padding: 0.65rem;
+  border-radius: 12px;
+  background: #24485d;
+  color: #fff2d0;
+  cursor: pointer;
+}
+:is(.profile-dialog, .table-utilities[data-modal])
+  :is(
+    .entry-form,
+    .profile-current,
+    .photo-editor,
+    .friend-list,
+    .voice-panel,
+    .social-panel,
+    .pwa-controls,
+    .theme-controls,
+    .sound-settings
+  ) {
+  border-radius: 14px;
+  border-color: #bd8e5d;
+}
+:is(.profile-dialog, .table-utilities[data-modal])
+  :is(.entry-form input:not([type='file']), select, textarea) {
+  min-height: 42px;
+  max-width: 100%;
+  color: #24485d;
+  background: #fffdf7;
+  border: 1px solid #976e4e;
+  border-radius: 10px;
+}
+html
+  body
+  :is(.profile-dialog, .table-utilities[data-modal])
+  :is(.button.secondary, .secondary-button) {
+  background: linear-gradient(#d8f6ff, #8ed8eb);
+  color: #24485d;
+  border-color: #528aa3;
+  box-shadow: 0 3px #528aa3;
+}
+:is(.profile-dialog, .table-utilities[data-modal])
+  :is(button, summary, input, select, textarea):focus-visible {
+  outline: 3px solid #74408e;
+  outline-offset: 3px;
+}

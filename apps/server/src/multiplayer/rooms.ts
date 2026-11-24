@@ -203,7 +203,14 @@ export class RoomService {
   }
   forActor(actorId: string, withStatus = false): RoomDescriptor | null {
     const room = this.rooms.get(this.memberships.get(actorId) ?? '');
-    if (!room) return null;
+    if (
+      !room?.members.some(
+        (member) => member.actorId === actorId && !member.departed,
+      )
+    ) {
+      this.memberships.delete(actorId);
+      return null;
+    }
     const descriptor = this.descriptor(room);
     if (!withStatus) return descriptor;
     return {
@@ -403,8 +410,7 @@ export class RoomService {
     if (prior) return prior;
     this.httpBudget(identity);
     this.sweep();
-    if (this.memberships.has(identity.actorId))
-      throw new RoomError('ALREADY_IN_ROOM');
+    if (this.forActor(identity.actorId)) throw new RoomError('ALREADY_IN_ROOM');
     if (this.rooms.size >= this.limits.maxRooms)
       throw new RoomError('ROOM_CAPACITY', 503);
     let code: string;
@@ -492,6 +498,7 @@ export class RoomService {
   }
   preview(identity: Identity, code: string): RoomDescriptor {
     this.checkIdentity(identity, identity.actorId);
+    this.sweep();
     const room = this.rooms.get(this.codes.get(code) ?? '');
     if (!room) throw new RoomError('ROOM_NOT_FOUND', 404);
     return this.descriptor(room);
@@ -673,15 +680,17 @@ export class RoomService {
       .digest('hex');
     return room.queue.run(() => {
       this.checkIdentity(identity, request.actorId);
+      if (this.rooms.get(request.roomId) !== room)
+        throw new RoomError('ROOM_EXPIRED', 410);
       const prior = this.previousHttp(identity, request.actionId, fingerprint);
       if (prior) return prior;
       this.httpBudget(identity);
-      if (this.memberships.has(identity.actorId))
+      if (this.forActor(identity.actorId))
         throw new RoomError('ALREADY_IN_ROOM');
       if (request.expectedVersion !== room.version)
         throw new RoomError('VERSION_CONFLICT', 409, room.version);
-      if (room.members.length === 4 || room.round)
-        throw new RoomError('ROOM_FULL');
+      if (room.round) throw new RoomError('ROOM_CLOSED', 409);
+      if (room.members.length === 4) throw new RoomError('ROOM_FULL');
       const draft = {
         ...room,
         members: room.members.map((item) => ({ ...item })),

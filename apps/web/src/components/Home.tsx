@@ -1,3 +1,4 @@
+import './adventure-surfaces.css';
 import { useCopy } from '../i18n/locale';
 import { SponsorPlacement } from './SponsorPlacement';
 import { lazy, Suspense, useState } from 'react';

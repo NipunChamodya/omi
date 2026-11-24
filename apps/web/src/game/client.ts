@@ -97,10 +97,22 @@ export function friendlyError(code: string, type?: string): string {
       return 'The table changed. Please try again.';
     case 'INVALID_GAME_ACTION':
       return 'That move could not be played. Your hand has been refreshed.';
+    case 'INVALID_ROOM_CODE':
+      return 'Enter the eight-character code from your table host.';
+    case 'ROOM_CLOSED':
+      return 'This table has already started and cannot take new players.';
     case 'ROOM_FULL':
       return 'This table already has four players.';
-    case 'ROOM_NOT_FOUND':
+    case 'SEAT_CHANGED':
+      return 'Your saved table changed. Choose Resume to open the table shown here.';
     case 'ROOM_EXPIRED':
+      return 'This table closed while you were joining. Ask for a new code.';
+    case 'INTERNAL_ERROR':
+    case 'SERVICE_UNAVAILABLE':
+      return 'The game server is temporarily unavailable. Try again shortly.';
+    case 'NETWORK':
+      return 'Could not connect. Check your internet connection and try again.';
+    case 'ROOM_NOT_FOUND':
       return 'This table has closed or the code is incorrect.';
     case 'ALREADY_IN_ROOM':
       return 'You already have a seat at a table. Return to that table to continue.';
@@ -390,6 +402,30 @@ export class GameClient {
       if (this.epoch === epoch) this.store.setState({ busy: false });
     }
   };
+  private reconcileSeat(
+    identity: GuestIdentity & { room?: RoomDescriptor | null },
+  ) {
+    const { identity: current, saved } = this.store.getState();
+    this.store.setState({ identity });
+    if (identity.room === undefined) {
+      if (current && current.actorId !== identity.actorId) this.save(null);
+      return;
+    }
+    const room = identity.room;
+    if (!room || saved?.roomId !== room.roomId)
+      this.store.setState({ snapshot: null });
+    this.save(
+      room
+        ? {
+            roomId: room.roomId,
+            code: room.code,
+            displayName: identity.displayName,
+            seatStatus: room.seatStatus,
+            memberCount: room.memberCount,
+          }
+        : null,
+    );
+  }
   enter = async (displayName: string, code?: string, csrf?: string) => {
     if (this.store.getState().busy) return;
     const epoch = ++this.epoch;
@@ -400,12 +436,16 @@ export class GameClient {
     this.store.setState({ busy: true, error: null });
     try {
       const identity = await api.session(displayName.trim(), signal);
+      if (this.stopped || epoch !== this.epoch) return;
+      this.reconcileSeat(identity);
       const saved = this.store.getState().saved;
       if (saved?.seatStatus === 'completed') {
         await api.release(saved.roomId, csrf, signal);
         if (this.stopped || epoch !== this.epoch) return;
         this.save(null);
       }
+      if (identity.room && identity.room.seatStatus !== 'completed')
+        throw new ApiError('ALREADY_IN_ROOM');
       let room;
       if (code !== undefined) {
         for (let attempt = 0; ; attempt++) {
@@ -447,6 +487,21 @@ export class GameClient {
       this.retries = 0;
       this.openSocket(room.roomId);
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === 'ALREADY_IN_ROOM' &&
+        !this.stopped &&
+        epoch === this.epoch &&
+        !this.store.getState().saved
+      ) {
+        try {
+          const identity = await api.session(displayName.trim(), signal);
+          if (!this.stopped && epoch === this.epoch)
+            this.reconcileSeat(identity);
+        } catch {
+          /* A failed lookup cannot authorize a second seat. */
+        }
+      }
       if (!this.stopped && epoch === this.epoch)
         this.store.setState({
           busy: false,
@@ -484,6 +539,22 @@ export class GameClient {
         saved.displayName,
         this.controller.signal,
       );
+      if (this.stopped || epoch !== this.epoch) return;
+      if (
+        identity.room !== undefined &&
+        identity.room?.roomId !== saved.roomId
+      ) {
+        this.reconcileSeat(identity);
+        this.store.setState({
+          view: 'home',
+          busy: false,
+          connection: 'idle',
+          snapshot: null,
+          error: { code: identity.room ? 'SEAT_CHANGED' : 'ROOM_EXPIRED' },
+        });
+        this.rememberView('home', true);
+        return;
+      }
       const snapshot = await api.snapshot(saved.roomId, this.controller.signal);
       if (this.stopped || epoch !== this.epoch) return;
       this.store.setState({ identity, snapshot, busy: false });

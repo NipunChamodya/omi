@@ -2,6 +2,14 @@
 
 This document records the current implementation. Stages A–J and earlier audits describe their original baselines.
 
+## V2.10 (incomplete)
+
+- Create and Join reconcile against the authenticated server seat before acting. An old room link cannot silently open a newer seat. The server verifies queued joins against live room identity so a join queued behind lobby removal cannot revive that lobby. Closed, full, invalid, seat-conflict and temporary service errors have separate handling.
+- Profile, tutorial, and settings surfaces share Tropical Adventure treatments. Chromium and Firefox exercised home layouts from 320 through 1920 CSS pixels. A 320px board, desktop opening screen and mobile avatar editor were visually inspected. Complete screen coverage and reviewed English, Sinhala and Tamil remain open.
+- 325 distinct cases passed across 287 Vitest, 15 infrastructure and 23 Playwright cases. The focused defensive suite passed 118 of the Vitest cases. Four authenticated Chromium clients completed a nine-hand casual match and started a fresh rematch. Chromium and Firefox verified ranked assignment. A full ranked match passed at the service layer. Full ranked browser gameplay and a browser journey spanning server restart remain open.
+- The SQLite loopback run exercised eight rooms, 32 clients, 320 actions and eight reconnects. Action latency p50/p95/p99 was 2.25/5.92/8.85 ms. Peak combined RSS was 168.3 MiB. These results describe the local environment.
+- See the [acceptance checklist](V2_10_ACCEPTANCE.md) and [executed test inventory](V2_10_TEST_INVENTORY.csv). The design-rules upload was unavailable. Physical-device acceptance and the 1,200-case requirement remain open.
+
 ## V2.9 (incomplete)
 
 - Previous-table management now supports permanent casual departure. The server transfers ownership to a remaining human, keeps a permanent bot in the vacated seat, and prevents old tabs and retries from reclaiming it. Finished records are preserved when the table is removed. Ranked forfeits keep the existing policy.
