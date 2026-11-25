@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="64" viewBox="0 0 256 64">
+ <defs>
+  <linearGradient id="light" x2="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".36"/><stop offset="1" stop-color="#242848" stop-opacity=".18"/></linearGradient>
+  <g id="island"><path d="M0 36q8-22 18-17Q7 21 8 44m46-15q-4-15-17-12 14 8 15 26M0 56q17-9 32 0t32-3" fill="none" stroke="#fff6aa" opacity=".32" stroke-width="2"/></g>
+  <g id="eyes"><path d="M25 34h2m10 0h2m-11 7q4 4 8 0" fill="none" stroke="#462437" stroke-width="2" stroke-linecap="round"/></g>
+ </defs>
+ <g>
+  <rect width="64" height="64" fill="#37a48b"/><rect width="64" height="64" fill="url(#light)"/><use href="#island"/>
+  <path d="M8 64q2-17 24-17t24 17" fill="#f0ad40" stroke="#605434" stroke-width="2"/>
+  <path d="M19 30q0-17 13-17t13 17v8q-2 13-13 13T19 38z" fill="#bd7951" stroke="#603f39" stroke-width="2"/>
+  <path d="M17 30q-9-12 1-16 3-7 14-5 12-2 16 9l-4 15-4-12q-8 8-23 9" fill="#263340"/><use href="#eyes"/>
+  <path d="M16 55l7 9m24-9-7 9" stroke="#fff1ac" stroke-width="3"/>
+ </g>
+ <g transform="translate(64)">
+  <rect width="64" height="64" fill="#6963a6"/><rect width="64" height="64" fill="url(#light)"/><use href="#island"/>
+  <path d="M13 48q2-14 2-25Q18 9 32 9q16 0 17 15l3 26z" fill="#342838"/>
+  <path d="M8 64q2-17 24-17t24 17" fill="#f08f7d" stroke="#713b56" stroke-width="2"/>
+  <path d="M20 29q1-15 12-15t12 15v8q-1 14-12 14T20 37z" fill="#efac78" stroke="#774750" stroke-width="2"/>
+  <path d="M17 29q3-18 15-17t15 16q-10-1-15-9-4 9-15 10" fill="#342838"/><use href="#eyes"/>
+  <path d="M48 20q7-8 9 0 0 7-8 5-6 2-8-4 0-7 7-1" fill="#fff2a8"/><circle cx="48" cy="22" r="2" fill="#e39340"/>
+ </g>
+ <g transform="translate(128)">
+  <rect width="64" height="64" fill="#d59453"/><rect width="64" height="64" fill="url(#light)"/><use href="#island"/>
+  <path d="M8 64q2-17 24-17t24 17" fill="#247a88" stroke="#41465b" stroke-width="2"/>
+  <path d="M19 28q1-14 13-14t13 14v8q-2 15-13 15T19 36z" fill="#9c5e44" stroke="#583841" stroke-width="2"/><use href="#eyes"/>
+  <path d="M13 27l8-13q10-9 22 1l8 12q-18-5-38 0" fill="#70c478" stroke="#3f654a" stroke-width="2"/><path d="M13 26q18-5 38 0l2 4q-19-4-42 0z" fill="#d8e18c"/>
+  <path d="M20 55l7 9m17-9-7 9" stroke="#63d3c2" stroke-width="3"/>
+ </g>
+ <g transform="translate(192)">
+  <rect width="64" height="64" fill="#508bb4"/><rect width="64" height="64" fill="url(#light)"/><use href="#island"/>
+  <path d="M8 64q2-17 24-17t24 17" fill="#9969a3" stroke="#573c66" stroke-width="2"/>
+  <path d="M18 28q1-15 14-15t14 15v9q-2 14-14 14T18 37z" fill="#d99061" stroke="#73454b" stroke-width="2"/>
+  <path d="M17 33q-8-9 1-17 2-7 11-4 6-7 14-1 9 1 7 12l-5 10-4-12-6 5-6-5-8 8z" fill="#4a2c40"/><use href="#eyes"/>
+  <path d="M15 54l8 10m26-10-8 10" stroke="#eebede" stroke-width="3"/>
+ </g>
+</svg>

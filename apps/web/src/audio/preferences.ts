@@ -9,6 +9,8 @@ export type SoundPreferences = {
   ambience: boolean;
   voice: number;
   motionMs: number;
+  introVolume: number;
+  menuVolume: number;
 };
 export const soundDefaults: SoundPreferences = {
   enabled: true,
@@ -19,6 +21,8 @@ export const soundDefaults: SoundPreferences = {
   ambience: false,
   voice: 0.8,
   motionMs: 900,
+  introVolume: 0.4,
+  menuVolume: 0.4,
 };
 export function readSoundPreferences(): SoundPreferences {
   const result = { ...soundDefaults };
@@ -32,7 +36,13 @@ export function readSoundPreferences(): SoundPreferences {
       'ambience',
     ] as const)
       if (typeof saved?.[key] === 'boolean') result[key] = saved[key];
-    for (const key of ['volume', 'voice', 'motionMs'] as const) {
+    for (const key of [
+      'volume',
+      'voice',
+      'introVolume',
+      'menuVolume',
+      'motionMs',
+    ] as const) {
       const value = saved?.[key];
       if (typeof value === 'number' && Number.isFinite(value))
         result[key] = Math.max(

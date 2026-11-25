@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Member } from '@omi/shared';
+import { useCopy } from '../i18n/locale';
 import { useDataSaver } from '../pwa/preferences';
 import { SocialClient } from './client';
 import SocialPanel from './SocialPanel';
@@ -20,6 +21,7 @@ export default function RoomControls({
   online: boolean;
 }) {
   const [client] = useState(() => new SocialClient(roomId, actorId));
+  const text = useCopy();
   const saver = useDataSaver((state) => state.enabled);
   useEffect(() => {
     if (saver) {
@@ -34,7 +36,13 @@ export default function RoomControls({
   }, [client, online]);
   return (
     <>
-      <Suspense fallback={<p role="status">Loading voice controls…</p>}>
+      <Suspense
+        fallback={
+          <p role="status" id="table-live-voice" tabIndex={-1}>
+            {text('Loading room controls…')}
+          </p>
+        }
+      >
         <VoicePanel
           roomId={roomId}
           actorId={actorId}

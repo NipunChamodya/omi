@@ -56,17 +56,26 @@ export class GameAudio {
   private visible = true;
 
   private menuMusic: HTMLAudioElement | null = null;
+  private musicPreferences: (() => void) | null = null;
 
   async startMenuMusic(withOpening: boolean): Promise<boolean> {
     this.stopMenuMusic();
     const audio = new Audio(withOpening ? openingTheme : menuTheme);
-    audio.volume = 0.4;
+    let volumeKey: 'introVolume' | 'menuVolume' = withOpening
+      ? 'introVolume'
+      : 'menuVolume';
+    audio.volume = useSoundPreferences.getState()[volumeKey];
     audio.loop = !withOpening;
     this.menuMusic = audio;
+    this.musicPreferences = useSoundPreferences.subscribe((prefs) => {
+      audio.volume = prefs[volumeKey];
+    });
     if (withOpening) {
       audio.onended = () => {
         if (this.menuMusic !== audio) return;
         audio.onended = null;
+        volumeKey = 'menuVolume';
+        audio.volume = useSoundPreferences.getState().menuVolume;
         audio.src = menuTheme;
         audio.loop = true;
         void audio.play().catch(() => undefined);
@@ -85,6 +94,8 @@ export class GameAudio {
     const audio = this.menuMusic;
     if (!audio) return;
     this.menuMusic = null;
+    this.musicPreferences?.();
+    this.musicPreferences = null;
     audio.onended = null;
     audio.pause();
     audio.removeAttribute('src');

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 210" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="edge" x2="0" y2="1">
+      <stop stop-color="#ffce74"/><stop offset=".22" stop-color="#cf8547"/>
+      <stop offset=".7" stop-color="#b46e39"/><stop offset="1" stop-color="#613523"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f8bc72"/><stop offset=".48" stop-color="#d9914a"/><stop offset="1" stop-color="#b16832"/>
+    </linearGradient>
+    <clipPath id="planks"><rect x="9" y="8" width="222" height="189" rx="22"/></clipPath>
+  </defs>
+  <rect x="1" y="5" width="238" height="204" rx="31" fill="#163c2d" opacity=".58"/>
+  <rect x="2" y="1" width="236" height="202" rx="29" fill="url(#edge)" stroke="#69452c" stroke-width="2"/>
+  <rect x="8" y="7" width="224" height="191" rx="23" fill="url(#wood)" stroke="#ffe0a5" stroke-width="2"/>
+  <g clip-path="url(#planks)">
+    <path d="M48 7h29v191H48zm82 0h32v191h-32zm72 0h31v191h-31z" fill="#ffcb83" opacity=".18"/>
+    <path d="M48 7v191m30-191v191m52-191v191m32-191v191m40-191v191" fill="none" stroke="#7a4527" opacity=".23"/>
+    <path d="M27-8q-14 46 0 86t1 80q-7 18-1 62M62-8q13 26 2 53t2 43q8 19-3 57t5 72M105-7q12 46-4 78t-4 47q15 18 4 44t0 53M151-5q-14 43-4 71t0 55q-10 31 3 89M179-4q16 35 3 66t-5 72q8 31-2 80M218-3q-14 36-1 70t-3 62q-9 31 1 84" fill="none" stroke="#864725" stroke-width="1.2" opacity=".36"/>
+    <path d="M19 61q8-19 4-30m10 110q-9 18-7 34M89 111q-5-21 2-34m22 71q9 12 4 39m52-79q7-21 2-36m25 94q-5-17 0-30" fill="none" stroke="#ffde9b" opacity=".48" stroke-linecap="round"/>
+  </g>
+  <g fill="none" stroke="#7b4029" opacity=".38">
+    <path d="M120 69q12 18 31 30t0 25q-13 11-27-4l8 22h-24l8-22q-14 15-27 4t0-25q19-12 31-30z" stroke-width="2"/>
+    <ellipse cx="120" cy="105" rx="49" ry="48"/>
+    <ellipse cx="120" cy="105" rx="54" ry="53" stroke-dasharray="2 4"/>
+  </g>
+  <rect x="13" y="12" width="214" height="181" rx="19" fill="none" stroke="#694025" opacity=".3"/>
+</svg>

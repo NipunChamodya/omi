@@ -1,17 +1,21 @@
 import { create } from 'zustand';
+import { tamil } from './tamil';
+
+export type Language = 'en' | 'si' | 'ta';
 
 const key = 'omi.language';
-function initial(): 'en' | 'si' {
+function initial(): Language {
   try {
-    return localStorage.getItem(key) === 'si' ? 'si' : 'en';
+    const saved = localStorage.getItem(key);
+    return saved === 'si' || saved === 'ta' ? saved : 'en';
   } catch {
     return 'en';
   }
 }
 
 export const useLocale = create<{
-  language: 'en' | 'si';
-  change: (language: 'en' | 'si') => void;
+  language: Language;
+  change: (language: Language) => void;
 }>((set) => ({
   language: initial(),
   change: (language) => {
@@ -25,6 +29,25 @@ export const useLocale = create<{
 }));
 
 const sinhala = {
+  'High contrast': 'ඉහළ වර්ණ වෙනස',
+  'Live voice': 'සජීවී හඬ',
+  Speaking: 'කතා කරයි',
+  'Intro music volume': 'හැඳින්වීමේ සංගීත හඬ මට්ටම',
+  'Menu music volume': 'මෙනු සංගීත හඬ මට්ටම',
+  Language: 'භාෂාව',
+  '1 trick': 'වාසි 1',
+  '{count} tricks': 'වාසි {count}',
+  'Play {card}': '{card} ගසන්න',
+  'Playing…': 'කොළය ගසමින්…',
+  'Not chosen': 'තෝරා නැත',
+  'Trump {suit}': 'තුරුම්පු {suit}',
+  Spades: 'ස්කෝප්ප',
+  Hearts: 'හාරත',
+  Diamonds: 'රුයිත',
+  Clubs: 'කලාබර',
+  'Trick {count}': 'වාසිය {count}',
+  'Lift the top {count} cards. Then the first four will be dealt.':
+    'උඩින් කොළ {count}ක් ගන්න. ඉන්පසු පළමු කොළ හතර බෙදනු ලැබේ.',
   'Select {card}': '{card} තෝරන්න',
   '{player} played {card}': '{player} {card} ගැසුවා',
   'Reconnection time remaining': 'යළි සම්බන්ධ වීමට ඉතිරි කාලය',
@@ -395,7 +418,9 @@ const sinhala = {
   'Manage saved table': 'වෙන් කළ මේසය කළමනාකරණය කරන්න',
 } as const;
 
-export function translate(language: 'en' | 'si', message: string): string {
+export function translate(language: Language, message: string): string {
+  if (language === 'ta' && Object.hasOwn(tamil, message))
+    return tamil[message]!;
   return language === 'si' && Object.hasOwn(sinhala, message)
     ? sinhala[message as keyof typeof sinhala]
     : message;

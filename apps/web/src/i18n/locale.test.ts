@@ -26,3 +26,17 @@ it('uses a friendly Sinhala fallback for unknown table codes', async () => {
     tableErrorCopy({ code: 'REPORT_REJECTED', action: 'report-no-trump' }),
   ).not.toBe(tableErrorCopy({ code: 'REPORT_REJECTED' }));
 });
+
+it('localizes Tamil room faults and preserves the specific redeal guidance', async () => {
+  const { tableErrorCopy } = await import('./tableErrors');
+  expect(tableErrorCopy({ code: 'ROOM_FULL' }, 'ta')).toContain('நான்கு');
+  expect(
+    tableErrorCopy(
+      { code: 'REPORT_REJECTED', action: 'report-no-trump' },
+      'ta',
+    ),
+  ).toContain('துருப்புச்');
+  expect(tableErrorCopy({ code: 'constructor' }, 'ta')).toBe(
+    tableErrorCopy({ code: 'UNKNOWN' }, 'ta'),
+  );
+});

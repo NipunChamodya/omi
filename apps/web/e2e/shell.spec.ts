@@ -12,6 +12,10 @@ for (const width of [320, 390, 430, 1280]) {
     });
     await page.getByRole('button', { name: /Join a table/ }).click();
     await expect(page.getByLabel('Table code')).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath(`join-${width}.png`),
+      fullPage: true,
+    });
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -31,10 +35,15 @@ test('supports keyboard focus and reduced motion', async ({ page }) => {
 
 test('beginner practice gives feedback and switches to Sinhala', async ({
   page,
-}) => {
+}, info) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Learn to play/ }).click();
   const practice = page.getByRole('dialog', { name: 'Practice OMI' });
+  await expect(practice).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath('practice.png'),
+    animations: 'disabled',
+  });
   await practice.getByRole('button', { name: 'The player beside you' }).click();
   await expect(practice.getByRole('status')).toHaveText('Try again.');
   await practice
@@ -290,6 +299,15 @@ test('fresh Play Online shows illustrated and actionable modes at mobile and des
       fullPage: true,
     });
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await modes.getByRole('button', { name: 'Create Private Table' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Create a table', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath('create-390.png'),
+    fullPage: true,
+  });
 });
 
 test('a signed-in tab reconciles an active lobby created in a second tab', async ({
@@ -315,4 +333,25 @@ test('a signed-in tab reconciles an active lobby created in a second tab', async
   } finally {
     await other.close();
   }
+});
+
+test('Tamil practice starts in the selected language and provides answer feedback', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => localStorage.setItem('omi.language', 'ta'));
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: /Learn to play|விளையாடக் கற்றுக்கொள்/ })
+    .click();
+  const practice = page.getByRole('dialog', { name: 'ஓமி பயிற்சி' });
+  await expect(practice).toHaveAttribute('lang', 'ta');
+  await practice
+    .getByRole('button', { name: 'உங்களுக்கு எதிரே உள்ள வீரர்' })
+    .click();
+  await expect(practice.getByRole('status')).toHaveText('சரி!');
+  await practice.getByRole('button', { name: 'அடுத்து' }).click();
+  await expect(practice.getByRole('button', { name: 'ஏஸ் (A)' })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('practice-ta-320.png') });
 });

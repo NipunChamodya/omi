@@ -151,13 +151,22 @@ it('does not start a decoded sound after cleanup and never enables ambience by d
 it('bounds persisted preferences and tolerates malformed or unavailable storage', () => {
   localStorage.setItem(
     'omi.sound.v1',
-    JSON.stringify({ volume: 99, voice: -1, enabled: 'false', motionMs: 9000 }),
+    JSON.stringify({
+      volume: 99,
+      voice: -1,
+      enabled: 'false',
+      motionMs: 9000,
+      introVolume: -0.5,
+      menuVolume: 0.65,
+    }),
   );
   expect(readSoundPreferences()).toMatchObject({
     volume: 1,
     voice: 0,
     enabled: true,
     motionMs: 1600,
+    introVolume: 0,
+    menuVolume: 0.65,
   });
   localStorage.setItem('omi.sound.v1', '{');
   expect(readSoundPreferences()).toEqual(soundDefaults);

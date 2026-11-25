@@ -52,6 +52,9 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         ),
       ).toBe(true);
     }
+    await pages[1]!.screenshot({
+      path: testInfo.outputPath('four-player-lobby-390.png'),
+    });
     // Every participant chooses independently before the same authoritative round.
     for (let i = 0; i < pages.length; i++) {
       await pages[i]!.getByRole('button', {
@@ -117,6 +120,7 @@ test('four mobile friends create, join, deal, play a round and resume after relo
           return page;
       throw new Error('No selector');
     })();
+    await selector.screenshot({ path: testInfo.outputPath('trump.png') });
     await selector
       .getByRole('button', { name: /Trump (spades|hearts|diamonds|clubs)/ })
       .first()
@@ -219,6 +223,7 @@ test('four mobile friends create, join, deal, play a round and resume after relo
     await expect(
       host.getByRole('dialog', { name: 'Return from your table?' }),
     ).toBeVisible();
+    await host.screenshot({ path: testInfo.outputPath('leave-menu-320.png') });
     await host.getByRole('button', { name: 'Keep playing' }).click();
     await expect(host.getByTestId('hand-card')).toHaveCount(8);
     await host.goBack();
@@ -493,12 +498,18 @@ test('four mobile friends create, join, deal, play a round and resume after relo
         ),
       ).toBe(true);
     }
-    await host.screenshot({
-      path: testInfo.outputPath('results-320.png'),
-      fullPage: true,
-    });
     const nextRound = host.getByRole('button', { name: /Next round/ });
     await expect(nextRound).toBeEnabled();
+    for (const [width, height] of [
+      [844, 390],
+      [375, 667],
+    ] as const) {
+      await host.setViewportSize({ width, height });
+      await expect(nextRound).toBeInViewport({ ratio: 0.95 });
+      await host.screenshot({
+        path: testInfo.outputPath(`results-${width}x${height}.png`),
+      });
+    }
     await nextRound.click();
     for (const page of pages) {
       await expect(page.getByTestId('turn-status')).toContainText(

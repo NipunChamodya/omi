@@ -71,6 +71,7 @@ test('lobby settings use a closable overlay and Sinhala labels stay readable', a
 test('startup shows real session loading and exposes retry after server failure', async ({
   page,
 }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   let finish!: () => void;
   const pending = new Promise<void>((resolve) => {
     finish = resolve;
@@ -256,6 +257,19 @@ test('menu soundtrack is opt-in and can be turned off without changing game effe
   await expect(
     settings.getByRole('checkbox', { name: 'Card sounds' }),
   ).toBeChecked();
+  const menuVolume = settings.getByRole('slider', {
+    name: 'Menu music volume',
+  });
+  await menuVolume.press('Home');
+  await menuVolume.press('ArrowRight');
+  await expect(menuVolume).toHaveValue('0.05');
+  await expect(
+    settings.getByRole('slider', { name: 'Intro music volume' }),
+  ).toHaveValue('0.4');
+  await page.reload();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await settings.getByText('Sound & motion', { exact: true }).click();
+  await expect(menuVolume).toHaveValue('0.05');
 });
 
 test('Data Saver bypasses the fresh launch animation', async ({ page }) => {
@@ -266,4 +280,184 @@ test('Data Saver bypasses the fresh launch animation', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Play OMI' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Skip intro' })).toHaveCount(0);
+});
+
+test('Pixi table loads under production CSP and Data Saver restores the semantic fallback', async ({
+  page,
+  browserName,
+}, info) => {
+  test.skip(browserName !== 'chromium', 'GPU verification uses Chromium');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByLabel('Your name').fill('Canvas host');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  const lobby = page.getByRole('region', { name: 'Your table is ready.' });
+  for (let slots = 2; slots >= 0; slots--) {
+    await lobby.getByRole('button', { name: 'Add a bot' }).click();
+    await expect(lobby.locator('.lobby-seat.empty')).toHaveCount(slots);
+  }
+  await lobby.getByRole('button', { name: 'Ready to play' }).click();
+  await lobby.getByRole('button', { name: 'Start game' }).click();
+  const table = page.getByRole('region', { name: 'Game table' });
+  const scene = page.locator('.pixi-table');
+  await expect(scene).toHaveAttribute('data-renderer', 'pixi');
+  await expect(scene).toHaveAttribute('aria-hidden', 'true');
+  await expect(scene.locator('canvas')).toBeVisible();
+  const sceneResources = await page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .filter(
+        (entry): entry is PerformanceResourceTiming =>
+          entry instanceof PerformanceResourceTiming &&
+          /\/tableScene-[^/]+\.js$/.test(entry.name),
+      )
+      .map(({ encodedBodySize, decodedBodySize, duration }) => ({
+        encodedBodySize,
+        decodedBodySize,
+        durationMs: Math.round(duration),
+      })),
+  );
+  if (sceneResources.length) {
+    await info.attach('pixi-scene-resource', {
+      body: JSON.stringify(sceneResources, null, 2),
+      contentType: 'application/json',
+    });
+  }
+  await expect(page.getByTestId('seat-bottom')).toContainText('You');
+  const hand = page.getByTestId('hand-card');
+  const cut = page.getByRole('button', { name: 'Cut & deal' });
+  await expect(cut.or(hand.first())).toBeVisible({ timeout: 15_000 });
+  if (await cut.isVisible()) await cut.click();
+  const chooseTrump = page
+    .getByRole('button', { name: /^Trump (spades|hearts|diamonds|clubs)$/ })
+    .first();
+  const playSelected = page.getByRole('button', { name: 'Play selected card' });
+  await expect(chooseTrump.or(playSelected)).toBeVisible({ timeout: 15_000 });
+  if (await chooseTrump.isVisible()) {
+    await page.screenshot({ path: info.outputPath('trump-390x844.png') });
+    await chooseTrump.click();
+  }
+  await expect(hand).toHaveCount(8);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(hand.first()).toHaveAttribute('data-pixi-face', 'true');
+  for (const [width, height] of [
+    [320, 568],
+    [360, 640],
+    [375, 667],
+    [390, 844],
+    [412, 915],
+    [430, 932],
+    [568, 320],
+    [768, 1024],
+    [1024, 768],
+    [1280, 900],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await expect(scene).toHaveAttribute('data-renderer', 'pixi');
+    await expect(page.getByTestId('seat-top')).toBeInViewport();
+    await expect(hand.first()).toBeInViewport();
+    await expect(playSelected).toBeInViewport({ ratio: 0.99 });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(width);
+    if (width === 390 || width === 568)
+      await page.screenshot({
+        path: info.outputPath(`pixi-table-${width}x${height}.png`),
+      });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Sound, voice & music' }).click();
+  await page.getByRole('checkbox', { name: 'Data Saver Mode' }).check();
+  await page.keyboard.press('Escape');
+  await expect(scene.locator('canvas')).toHaveCount(0);
+  await expect(hand.first()).not.toHaveAttribute('data-pixi-face', 'true');
+  await expect(table).toBeVisible();
+  await expect(page.getByTestId('seat-bottom')).toBeVisible();
+});
+
+test('Tamil settings persist and update the document language', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Language', exact: true })
+    .selectOption('ta');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ta');
+  await expect(
+    page.getByRole('dialog', { name: 'விளையாட்டு அமைப்புகள்' }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ta');
+  await expect(
+    page.getByRole('button', { name: 'ஓமி விளையாடு', exact: true }),
+  ).toBeVisible();
+});
+
+test('browser game scenes transition without resetting the settings preference', async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const stage = page.getByRole('main');
+  await expect(stage).toHaveAttribute('data-scene', 'menu');
+  await page.getByRole('button', { name: 'Play OMI', exact: true }).click();
+  await expect(stage).toHaveAttribute('data-scene', 'multiplayer');
+  await page.getByRole('button', { name: 'Settings & install' }).click();
+  const settings = page.getByRole('dialog', { name: 'Game settings' });
+  await expect(settings).toHaveAttribute('data-scene', 'settings');
+  const contrast = settings.getByRole('checkbox', { name: 'High contrast' });
+  await contrast.check();
+  await expect
+    .poll(() =>
+      contrast.evaluate((input) => ({
+        label: getComputedStyle(input.parentElement!).color,
+        background: getComputedStyle(input.closest('dialog')!).backgroundColor,
+      })),
+    )
+    .toEqual({
+      label: 'rgb(255, 248, 219)',
+      background: 'rgb(12, 32, 28)',
+    });
+  await page.screenshot({
+    path: info.outputPath('high-contrast-settings.png'),
+  });
+  await page.keyboard.press('Escape');
+  await expect(settings).not.toBeVisible();
+  await expect(stage).toHaveAttribute('data-scene', 'multiplayer');
+  await page.reload();
+  await expect(page.locator('.app-shell')).toHaveAttribute(
+    'data-high-contrast',
+    'true',
+  );
+});
+
+test('Tamil private lobby exposes localized seat and invitation controls', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => localStorage.setItem('omi.language', 'ta'));
+  await page.goto('/');
+  await page.getByLabel('உங்கள் பெயர்').fill('நிமலி');
+  await page
+    .getByRole('button', { name: 'மேசையை உருவாக்கு', exact: true })
+    .click();
+  const lobby = page.getByRole('region', {
+    name: 'உங்கள் மேசை தயாராக உள்ளது.',
+  });
+  await expect(
+    lobby.getByRole('button', { name: 'அழைப்பு இணைப்பை நகலெடு' }),
+  ).toBeVisible();
+  await expect(lobby.locator('.lobby-seat')).toHaveCount(4);
+  await lobby.getByRole('button', { name: 'விளையாடத் தயார்' }).click();
+  await expect(
+    lobby.getByRole('button', { name: 'தயாராக இல்லை' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(320);
+  await page.screenshot({ path: info.outputPath('lobby-ta-320.png') });
 });

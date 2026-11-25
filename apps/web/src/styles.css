@@ -2105,25 +2105,6 @@ input {
     transform: translate(0, var(--stack)) rotate(0deg);
   }
 }
-.deck-caption {
-  position: absolute;
-  top: 72px;
-  left: -60px;
-  width: 160px;
-  text-align: center;
-  font-size: 10px;
-  color: var(--gold);
-  animation: caption-fade var(--shuffle-duration) both;
-}
-@keyframes caption-fade {
-  0%,
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
 .dealt-back {
   --deal-x: 0px;
   --deal-y: 100px;
@@ -2390,16 +2371,14 @@ input {
   .shuffle-card {
     animation: none;
   }
-  .deal-flight,
-  .deck-caption {
+  .deal-flight {
     display: none;
   }
   .hand-card[data-awaiting] {
     transition: none;
   }
 }
-.data-saver .table-motion,
-.data-saver .deck-caption {
+.data-saver .table-motion {
   display: none;
 }
 .data-saver .hand-dealt,
@@ -2956,12 +2935,18 @@ input {
 }
 
 .startup-entry {
-  border-color: #d6a65c;
-  background: #fff2d0;
-  color: #24485d;
+  margin-block: clamp(10px, 9dvh, 80px);
+  border-color: #e8bb71;
+  background: #143f36;
+  color: #fff1ca;
+  box-shadow:
+    0 5px #805733,
+    0 16px 34px #092521a0;
 }
-.startup-entry .brand {
-  justify-content: center;
+.startup-entry .splash-mark {
+  width: min(68%, 197px);
+  height: auto;
+  animation: none;
 }
 .feedback.error,
 .connection-banner {
@@ -2982,7 +2967,7 @@ input {
 }
 .app-shell:has(.startup-entry) {
   background:
-    linear-gradient(#d7f5fa66, #e8fae999),
+    linear-gradient(#103a2c33, #103a2c88),
     url('./art/tropical-island.svg?no-inline') center / cover,
     #48c8f5;
   color: #24485d;

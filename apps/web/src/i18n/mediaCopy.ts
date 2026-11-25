@@ -65,8 +65,75 @@ const sinhala = {
   'Set shared position': 'වාදන ස්ථානය සකසන්න',
 } as const;
 
+const tamil: Record<keyof typeof sinhala, string> = {
+  'File audio could not connect or play.':
+    'கோப்பின் ஒலியை இணைக்கவோ இயக்கவோ முடியவில்லை.',
+  'Choose an MP3, AAC, M4A or WAV file up to 25 MiB.':
+    '25 MiB வரையிலான MP3, AAC, M4A அல்லது WAV கோப்பைத் தேர்ந்தெடுக்கவும்.',
+  'Waiting for the host to share':
+    'மேசையைத் தொடங்கியவர் பகிரும் வரை காத்திருக்கிறது',
+  'File audio connected': 'கோப்பின் ஒலி இணைக்கப்பட்டது',
+  'File sharing connected': 'கோப்புப் பகிர்வு இணைக்கப்பட்டது',
+  'File audio off': 'கோப்பின் ஒலி அணைக்கப்பட்டுள்ளது',
+  'Mute file music': 'கோப்பு இசையை முடக்கு',
+  'File music volume': 'கோப்பு இசையின் ஒலி அளவு',
+  'Enable file audio playback': 'கோப்பின் ஒலியை இயக்கு',
+  'Listen to shared file': 'பகிரப்பட்ட கோப்பைக் கேள்',
+  'Leave file audio': 'கோப்பின் ஒலியிலிருந்து விலகு',
+  'File playback position': 'கோப்பு ஓடும் இடம்',
+  'Stop file sharing': 'கோப்புப் பகிர்வை நிறுத்து',
+  'Play file': 'கோப்பை இயக்கு',
+  'Pause file': 'கோப்பை இடைநிறுத்து',
+  'Start sharing file': 'கோப்பைப் பகிரத் தொடங்கு',
+  'I have permission to share this audio.':
+    'இந்த ஒலியைப் பகிர எனக்கு அனுமதி உள்ளது.',
+  'Choose a music file': 'இசைக் கோப்பைத் தேர்ந்தெடு',
+  'The table host can share music from their device.':
+    'மேசையைத் தொடங்கியவர் தம் சாதனத்திலிருந்து இசையைப் பகிரலாம்.',
+  'Local table music': 'சாதனத்திலிருந்து இசை',
+  'Push to talk': 'அழுத்திப் பேசு',
+  'Hold to talk': 'பேச அழுத்திப் பிடி',
+  'Room voice': 'மேசைக் குரல் உரையாடல்',
+  'At the table · Voice': 'மேசையில் · குரல்',
+  'Microphone off': 'ஒலிவாங்கி அணைக்கப்பட்டுள்ளது',
+  'Connecting voice…': 'குரலை இணைக்கிறது…',
+  'Reconnecting voice…': 'குரலை மீண்டும் இணைக்கிறது…',
+  'Voice connected': 'குரல் இணைக்கப்பட்டது',
+  'Voice unavailable': 'குரல் வசதி கிடைக்கவில்லை',
+  'Join voice': 'குரல் உரையாடலில் சேர்',
+  'Unmute microphone': 'ஒலிவாங்கியை இயக்கு',
+  'Mute microphone': 'ஒலிவாங்கியை முடக்கு',
+  'Leave voice': 'குரல் உரையாடலிலிருந்து விலகு',
+  'Enable voice playback': 'குரலைக் கேட்க அனுமதி',
+  You: 'நீங்கள்',
+  Muted: 'ஒலி முடக்கப்பட்டுள்ளது',
+  Speaking: 'பேசுகிறார்',
+  Listening: 'கேட்கிறார்',
+  Player: 'வீரர்',
+  Blocked: 'தடுக்கப்பட்டவர்',
+  Connecting: 'இணைக்கிறது',
+  'Volume for': 'ஒலி அளவு',
+  'Opt-in microphone. Audio is not recorded.':
+    'உங்கள் விருப்பத்துடன் ஒலிவாங்கியை இயக்கலாம். ஒலி பதிவு செய்யப்படாது.',
+  'Direct connections only; some networks need TURN.':
+    'நேரடி இணைப்புகள் மட்டுமே. சில பிணையங்களுக்கு TURN தேவை.',
+  'Friends, chat & music': 'நண்பர்கள், அரட்டை மற்றும் இசை',
+  'Shared music': 'பகிரப்பட்ட இசை',
+  'Loading music state…': 'இசை நிலையை ஏற்றுகிறது…',
+  Playing: 'இயங்குகிறது',
+  Paused: 'இடைநிறுத்தப்பட்டுள்ளது',
+  'Disable music locally': 'எனக்கு இசையை முடக்கு',
+  'Enable music locally': 'எனக்கு இசையை இயக்கு',
+  'Music volume': 'இசையின் ஒலி அளவு',
+  'Shared track': 'பகிரப்பட்ட பாடல்',
+  'Pause shared music': 'பகிரப்பட்ட இசையை இடைநிறுத்து',
+  'Play shared music': 'பகிரப்பட்ட இசையை இயக்கு',
+  'Shared playback position': 'பகிரப்பட்ட இசை ஓடும் இடம்',
+  'Set shared position': 'இசை ஓடும் இடத்தை அமை',
+};
+
 export function useMediaCopy() {
   const language = useLocale((state) => state.language);
   return (key: keyof typeof sinhala) =>
-    language === 'si' ? sinhala[key] : key;
+    language === 'si' ? sinhala[key] : language === 'ta' ? tamil[key] : key;
 }

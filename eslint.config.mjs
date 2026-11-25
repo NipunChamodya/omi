@@ -5,6 +5,8 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      'apps/web/android/**',
+      'apps/web/ios/**',
       '.remote-testing/**',
       '**/node_modules/**',
       'playwright-report/**',

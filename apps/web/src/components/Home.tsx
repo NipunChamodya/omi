@@ -17,7 +17,7 @@ const Tutorial = lazy(() => import('./Tutorial'));
 function OpeningCards({ onFinish }: { onFinish: () => void }) {
   const text = useCopy();
   return (
-    <div className="opening-cards">
+    <div className="opening-cards" data-scene="introduction">
       <div className="opening-cards__deck" aria-hidden="true">
         {['♠', '♥', '♣', '♦'].map((suit) => (
           <span key={suit}>A{suit}</span>

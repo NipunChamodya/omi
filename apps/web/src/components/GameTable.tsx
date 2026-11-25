@@ -8,6 +8,9 @@ import {
   revealSeconds,
 } from './TableTiming';
 import './table-adventure.css';
+import { PixiTable } from '../rendering/PixiTable';
+import { useDataSaver } from '../pwa/preferences';
+import { useSeatSpeaking } from '../voice/seatPresence';
 import { useCopy } from '../i18n/locale';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
@@ -30,6 +33,35 @@ function fanPosition(index: number, total: number): CSSProperties {
     '--fan-rise': `${position ** 2 * 7 - 2}px`,
   } as CSSProperties;
 }
+function useTablePulse(value: string, animate: boolean) {
+  const element = useRef<HTMLDivElement>(null);
+  const previous = useRef(value);
+  useEffect(() => {
+    const changed = previous.current !== value;
+    previous.current = value;
+    if (!changed || !animate || document.hidden) return;
+    const motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (motion?.matches) return;
+    const pulse = element.current?.animate?.(
+      [
+        { filter: 'brightness(1)' },
+        { filter: 'brightness(1.25)' },
+        { filter: 'brightness(1)' },
+      ],
+      { duration: 390, easing: 'ease-out' },
+    );
+    const cancel = () => pulse?.cancel();
+    document.addEventListener('visibilitychange', cancel);
+    motion?.addEventListener('change', cancel);
+    return () => {
+      cancel();
+      document.removeEventListener('visibilitychange', cancel);
+      motion?.removeEventListener('change', cancel);
+    };
+  }, [animate, value]);
+  return element;
+}
+
 function ReconnectCountdown({ deadline }: { deadline: number }) {
   const text = useCopy();
   const [now, setNow] = useState(Date.now);
@@ -55,16 +87,19 @@ function Player({
   trickWinner: boolean;
 }) {
   const text = useCopy();
+  const speaking = useSeatSpeaking(snapshot.roomId, member.actorId);
   const active = snapshot.game!.turn === member.seat;
   const local = member.seat === snapshot.you.seat;
   return (
     <div
       className={`table-player seat-${position} ${active ? 'active' : ''} ${trickWinner ? 'trick-seat-winner' : ''}`}
       data-testid={`seat-${position}`}
+      data-speaking={speaking || undefined}
     >
       <span className="avatar-wrap">
         <Avatar
           name={member.displayName}
+          seat={member.seat}
           src={avatarSource(member.avatarUrl)}
           teammate={member.team === snapshot.you.team}
         />
@@ -74,6 +109,23 @@ function Player({
             member.connected ? text('Connected') : text('Disconnected')
           }
         />
+        {speaking && (
+          <span
+            className="seat-speaking"
+            role="img"
+            aria-label={text('Speaking')}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M3 7v2m3-5v8m4-10v12m3-9v6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+        )}
       </span>
       <strong className="player-name" title={member.displayName}>
         {local ? text('You') : member.displayName}
@@ -125,6 +177,7 @@ export default function GameTable({
   pending: boolean;
 }) {
   const game = snapshot.game!;
+  const sceneRoot = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [cut, setCut] = useState(16);
   const dropZone = useRef<HTMLDivElement>(null);
@@ -161,6 +214,17 @@ export default function GameTable({
     // The transport may decline synchronously; never strand a visual card.
     if (!client.store.getState().pending) submitted.current = false;
   };
+  const saver = useDataSaver((state) => state.enabled);
+  const animateIndicators = !!live && !saver;
+  const yourScore = useTablePulse(
+    String(snapshot.score.totals[snapshot.you.team]),
+    animateIndicators,
+  );
+  const otherScore = useTablePulse(
+    String(snapshot.score.totals[snapshot.you.team === 0 ? 1 : 0]),
+    animateIndicators,
+  );
+  const trumpBadge = useTablePulse(game.trump ?? '', animateIndicators);
   const chosen = game.hand.find((card) => cardKey(card) === selected);
   const cutter = ((game.dealer + 3) % 4) as Seat;
   const name = (seat: Seat | null) =>
@@ -178,7 +242,7 @@ export default function GameTable({
   const seen = useRef({ round: game.id, index: game.tricks.length });
   useEffect(() => {
     const index = game.tricks.length;
-    if (seen.current.round !== game.id) {
+    if (!enabled || document.hidden || seen.current.round !== game.id) {
       seen.current = { round: game.id, index };
       setReveals([]);
       return;
@@ -189,8 +253,15 @@ export default function GameTable({
       .map((trick) => ({ trick, round: game.id }));
     seen.current.index = index;
     setReveals((pending) => [...pending, ...recent]);
-  }, [game.id, game.tricks]);
-  const reveal = reveals[0];
+  }, [enabled, game.id, game.tricks]);
+  useEffect(() => {
+    const suspend = () => {
+      if (document.hidden) setReveals([]);
+    };
+    document.addEventListener('visibilitychange', suspend);
+    return () => document.removeEventListener('visibilitychange', suspend);
+  }, []);
+  const reveal = enabled ? reveals[0] : undefined;
   useEffect(() => {
     if (!reveal) return;
     const timeout = setTimeout(
@@ -209,20 +280,31 @@ export default function GameTable({
       .length,
   ];
   return (
-    <div className={`game-view phase-${game.phase}`}>
+    <div className={`game-view phase-${game.phase}`} ref={sceneRoot}>
+      <PixiTable
+        root={sceneRoot}
+        revealId={
+          visibleReveal
+            ? `${game.id}:${visibleReveal.plays.map((play) => cardKey(play.card)).join('/')}`
+            : null
+        }
+      />
       <section
         className="scoreboard"
         aria-label={text('Team scores')}
         data-testid="score"
       >
-        <div>
+        <div ref={yourScore}>
           <span>{text('Your team')}</span>
           <strong>{snapshot.score.totals[snapshot.you.team]}</strong>
           <small>
-            {trickCounts[0]} {trickCounts[0] === 1 ? 'trick' : 'tricks'}
+            {text(trickCounts[0] === 1 ? '1 trick' : '{count} tricks').replace(
+              '{count}',
+              String(trickCounts[0]),
+            )}
           </small>
         </div>
-        <div className="trump-badge">
+        <div className="trump-badge" ref={trumpBadge}>
           <span className="eyebrow">{text('TRUMP')}</span>
           <strong
             className={
@@ -233,15 +315,20 @@ export default function GameTable({
           >
             {game.trump ? suits[game.trump].symbol : '—'}
           </strong>
-          <small>{game.trump ? suits[game.trump].label : 'Not chosen'}</small>
+          <small>
+            {game.trump ? text(suits[game.trump].label) : text('Not chosen')}
+          </small>
         </div>
-        <div>
+        <div ref={otherScore}>
           <span>{text('Their team')}</span>
           <strong>
             {snapshot.score.totals[snapshot.you.team === 0 ? 1 : 0]}
           </strong>
           <small>
-            {trickCounts[1]} {trickCounts[1] === 1 ? 'trick' : 'tricks'}
+            {text(trickCounts[1] === 1 ? '1 trick' : '{count} tricks').replace(
+              '{count}',
+              String(trickCounts[1]),
+            )}
           </small>
         </div>
       </section>
@@ -271,6 +358,17 @@ export default function GameTable({
           ref={dropZone}
           data-testid="card-drop-zone"
           data-drop-ready={dragging && playable}
+          data-collect-to={
+            visibleReveal &&
+            positions[relative(visibleReveal.winner, snapshot.you.seat)]
+          }
+          style={
+            visibleReveal
+              ? ({
+                  '--collect-after': `${revealFor * 1000 - 300}ms`,
+                } as CSSProperties)
+              : undefined
+          }
           className={`trick-area ${completed ? 'completed' : ''} ${over ? 'drop-over' : ''} `}
           aria-label={
             completed ? text('Last completed trick') : text('Current trick')
@@ -387,7 +485,11 @@ export default function GameTable({
       {game.phase === 'awaiting-cut' && cutter === snapshot.you.seat && (
         <section className="action-panel" aria-labelledby="cut-title">
           <h2 id="cut-title">{text('Cut the deck.')}</h2>
-          <p>Lift the top {cut} cards. Then the first four will be dealt.</p>
+          <p>
+            {text(
+              'Lift the top {count} cards. Then the first four will be dealt.',
+            ).replace('{count}', String(cut))}
+          </p>
           <label htmlFor="cut-position">
             {text('Cut position')} <output>{cut}</output>
           </label>
@@ -423,14 +525,17 @@ export default function GameTable({
                   <button
                     key={suit}
                     className={`suit-choice ${suit === 'hearts' || suit === 'diamonds' ? 'red-suit' : ''}`}
-                    aria-label={`Trump ${suit}`}
+                    aria-label={text('Trump {suit}').replace(
+                      '{suit}',
+                      text(suits[suit].label).toLocaleLowerCase(),
+                    )}
                     disabled={!enabled || pending}
                     onClick={() =>
                       client.act({ type: 'trump', payload: { suit } })
                     }
                   >
                     <strong aria-hidden="true">{suits[suit].symbol}</strong>
-                    <span>{suits[suit].label}</span>
+                    <span>{text(suits[suit].label)}</span>
                     <small lang="si">{suits[suit].sinhala}</small>
                   </button>
                 ))}
@@ -502,9 +607,12 @@ export default function GameTable({
                 }}
               >
                 {pending
-                  ? 'Playing…'
+                  ? text('Playing…')
                   : chosen
-                    ? `Play ${chosen.rank} ${suits[chosen.suit].symbol}`
+                    ? text('Play {card}').replace(
+                        '{card}',
+                        `${chosen.rank} ${suits[chosen.suit].symbol}`,
+                      )
                     : yours
                       ? text('Select a card to play')
                       : text('Waiting for your turn')}
@@ -700,7 +808,9 @@ export default function GameTable({
               : []),
           ].map(({ plays: trick, index }) => (
             <div className="history-trick" key={index}>
-              <h3>Trick {index + 1}</h3>
+              <h3>
+                {text('Trick {count}').replace('{count}', String(index + 1))}
+              </h3>
               {trick.map((play, order) => (
                 <div className="history-play" key={play.seat}>
                   <span>

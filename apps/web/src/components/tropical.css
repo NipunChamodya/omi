@@ -463,3 +463,31 @@
   outline: 2px solid #ffd044;
   outline-offset: 2px;
 }
+
+/* The pier is shared by the menu, matchmaking and room-entry scenes. */
+.game-menu:has(main[data-scene]:not([data-scene='boot'])) {
+  background: #113f37;
+  color: #f8edc8;
+}
+.game-menu:has(main[data-scene]:not([data-scene='boot'])) .app-header {
+  background: #10382f;
+  border-color: #498e65;
+  color: #fff4ce;
+}
+.game-menu:has(main[data-scene]:not([data-scene='boot']))
+  :is(.brand, .header-note) {
+  color: #fff4ce;
+}
+.game-menu main[data-scene]:not([data-scene='boot']) {
+  background: url('../art/tropical-island.svg?no-inline') center bottom /
+    min(100%, 1160px) auto no-repeat;
+}
+.game-menu main[data-scene]:not([data-scene='boot']) .island-stage {
+  border-color: #ebb87c;
+  box-shadow:
+    0 5px #704129,
+    0 14px 26px #0b2c24aa;
+}
+.game-menu .game-dock {
+  padding-block: max(9px, env(safe-area-inset-bottom));
+}

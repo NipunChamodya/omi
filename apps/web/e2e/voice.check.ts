@@ -131,6 +131,12 @@ test('four peers carry live voice, recover, mix bundled music and keep playing c
       await expect(
         page.getByRole('region', { name: 'Room voice' }),
       ).toBeVisible();
+      await page
+        .getByRole('button', { name: 'Live voice', exact: true })
+        .click();
+      await expect(
+        page.getByRole('region', { name: 'Room voice' }),
+      ).toBeFocused();
       expect(
         await page.evaluate(
           () =>

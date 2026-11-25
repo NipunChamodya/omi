@@ -1,7 +1,12 @@
 import cardGuide from './art/card-guide.svg?no-inline';
+import splashMark from './art/omi-mark.svg?no-inline';
 import { useLocale, useCopy, translate } from './i18n/locale';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
+import {
+  createVoiceSeatPresence,
+  VoiceSeatPresence,
+} from './voice/seatPresence';
 import { tableErrorCopy } from './i18n/tableErrors';
 import { GameClient, friendlyError } from './game/client';
 import type { AuthSession, PublicProfile } from '@omi/shared';
@@ -10,7 +15,16 @@ import { ThemeControls } from './themes/ThemeControls';
 import { PwaControls } from './pwa/PwaControls';
 import { Brand, Avatar } from './components/Cards';
 import { claimOpeningSponsor } from './components/SponsorPlacement';
-import { GameBack, GameRibbon } from './components/GameChrome';
+import {
+  gameScene,
+  GameNavigation,
+  useSceneEntrance,
+} from './components/GameStage';
+import { GameBack, GameButton, GameRibbon } from './components/GameChrome';
+import {
+  AccessibilitySettings,
+  readHighContrast,
+} from './components/AccessibilitySettings';
 import { SoundSettings } from './audio/SoundSettings';
 import { useGameAudio } from './audio/useGameAudio';
 const Lobby = lazy(() =>
@@ -28,7 +42,16 @@ const PlayerReport = lazy(() => import('./auth/PlayerReport'));
 const RoomControls = lazy(() => import('./social/RoomControls'));
 const Profile = lazy(() => import('./auth/Profile'));
 const GameTable = lazy(() => import('./components/GameTable'));
-export function App({ client: supplied }: { client?: GameClient }) {
+export function App(props: { client?: GameClient }) {
+  const [seatPresence] = useState(createVoiceSeatPresence);
+  return (
+    <VoiceSeatPresence.Provider value={seatPresence}>
+      <GameApplication {...props} />
+    </VoiceSeatPresence.Provider>
+  );
+}
+
+function GameApplication({ client: supplied }: { client?: GameClient }) {
   const [client] = useState(() => supplied ?? new GameClient());
   useGameAudio(client);
   const language = useLocale((state) => state.language);
@@ -43,11 +66,18 @@ export function App({ client: supplied }: { client?: GameClient }) {
   const [startupAttempt, setStartupAttempt] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [highContrast, setHighContrast] = useState(readHighContrast);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const tools = useRef<HTMLDialogElement>(null);
   const leaving = useRef<HTMLDialogElement>(null);
   const playing = state.view === 'room' && !!state.snapshot?.game;
+  const voiceAllowed =
+    state.view === 'room' &&
+    !!state.snapshot &&
+    !state.snapshot.ranked &&
+    auth?.privateCommunicationAllowed !== false &&
+    (!!auth?.user || auth?.guestCommunicationAllowed !== false);
   const overlay = useRef<'profile' | 'settings' | 'tutorial' | null>(null);
   function openOverlay(panel: 'profile' | 'settings' | 'tutorial') {
     if (overlay.current) return;
@@ -222,6 +252,8 @@ export function App({ client: supplied }: { client?: GameClient }) {
     }
   }, [sponsorEligible]);
   const online = state.connection === 'online';
+  const scene = gameScene(state, authLoading && !auth && state.view === 'home');
+  const stage = useSceneEntrance(scene);
   const connectionText = text(
     online
       ? 'At the table'
@@ -237,6 +269,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
   );
   return (
     <div
+      data-high-contrast={highContrast || undefined}
       className={`app-shell ${state.view === 'room' ? '' : 'game-menu'} ${state.view === 'room' && state.snapshot?.game ? 'playing-room' : ''}`}
     >
       <a className="skip-link" href="#main">
@@ -290,6 +323,8 @@ export function App({ client: supplied }: { client?: GameClient }) {
         </div>
       </header>
       <main
+        ref={stage}
+        data-scene={scene}
         id="main"
         tabIndex={-1}
         className={state.view === 'room' ? 'room-main' : 'welcome-main'}
@@ -324,8 +359,8 @@ export function App({ client: supplied }: { client?: GameClient }) {
               <p>
                 {typeof state.error === 'string'
                   ? translate(language, state.error)
-                  : language === 'si'
-                    ? tableErrorCopy(state.error)
+                  : language !== 'en'
+                    ? tableErrorCopy(state.error, language)
                     : friendlyError(state.error.code, state.error.action)}
               </p>
               <button
@@ -360,8 +395,20 @@ export function App({ client: supplied }: { client?: GameClient }) {
               className="match-entry startup-entry"
               aria-labelledby="startup-title"
             >
-              <Brand />
-              <img src={cardGuide} width="135" height="117" alt="" />
+              <img
+                className="splash-mark"
+                src={splashMark}
+                width="197"
+                height="68"
+                alt=""
+              />
+              <img
+                className="splash-deck"
+                src={cardGuide}
+                width="135"
+                height="117"
+                alt=""
+              />
               <h1 id="startup-title">{text('Opening OMI…')}</h1>
               <p role="status">{text('Checking your session…')}</p>
             </section>
@@ -471,7 +518,7 @@ export function App({ client: supplied }: { client?: GameClient }) {
         </Suspense>
       </main>
       {state.view !== 'room' && !(authLoading && !auth) && (
-        <nav className="game-dock" aria-label={text('Game menu')}>
+        <GameNavigation label={text('Game menu')}>
           <button className="button secondary" onClick={client.home}>
             {text('Home')}
           </button>
@@ -489,9 +536,10 @@ export function App({ client: supplied }: { client?: GameClient }) {
           >
             {text('Settings & install')}
           </button>
-        </nav>
+        </GameNavigation>
       )}
       <dialog
+        data-scene="settings"
         ref={tools}
         className="table-utilities"
         aria-label={
@@ -506,20 +554,56 @@ export function App({ client: supplied }: { client?: GameClient }) {
           <GameBack onClick={closeOverlay} />
           <GameRibbon id="settings-title">{text('Game settings')}</GameRibbon>
         </header>
+        {(playing || voiceAllowed) && (
+          <div className="table-menu-actions">
+            {playing && (
+              <GameButton
+                variant="primary"
+                type="button"
+                onClick={closeOverlay}
+              >
+                {text('Keep playing')}
+              </GameButton>
+            )}
+            {voiceAllowed && (
+              <GameButton
+                type="button"
+                onClick={() =>
+                  document.getElementById('table-live-voice')?.focus()
+                }
+              >
+                {text('Live voice')}
+              </GameButton>
+            )}
+          </div>
+        )}
         <label className="settings-language">
-          Language / භාෂාව{' '}
+          {text('Language')}{' '}
           <select
             value={language}
             onChange={(event) =>
-              changeLanguage(event.target.value === 'si' ? 'si' : 'en')
+              changeLanguage(
+                event.target.value === 'ta'
+                  ? 'ta'
+                  : event.target.value === 'si'
+                    ? 'si'
+                    : 'en',
+              )
             }
           >
             <option value="en">English</option>
             <option value="si" lang="si">
               සිංහල
             </option>
+            <option value="ta" lang="ta">
+              தமிழ்
+            </option>
           </select>
         </label>
+        <AccessibilitySettings
+          contrast={highContrast}
+          onChange={setHighContrast}
+        />
         <PwaControls />
         <ThemeControls />
         <SoundSettings />
@@ -532,24 +616,24 @@ export function App({ client: supplied }: { client?: GameClient }) {
             </p>
           )}
 
-        {state.view === 'room' &&
-          state.snapshot &&
-          !state.snapshot.ranked &&
-          auth?.privateCommunicationAllowed !== false &&
-          (auth?.user || auth?.guestCommunicationAllowed !== false) && (
-            <Suspense
-              fallback={<p role="status">{text('Loading room controls…')}</p>}
-            >
-              <RoomControls
-                key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
-                roomId={state.snapshot.roomId}
-                actorId={state.snapshot.you.actorId}
-                hostId={state.snapshot.hostId}
-                members={state.snapshot.members}
-                online={online}
-              />
-            </Suspense>
-          )}
+        {voiceAllowed && state.snapshot && (
+          <Suspense
+            fallback={
+              <p role="status" id="table-live-voice" tabIndex={-1}>
+                {text('Loading room controls…')}
+              </p>
+            }
+          >
+            <RoomControls
+              key={`${state.snapshot.roomId}:${state.snapshot.you.actorId}`}
+              roomId={state.snapshot.roomId}
+              actorId={state.snapshot.you.actorId}
+              hostId={state.snapshot.hostId}
+              members={state.snapshot.members}
+              online={online}
+            />
+          </Suspense>
+        )}
       </dialog>
       <dialog
         ref={leaving}
@@ -568,12 +652,12 @@ export function App({ client: supplied }: { client?: GameClient }) {
               : 'Your seat is saved. You can return to this table.',
           )}
         </p>
-        <button className="button primary" onClick={client.cancelLeave}>
+        <GameButton variant="primary" onClick={client.cancelLeave}>
           {text('Keep playing')}
-        </button>
-        <button className="button secondary" onClick={client.confirmLeave}>
+        </GameButton>
+        <GameButton variant="secondary" onClick={client.confirmLeave}>
           {text('Return home and keep my seat')}
-        </button>
+        </GameButton>
       </dialog>
       {profileOpen && auth?.user && (
         <Suspense

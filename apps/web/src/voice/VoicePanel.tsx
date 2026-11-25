@@ -1,8 +1,9 @@
 import { useMediaCopy } from '../i18n/mediaCopy';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Member } from '@omi/shared';
 import { VoiceClient } from './client';
+import { VoiceSeatPresence } from './seatPresence';
 import { useSoundPreferences } from '../audio/preferences';
 const noBlocked: readonly string[] = [];
 export default function VoicePanel({
@@ -21,6 +22,32 @@ export default function VoicePanel({
   const [client] = useState(() => new VoiceClient(roomId, actorId));
   const media = useMediaCopy();
   const state = useStore(client.store);
+  const seats = useContext(VoiceSeatPresence);
+  useEffect(() => {
+    if (!seats) return;
+    const update = (voice: ReturnType<typeof client.store.getState>) => {
+      const actors = new Set<string>();
+      if (voice.status === 'connected') {
+        if (voice.speaking) actors.add(actorId);
+        for (const peer of voice.peers)
+          if (peer.speaking) actors.add(peer.actorId);
+      }
+      const previous = seats.getState();
+      if (
+        previous?.roomId === roomId &&
+        previous.actors.size === actors.size &&
+        [...actors].every((actor) => previous.actors.has(actor))
+      )
+        return;
+      seats.setState({ roomId, actors });
+    };
+    update(client.store.getState());
+    const unsubscribe = client.store.subscribe(update);
+    return () => {
+      unsubscribe();
+      if (seats.getState()?.roomId === roomId) seats.setState(null);
+    };
+  }, [actorId, client, roomId, seats]);
   const [pushToTalk, setPushToTalk] = useState(false);
   const talking = useRef(false);
   const volume = useSoundPreferences((state) => state.voice);
@@ -64,7 +91,12 @@ export default function VoicePanel({
     state.status,
   );
   return (
-    <section className="voice-panel" aria-label={media('Room voice')}>
+    <section
+      className="voice-panel"
+      id="table-live-voice"
+      tabIndex={-1}
+      aria-label={media('Room voice')}
+    >
       <div className="voice-heading">
         <strong>{media('At the table · Voice')}</strong>
         <span role="status">

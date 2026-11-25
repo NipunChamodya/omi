@@ -1,0 +1,37 @@
+.game-view {
+  position: relative;
+  isolation: isolate;
+}
+
+.pixi-table {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.pixi-table canvas {
+  display: block;
+}
+
+.game-view
+  :is(.hand-card, .trick-area .thrown-card)[data-pixi-face]
+  > .card-face {
+  visibility: hidden;
+}
+
+.game-view .trick-banner {
+  z-index: 4;
+}
+
+@media (forced-colors: active) {
+  .pixi-table {
+    display: none;
+  }
+
+  .game-view
+    :is(.hand-card, .trick-area .thrown-card)[data-pixi-face]
+    > .card-face {
+    visibility: visible;
+  }
+}

@@ -93,6 +93,7 @@ export function Lobby({
               {member ? (
                 <Avatar
                   name={member.displayName}
+                  seat={member.seat}
                   teammate={teammate}
                   src={avatarSource(member.avatarUrl)}
                 />

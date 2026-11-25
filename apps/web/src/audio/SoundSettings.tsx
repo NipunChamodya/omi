@@ -34,6 +34,8 @@ export function SoundSettings() {
           [
             ['volume', 'Sound effects volume'],
             ['voice', 'Voice chat volume'],
+            ['introVolume', 'Intro music volume'],
+            ['menuVolume', 'Menu music volume'],
           ] as const
         ).map(([key, label]) => (
           <label key={key}>
