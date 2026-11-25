@@ -36,6 +36,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flame: ^1.38.2
+  just_audio: ^0.10.6
+  audio_session: ^0.2.4
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +63,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/splash/
+    - assets/audio/coastal-breeze.wav
+    - assets/audio/chime.wav
 
   # To add assets to your application, add an assets section, like this:
   # assets:

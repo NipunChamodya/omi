@@ -2,6 +2,7 @@ import 'package:flutter/animation.dart';
 
 abstract final class SplashTimeline {
   static const duration = Duration(milliseconds: 5000);
+  static const logoSettle = Cubic(.18, .84, .35, 1.06);
   static const backgroundEnd = 750;
   static const cardsEnd = 2000;
   static const logoEnd = 3000;

@@ -93,7 +93,7 @@ void main() {
     await start(tester, const MyApp());
     await tester.pump(const Duration(seconds: 5));
     expect(find.byType(MyHomePage), findsOneWidget);
-    await tester.tap(find.byTooltip('Increment'));
+    await tester.tap(find.text('Add one'));
     await tester.pump();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);

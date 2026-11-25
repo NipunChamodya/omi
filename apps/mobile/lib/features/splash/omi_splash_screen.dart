@@ -72,7 +72,7 @@ class _OmiSplashScreenState extends State<OmiSplashScreen>
         precacheImage(image, context, onError: (_, _) {}),
     ]);
     if (!mounted) return;
-    _artReady = true;
+    setState(() => _artReady = true);
     if (_foreground) _timeline.forward();
   }
 
@@ -125,20 +125,17 @@ class _OmiSplashScreenState extends State<OmiSplashScreen>
             child: AbsorbPointer(
               child: AnimatedBuilder(
                 animation: _timeline,
+                child: SplashScene(
+                  animation: _timeline,
+                  artworkReady: _artReady,
+                  reducedMotion: _reducedMotion,
+                  failed: _failed,
+                ),
                 builder: (context, child) {
-                  final time = _timeline.value;
                   final home = _showHome && !_reducedMotion
-                      ? SplashTimeline.home(time)
+                      ? SplashTimeline.home(_timeline.value)
                       : 0.0;
-                  return Opacity(
-                    opacity: 1 - home,
-                    child: SplashScene(
-                      time: time,
-                      artworkReady: _artReady,
-                      reducedMotion: _reducedMotion,
-                      failed: _failed,
-                    ),
-                  );
+                  return Opacity(opacity: 1 - home, child: child);
                 },
               ),
             ),
